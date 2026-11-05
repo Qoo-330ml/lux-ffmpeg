@@ -1,5 +1,12 @@
 # subsystems
+# lux: aarch64/ac3dsp_init_aarch64.c and aarch64/ac3dsp_neon.S are delivered
+# under the GNU GPL v2 or later upstream, unlike every other file in this
+# directory. They are not guarded by CONFIG_GPL, so a --disable-gpl build would
+# silently link GPL code into the LGPL libraries. Only build the AC3 NEON DSP in
+# GPL builds; LGPL builds use the C reference implementation instead.
+ifeq ($(CONFIG_GPL),yes)
 OBJS-$(CONFIG_AC3DSP)                   += aarch64/ac3dsp_init_aarch64.o
+endif
 OBJS-$(CONFIG_FDCTDSP)                  += aarch64/fdctdsp_init_aarch64.o
 OBJS-$(CONFIG_FMTCONVERT)               += aarch64/fmtconvert_init.o
 OBJS-$(CONFIG_H264CHROMA)               += aarch64/h264chroma_init_aarch64.o
@@ -42,7 +49,10 @@ ARMV8-OBJS-$(CONFIG_VIDEODSP)           += aarch64/videodsp.o
 # subsystems
 NEON-OBJS-$(CONFIG_AAC_DECODER)         += aarch64/sbrdsp_neon.o
 NEON-OBJS-$(CONFIG_AAC_ENCODER)         += aarch64/aacencdsp_neon.o
+# lux: see the CONFIG_GPL guard on aarch64/ac3dsp_init_aarch64.o above.
+ifeq ($(CONFIG_GPL),yes)
 NEON-OBJS-$(CONFIG_AC3DSP)              += aarch64/ac3dsp_neon.o
+endif
 NEON-OBJS-$(CONFIG_FDCTDSP)             += aarch64/fdctdsp_neon.o
 NEON-OBJS-$(CONFIG_FMTCONVERT)          += aarch64/fmtconvert_neon.o
 NEON-OBJS-$(CONFIG_H264CHROMA)          += aarch64/h264cmc_neon.o

@@ -389,7 +389,11 @@ av_cold void ff_ac3dsp_init(AC3DSPContext *c)
     c->downmix               = NULL;
     c->downmix_fixed         = NULL;
 
-#if ARCH_AARCH64
+/* lux: ff_ac3dsp_init_aarch64() lives in aarch64/ac3dsp_init_aarch64.c, which is
+ * GPL-licensed upstream (together with aarch64/ac3dsp_neon.S). Those objects are
+ * only built for GPL builds, so the call must be GPL-only as well; LGPL builds
+ * fall back to the C AC3 DSP above. */
+#if ARCH_AARCH64 && CONFIG_GPL
     ff_ac3dsp_init_aarch64(c);
 #elif ARCH_ARM
     ff_ac3dsp_init_arm(c);
