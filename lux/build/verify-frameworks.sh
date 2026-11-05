@@ -15,7 +15,8 @@
 #   5. codesign:能重新 ad-hoc 签名并通过 --verify --strict;
 #   6. 结构:Headers 的 canonical 子目录、framework 风格别名、module map、Info.plist、
 #      PrivacyInfo.xcprivacy、dSYM(UUID 与二进制一致);
-#   7. xcframework:三个切片齐全、Info.plist 正确、zip 的 checksum 与 checksums.txt 一致;
+#   7. xcframework:三个切片齐全、Info.plist 正确、zip 的 checksum 与 checksums.txt 一致
+#      (与 MPVKit 现有同名库的粗略体积对比在 lux/README.md §12.6,不依赖 lux-client 路径);
 #   8. 大小写敏感:把 macOS 切片拷进一个 Case-sensitive APFS 卷镜像,
 #      分别用 -I(canonical)与 -F(framework 风格)编译同一个 TU,再 import 模块;
 #      两种写法都不允许落到大小写不敏感的路径上。
@@ -465,7 +466,6 @@ verify_xcframeworks() {
             fail "$fw: 缺少 $xcf(先运行 build-frameworks.sh package)"
             continue
         fi
-        slice_count=$(plutil -extract AvailableLibraries raw "$xcf/Info.plist" 2>/dev/null | grep -c LibraryIdentifier || true)
         slice_count=$(python3 -c 'import plistlib,sys; d=plistlib.load(open(sys.argv[1],"rb")); print(len(d.get("AvailableLibraries",[])))' "$xcf/Info.plist" 2>/dev/null || echo 0)
         if [ "$slice_count" = "3" ]; then
             pass "$fw: xcframework 有 3 个切片"

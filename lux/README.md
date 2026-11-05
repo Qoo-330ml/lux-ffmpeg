@@ -615,7 +615,9 @@ done
 - macOS 上 `swift build` / `swift test` / `lux-ffmpeg-probe` 真跑通过(读 F0 的合成 mkv,
   解出第一帧);
 - iOS Simulator 的 `xcodebuild build` 通过(只编译);
-- 大小写敏感 APFS 卷镜像上的 clang 两种 include、`@import`、`swiftc -typecheck` 全部通过。
+- 大小写敏感 APFS 卷镜像上的 clang 两种 include、`@import`、`swiftc -typecheck` 全部通过;
+  另外把整个 `lux/test/swift-import` 包拷到该卷上做过一次完整 `swift build` +
+  `lux-ffmpeg-probe` 运行(这一步是一次性验证,没写进脚本;脚本里跑更快的 typecheck)。
 
 **需要所有者 / Xcode / 真机**
 
