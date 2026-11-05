@@ -292,6 +292,7 @@ package_target() {
     log "packaging $target slice"
     rm -rf "$slice"
     mkdir -p "$slice"
+    : > "$build/PACKAGE-INFO.txt"
 
     for fw in $LUX_FRAMEWORKS; do
         lib=$(ff_lib_from_framework "$fw")
@@ -350,7 +351,7 @@ package_target() {
         # 5. Info.plist / 隐私清单
         write_info_plist "$target" "$fw" "$version" "$FR/Info.plist"
         emit_privacy_manifest "$FR/$fw" "$FR/PrivacyInfo.xcprivacy"
-        printf 'privacy.%s=%s\n' "$fw" "$PRIVACY_CATEGORIES" >> "$build/BUILD-INFO.txt"
+        printf 'privacy.%s=%s\n' "$fw" "$PRIVACY_CATEGORIES" >> "$build/PACKAGE-INFO.txt"
 
         # 6. dSYM(必须在 strip 之前,且构建时带了 -g)
         dsymutil "$FR/$fw" -o "$slice/$fw.framework.dSYM" > "$build/dsymutil-$fw.log" 2>&1 \
@@ -379,7 +380,7 @@ package_target() {
             printf 'size.%s=%s\n' "$fw" "$size"
         done
         printf 'size.total=%s\n' "$total"
-    } >> "$build/BUILD-INFO.txt"
+    } >> "$build/PACKAGE-INFO.txt"
 
     log "slice ready: $slice ($total bytes of binaries)"
 }

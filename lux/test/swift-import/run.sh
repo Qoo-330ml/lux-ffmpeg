@@ -79,7 +79,7 @@ if [ "$skip_ios" = 0 ]; then
     step "iOS Simulator: xcodebuild build(只编译)"
     # generic/platform=iOS Simulator 默认会同时要 arm64 + x86_64,而我们只出 arm64 切片;
     # 明确 ARCHS=arm64(与 Apple Silicon 机型一致)。
-    local log="$BUILD_ROOT/logs/swift-import-xcodebuild.log"
+    log="$BUILD_ROOT/logs/swift-import-xcodebuild.log"
     mkdir -p "$(dirname "$log")"
     if ! ( cd "$HERE" && xcodebuild build \
             -scheme LuxFFmpegImport \

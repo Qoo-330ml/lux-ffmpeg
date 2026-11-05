@@ -341,7 +341,7 @@ mount_case_sensitive() {
     fi
     mkdir -p "$(dirname "$CS_IMAGE")"
     if [ ! -f "$CS_IMAGE" ]; then
-        hdiutil create -type SPARSE -fs "Case-sensitive APFS" -size 4g -volname luxcs "$CS_IMAGE" \
+        hdiutil create -type SPARSE -fs "Case-sensitive APFS" -size 2g -volname luxcs "$CS_IMAGE" \
             > "$VERIFY_ROOT/hdiutil-create.log" 2>&1 || return 1
     fi
     hdiutil attach "$CS_IMAGE" > "$VERIFY_ROOT/hdiutil-attach.log" 2>&1 || return 1
