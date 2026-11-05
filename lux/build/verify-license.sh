@@ -1,0 +1,311 @@
+#!/usr/bin/env bash
+#
+# lux/build/verify-license.sh — LGPL 合规 / 组件对账 / 平台元数据检查
+#
+#   ./lux/build/verify-license.sh                    # 三个目标全查(未构建的目标算失败)
+#   ./lux/build/verify-license.sh macos-arm64        # 只查一个
+#
+# 任何一条检查失败 → 退出码 1。可重复运行,只读 lux/.build/(临时探针也写在里面)。
+#
+set -uo pipefail
+
+HERE=$(cd "$(dirname "$0")" && pwd)
+LUX=$(cd "$HERE/.." && pwd)
+REPO=$(cd "$LUX/.." && pwd)
+BUILD_ROOT="$LUX/.build"
+VERIFY_ROOT="$BUILD_ROOT/verify"
+mkdir -p "$VERIFY_ROOT"
+export TMPDIR="$BUILD_ROOT/tmp"
+mkdir -p "$TMPDIR"
+
+# shellcheck source=../config/ffmpeg-ios.conf
+. "$LUX/config/ffmpeg-ios.conf"
+
+targets=("$@")
+[ ${#targets[@]} -gt 0 ] || read -r -a targets <<< "$LUX_TARGETS"
+
+FAILS=0
+WARNS=0
+pass() { printf '  [ok]   %s\n' "$*"; }
+fail() { printf '  [FAIL] %s\n' "$*"; FAILS=$((FAILS + 1)); }
+warn() { printf '  [warn] %s\n' "$*"; WARNS=$((WARNS + 1)); }
+hdr()  { printf '\n== %s\n' "$*"; }
+
+# 符号表里绝对不允许出现的东西(外部库 / GPL 组件 / 我们没构建的库)
+FORBIDDEN_SYMBOL_RE='x264|x265|fdk|fdkaac|xvid|vidstab|xavs|postproc|mp3lame|libmp3lame|theora|dav1d|svt_|svtav1|libvpx|_vpx_|faac|vo_aacenc|opencore|libass|fribidi|fontconfig|freetype|gnutls|openssl|libvorbis|libopus|zimg|placebo|shaderc|chromaprint|vid\.stab'
+# 符号先落到文件再 grep:直接 `nm ... | grep -q` 会让 grep 提前关闭管道,
+# 在 pipefail 下把 nm 的 SIGPIPE 当失败。
+dump_symbols() { # $1 = archive, $2 = 输出文件
+    nm -gj "$1" 2>/dev/null | sed '/^$/d; /:$/d' > "$2"
+    return 0
+}
+
+# 源码头的 GPL 标记(必须排除 LGPL 的 "Lesser ... General Public License")
+src_is_gpl() {
+    head -60 "$1" 2>/dev/null |
+        grep -Ei 'general public license|license: *gpl|gplv[23]|gpl-[23]' |
+        grep -vi 'lesser' |
+        grep -qi .
+}
+
+# ---------------------------------------------------------------------------
+# 单个目标的检查
+# ---------------------------------------------------------------------------
+verify_target() {
+    local target=$1
+    local build="$BUILD_ROOT/$target"
+    local install="$build/install"
+    local logdir="$BUILD_ROOT/logs"
+    local tag
+
+    hdr "target: $target"
+    ff_target_setup "$target" || { fail "unknown target $target"; return; }
+
+    if [ ! -f "$build/config.h" ]; then
+        fail "$build/config.h 不存在 — 先运行 lux/build/build-ffmpeg.sh $target"
+        return
+    fi
+
+    # ---------------------------------------------------------------- 1. 产物
+    local lib missing=""
+    for lib in $LUX_STATIC_LIBS; do
+        [ -f "$install/lib/$lib" ] || missing="$missing $lib"
+    done
+    if [ -n "$missing" ]; then
+        fail "缺少静态库:$missing"
+        return
+    fi
+    pass "静态库齐全: $(printf '%s ' $LUX_STATIC_LIBS)"
+
+    # 不该出现的库文件
+    for lib in libavfilter.a libswscale.a libavdevice.a libpostproc.a; do
+        [ -f "$install/lib/$lib" ] && fail "不该存在的产物 $lib"
+    done
+
+    # ---------------------------------------------------------------- 2. 许可开关
+    local check
+    for check in "CONFIG_GPL 0" "CONFIG_NONFREE 0" "CONFIG_VERSION3 1" \
+                 "CONFIG_LGPLV3 1" "CONFIG_AVFILTER 0" "CONFIG_SWSCALE 0" \
+                 "CONFIG_AVDEVICE 0" "CONFIG_NETWORK 0"; do
+        local name=${check% *} want=${check#* }
+        if grep -qE "^#define $name ${want}$" "$build/config.h"; then
+            pass "config.h: $name = $want"
+        else
+            fail "config.h: $name 不是 $want (实际: $(grep -E "^#define $name " "$build/config.h" || echo '<缺失>'))"
+        fi
+    done
+
+    # configure 的 License: 行
+    local cfg_log="$logdir/$target-configure.log"
+    local license_line=""
+    [ -f "$cfg_log" ] && license_line=$(grep -m1 '^License:' "$cfg_log")
+    case "$license_line" in
+        "License: LGPL version 3 or later") pass "configure: $license_line" ;;
+        "") fail "找不到 $cfg_log 里的 License: 行" ;;
+        *)  fail "configure: 意外的许可行 '$license_line'" ;;
+    esac
+
+    # configure 参数里不得有 GPL/nonfree/外部编码库
+    if [ -f "$build/configure.opts.txt" ]; then
+        if grep -Eq -e "$LUX_FORBIDDEN_OPTS" "$build/configure.opts.txt"; then
+            fail "configure 参数含禁用项: $(grep -E -e "$LUX_FORBIDDEN_OPTS" "$build/configure.opts.txt" | tr '\n' ' ')"
+        else
+            pass "configure 参数无 --enable-gpl/--enable-nonfree/外部 GPL 库"
+        fi
+        grep -q -- '--disable-gpl' "$build/configure.opts.txt" \
+            && pass "configure 参数含 --disable-gpl" || fail "configure 参数缺 --disable-gpl"
+        grep -q -- '--disable-nonfree' "$build/configure.opts.txt" \
+            && pass "configure 参数含 --disable-nonfree" || fail "configure 参数缺 --disable-nonfree"
+    else
+        fail "$build/configure.opts.txt 不存在(不是用 lux/build/build-ffmpeg.sh 构建的?)"
+    fi
+
+    # ---------------------------------------------------------------- 3. avutil_license()
+    local probe_dir="$VERIFY_ROOT/$target"
+    mkdir -p "$probe_dir"
+    if [ "$target" = macos-arm64 ]; then
+        cat > "$probe_dir/license_probe.c" <<'EOF'
+#include <stdio.h>
+#include <libavutil/avutil.h>
+int main(void) { printf("%s\n", avutil_license()); return 0; }
+EOF
+        if xcrun --sdk macosx clang $FF_MIN_FLAG -isysroot "$FF_SDK_PATH" \
+                -I"$install/include" -o "$probe_dir/license_probe" \
+                "$probe_dir/license_probe.c" "$install/lib/libavutil.a" \
+                -framework CoreFoundation -framework Security > "$probe_dir/probe-build.log" 2>&1; then
+            local lic_out
+            lic_out=$("$probe_dir/license_probe" 2>&1)
+            case "$lic_out" in
+                LGPL*) pass "avutil_license() = $lic_out" ;;
+                *)     fail "avutil_license() = '$lic_out'(应以 LGPL 开头)" ;;
+            esac
+        else
+            fail "license_probe 编译失败,见 $probe_dir/probe-build.log"
+        fi
+    else
+        # 交叉编译的产物不能在本机运行:改为检查归档里嵌入的许可标识
+        # (avutil_license() 返回的 "LGPL version 3 or later" 会以
+        #  "libavutil license: LGPL version 3 or later" 的形式留在 .o 里)
+        local lic_strings lic_lower
+        lic_strings=$(strings -a "$install/lib/libavutil.a" |
+                      grep -iE 'license:.*(lgpl|gpl|nonfree)' | sort -u)
+        lic_lower=$(printf '%s\n' "$lic_strings" | tr 'A-Z' 'a-z')
+        case "$lic_lower" in
+            *"license: lgpl version 3 or later"*)
+                pass "libavutil.a 内嵌许可标识: $(printf '%s' "$lic_strings" | tr '\n' '|')" ;;
+            *)
+                fail "libavutil.a 内找不到 LGPL 3 许可标识(实际: $(printf '%s' "$lic_strings" | tr '\n' '|'))" ;;
+        esac
+        if printf '%s\n' "$lic_lower" | grep -qE 'license: *(gpl|nonfree)'; then
+            fail "libavutil.a 内嵌了非 LGPL 的许可标识: $(printf '%s' "$lic_strings" | tr '\n' '|')"
+        else
+            pass "libavutil.a 内没有 GPL/nonfree 许可标识"
+        fi
+    fi
+
+    # ---------------------------------------------------------------- 4. GPL 源文件审计
+    # 用 .d 依赖文件反查每个 .o 的源文件,再扫源码头的许可标记。
+    local d src gpl_hits="" scanned=0
+    while IFS= read -r d; do
+        src=$(sed -e 's/\\$//' -e 's/[ 	][ 	]*/\n/g' "$d" | grep -E '\.(c|S|asm)$' | head -1)
+        [ -n "$src" ] || continue
+        scanned=$((scanned + 1))
+        case "$src" in
+            src/*) src="$build/$src" ;;
+        esac
+        if [ -f "$src" ] && src_is_gpl "$src"; then
+            gpl_hits="$gpl_hits ${src#"$build"/}"
+        fi
+    done < <(find "$build" -name '*.d' -type f)
+    if [ -n "$gpl_hits" ]; then
+        fail "被编译的源文件里有 GPL 代码:$gpl_hits"
+    else
+        pass "GPL 源文件审计: 扫描 $scanned 个源文件,0 个 GPL 标记"
+    fi
+
+    # 已知的上游 GPL 文件(修过的),确认没有进归档
+    local archive member bad_members=""
+    for archive in "$install/lib"/*.a; do
+        for member in $(ar t "$archive" | grep -E '^(ac3dsp_init_aarch64|ac3dsp_neon)\.o$'); do
+            bad_members="$bad_members $(basename "$archive"):$member"
+        done
+    done
+    [ -z "$bad_members" ] \
+        && pass "归档内无已知 GPL 目标文件 (ac3dsp_init_aarch64.o / ac3dsp_neon.o)" \
+        || fail "归档含已知 GPL 目标文件:$bad_members"
+
+    # ---------------------------------------------------------------- 5. 符号表
+    local hits symbols_ok=1 symdir="$probe_dir/symbols"
+    mkdir -p "$symdir"
+    for archive in "$install/lib"/*.a; do
+        lib=$(basename "$archive")
+        dump_symbols "$archive" "$symdir/$lib.txt"
+        hits=$(grep -Ei -e "$FORBIDDEN_SYMBOL_RE" "$symdir/$lib.txt" | sort -u)
+        if [ -n "$hits" ]; then
+            fail "$lib 符号表含禁用符号: $(printf '%s ' $hits)"
+            symbols_ok=0
+        fi
+    done
+    [ "$symbols_ok" = 1 ] && pass "符号表干净: 无 x264/x265/fdk/xvid/vidstab/postproc/外部解码库符号"
+
+    # 正向确认:确实是我们构建的库(不是空归档/占位文件)
+    for lib in libavformat.a libavcodec.a libavutil.a libswresample.a; do
+        if grep -qE '^_(av|swr)' "$symdir/$lib.txt"; then
+            pass "$lib 含 $(grep -cE '^_(av|swr)' "$symdir/$lib.txt") 个 av*/swr* 符号"
+        else
+            fail "$lib 里没有 av*/swr* 符号"
+        fi
+    done
+
+    # ---------------------------------------------------------------- 6. 平台 / 架构 / 最低系统
+    local lipo_out
+    lipo_out=$(lipo -info "$install/lib/libavcodec.a" 2>&1)
+    case "$lipo_out" in
+        *"architecture: arm64"*) pass "lipo: $(printf '%s' "$lipo_out" | sed 's/.*architecture/architecture/')" ;;
+        *) fail "lipo 不是 arm64: $lipo_out" ;;
+    esac
+
+    # vtool 不接受 .a,先抽一个成员出来看 LC_BUILD_VERSION
+    ( cd "$probe_dir" && rm -f version.o && ar x "$install/lib/libavcodec.a" version.o ) >/dev/null 2>&1
+    if [ -f "$probe_dir/version.o" ]; then
+        local vt platform minos
+        vt=$(vtool -show-build "$probe_dir/version.o" 2>&1)
+        platform=$(printf '%s\n' "$vt" | awk '/platform /{print $2; exit}')
+        minos=$(printf '%s\n' "$vt" | awk '/minos /{print $2; exit}')
+        local want_platform want_minos
+        case "$target" in
+            ios-arm64)     want_platform=IOS;          want_minos=17.0 ;;
+            ios-sim-arm64) want_platform=IOSSIMULATOR; want_minos=17.0 ;;
+            macos-arm64)   want_platform=MACOS;        want_minos=14.0 ;;
+        esac
+        [ "$platform" = "$want_platform" ] \
+            && pass "vtool: platform $platform" \
+            || fail "vtool: platform '$platform' != $want_platform"
+        [ "$minos" = "$want_minos" ] \
+            && pass "vtool: minos $minos" \
+            || fail "vtool: minos '$minos' != $want_minos"
+    else
+        fail "无法从 libavcodec.a 抽出 version.o 做 vtool 检查"
+    fi
+
+    # ---------------------------------------------------------------- 7. 组件对账
+    local cc="$build/config_components.h"
+    local kind suffix want enabled_list extra
+    for kind in demuxer:DEMUXER muxer:MUXER parser:PARSER decoder:DECODER \
+                encoder:ENCODER bsf:BSF protocol:PROTOCOL hwaccel:HWACCEL; do
+        suffix=${kind#*:}
+        case "$kind" in
+            demuxer*) want=$LUX_DEMUXERS ;;
+            muxer*)   want=$LUX_MUXERS ;;
+            parser*)  want=$LUX_PARSERS ;;
+            decoder*) want=$LUX_DECODERS ;;
+            encoder*) want=$LUX_ENCODERS ;;
+            bsf*)     want=$LUX_BSFS ;;
+            protocol*) want=$LUX_PROTOCOLS ;;
+            hwaccel*) want=$LUX_HWACCELS ;;
+        esac
+        enabled_list=$(grep -E "^#define CONFIG_[A-Z0-9_]+_${suffix} 1\$" "$cc" |
+                       sed -E "s/^#define CONFIG_//; s/_${suffix} 1\$//" | tr 'A-Z' 'a-z' | sort)
+        local v missing_comp=""
+        for v in $want; do
+            printf '%s\n' "$enabled_list" | grep -qx "$v" || missing_comp="$missing_comp $v"
+        done
+        if [ -n "$missing_comp" ]; then
+            fail "$kind 白名单项未生效:$missing_comp"
+        else
+            pass "$kind 白名单 $(printf '%s' "$want" | wc -w | tr -d ' ') 项全部生效"
+        fi
+        extra=$(comm -13 <(printf '%s\n' $want | tr 'A-Z' 'a-z' | sort -u) \
+                        <(printf '%s\n' "$enabled_list") 2>/dev/null | tr '\n' ' ')
+        [ -n "${extra// /}" ] && warn "$kind 额外启用了(configure 自动 select): $extra"
+    done
+
+    # 启用的解码器/编码器里不能出现 GPL 组件名
+    local gpl_comp
+    gpl_comp=$(grep -E "^#define CONFIG_[A-Z0-9_]+_(DECODER|ENCODER) 1\$" "$cc" |
+               grep -Ei 'X264|X265|FDK|XVID|VIDSTAB|XAVS|MP3LAME|THEORA') || true
+    [ -z "$gpl_comp" ] && pass "启用的 codec 里没有 GPL/external 组件" \
+                       || fail "启用了 GPL/external codec: $(printf '%s ' $gpl_comp)"
+
+    # ---------------------------------------------------------------- 8. 体积
+    local total=0 size
+    for lib in $LUX_STATIC_LIBS; do
+        size=$(stat -f %z "$install/lib/$lib")
+        total=$((total + size))
+        printf '  [size] %-16s %9d bytes\n' "$lib" "$size"
+    done
+    printf '  [size] %-16s %9d bytes\n' TOTAL "$total"
+}
+
+for t in "${targets[@]}"; do
+    verify_target "$t"
+done
+
+hdr "summary"
+printf 'failures: %d, warnings: %d\n' "$FAILS" "$WARNS"
+if [ "$FAILS" -gt 0 ]; then
+    printf 'RESULT: FAIL\n'
+    exit 1
+fi
+printf 'RESULT: PASS (LGPL-only)\n'
+exit 0
