@@ -1,0 +1,68 @@
+# Maintainer: Alexey Pavlov <alexpux@gmail.com>
+
+_realname=libass
+pkgbase=mingw-w64-jellyfin-${_realname}
+pkgname="${MINGW_PACKAGE_PREFIX}-${_realname}"
+pkgver=0.17.5
+pkgrel=1
+pkgdesc="A portable library for SSA/ASS subtitles rendering (mingw-w64)"
+arch=('any')
+mingw_arch=('mingw32' 'mingw64' 'ucrt64' 'clang64' 'clangarm64')
+url='https://github.com/libass/libass'
+msys2_references=(
+  "cpe: cpe:/a:libass_project:libass"
+)
+license=('spdx:ISC')
+makedepends=(
+  "${MINGW_PACKAGE_PREFIX}-cc"
+  "${MINGW_PACKAGE_PREFIX}-meson"
+  "${MINGW_PACKAGE_PREFIX}-ninja"
+  $([[ "${MSYSTEM}" == "CLANGARM64" ]] || echo "${MINGW_PACKAGE_PREFIX}-nasm")
+)
+depends=("${MINGW_PACKAGE_PREFIX}-jellyfin-fribidi"
+         "${MINGW_PACKAGE_PREFIX}-jellyfin-fontconfig"
+         "${MINGW_PACKAGE_PREFIX}-jellyfin-freetype"
+         "${MINGW_PACKAGE_PREFIX}-jellyfin-libunibreak"
+         "${MINGW_PACKAGE_PREFIX}-jellyfin-libiconv"
+         "${MINGW_PACKAGE_PREFIX}-jellyfin-harfbuzz")
+source=(https://github.com/libass/${_realname}/releases/download/${pkgver}/${_realname}-${pkgver}.tar.xz
+        fix-strndup-mingw.patch)
+sha256sums=('SKIP'
+            'SKIP')
+
+export MINGW_TOOLCHAIN_PREFIX="${MINGW_PREFIX}"
+export FF_MINGW_PREFIX="${MINGW_TOOLCHAIN_PREFIX}/ffbuild"
+
+prepare() {
+  cd "${srcdir}/${_realname}-${pkgver}"
+  patch -p1 -i "${srcdir}/fix-strndup-mingw.patch"
+}
+
+build() {
+  export PKG_CONFIG_PATH="${FF_MINGW_PREFIX}/lib/pkgconfig:${PKG_CONFIG_PATH}"
+
+  CPPFLAGS+=" -DFRIBIDI_LIB_STATIC" \
+  MSYS2_ARG_CONV_EXCL="--prefix=" \
+    ${MINGW_TOOLCHAIN_PREFIX}/bin/meson setup \
+      --prefix="${FF_MINGW_PREFIX}" \
+      --wrap-mode=nodownload \
+      --buildtype=plain \
+      --default-library=static \
+      -Dtest=disabled \
+      -Dcompare=disabled \
+      -Dprofile=disabled \
+      -Dfuzz=disabled \
+      -Dcheckasm=disabled \
+      -Dfontconfig=enabled \
+      -Ddirectwrite=enabled \
+      -Dasm=enabled \
+      -Dlibunibreak=enabled \
+      "build-${MSYSTEM}-static" \
+      "${_realname}-${pkgver}"
+
+  ${MINGW_TOOLCHAIN_PREFIX}/bin/meson compile -C "build-${MSYSTEM}-static"
+}
+
+package() {
+  ${MINGW_TOOLCHAIN_PREFIX}/bin/meson install -C "build-${MSYSTEM}-static" --destdir "${pkgdir}"
+}
