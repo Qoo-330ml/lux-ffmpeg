@@ -19,7 +19,7 @@
 | SDK | macosx 26.5 | iphoneos 26.5 | iphonesimulator 26.5 |
 | 最低系统 | macOS 14.0 | iOS 17.0 | iOS-simulator 17.0 |
 | configure 输出 | `License: LGPL version 3 or later` | 同 | 同 |
-| 耗时(实测,`-j10`) | **57 s**(configure 42 s) | **57 s**(configure 35 s) | **72 s**(configure 43 s) |
+| 耗时(实测,`-j10`) | **50–73 s**(configure 29–54 s) | **50–57 s**(configure 29–35 s) | **60–72 s**(configure 38–43 s) |
 | 产物 | `lux/.build/<target>/install/lib/*.a` | 同 | 同 |
 | 合计 | 7,210,328 B(6.88 MiB) | 7,090,976 B(6.76 MiB) | 7,205,784 B(6.87 MiB) |
 
@@ -33,7 +33,7 @@
 | `libavutil.a` | 1,018,488 | 1,017,888 | 1,018,360 |
 | **合计** | **7,210,328** | **7,090,976** | **7,205,784** |
 
-以上数字是 `BUILD-INFO.txt` 里的实测值(每次构建重写)。整棵 `lux/.build/`(源码树外编译目录 +
+以上数字是 `BUILD-INFO.txt` 里的实测值(每次构建重写)。耗时随磁盘缓存/并发波动,上表给的是多次实测的区间(单目标、串行、`-j10`;三个目标同时构建时单个会到 ~105 s)。整棵 `lux/.build/`(源码树外编译目录 +
 日志 + 夹具 + 三个目标)约 **112 MB**。
 
 ## 2. 目录
