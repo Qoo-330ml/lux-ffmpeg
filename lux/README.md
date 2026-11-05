@@ -424,8 +424,8 @@ Libavformat.framework/Headers/
 7. xcframework 三个切片齐全,zip 的 checksum 与 `checksums.txt` 一致;
 8. **大小写敏感卷**:把 macOS 切片拷进 `Case-sensitive APFS` 稀疏镜像
    (`lux/.build/csimg/luxcs.sparseimage`),分别用
-   `-I`(canonical)、`-F`(framework)、`clang -fmodules`、`swiftc -typecheck` 编译同一个 TU,
-   全部加 `-Werror=nonportable-include-path`。
+   `-I`(canonical)、`-F`(framework)、`clang -fmodules`、`swiftc -typecheck` 各自编译对应的
+   TU,全部加 `-Werror=nonportable-include-path`。
 
 `lux/test/swift-import/run.sh` 的输出(macOS,真跑):
 
@@ -466,8 +466,9 @@ manifest 是按二进制实测生成的,不靠猜。
 | `Libswresample` | 132,808 | 145,728 | 110% |
 | **合计** | **7,090,976** | **5,568,352** | **79%** |
 
-三项变小主要是:`.a` 里每个成员的目标文件按段对齐、符号表完整保留(`--disable-stripping`),
-而 dylib 把所有 `.o` 的段紧凑排布,并且 `strip -S` 去掉了调试信息;`Libswresample` 反而大了
+一个合理解释是:`.a` 里每个成员的目标文件按段对齐、符号表完整保留(`--disable-stripping`),
+而 dylib 把所有 `.o` 的段紧凑排布,并且 `strip -S` 去掉了调试信息(这是 aggregate 观察,
+没有逐目标文件对账);`Libswresample` 反而大了
 11%,是 dylib 的页对齐与导出表开销(它的代码量最小)。
 
 与 MPVKit 1.0.0 的 LGPL 静态切片对比(只能粗略比,链接方式不同):
@@ -559,10 +560,10 @@ done
 
 注意点:
 
-* `binaryTarget` 是**动态**的 Mach-O,Xcode 会把它嵌入 `App.app/Frameworks/` 并签名;手写
-  `project.pbxproj` 的工程必须实测 `xcodebuild archive` 后 `Payload/Lux.app/Frameworks/` 里确实有
-  四个 framework,`otool -L` 里是 `@rpath/…`(`LD_RUNPATH_SEARCH_PATHS` 已有
-  `@executable_path/Frameworks`);
+* `binaryTarget` 是**动态**的 Mach-O,按 Apple 的机制 Xcode 会把它嵌入 `App.app/Frameworks/`
+  并签名;但本项目是手写 `project.pbxproj`,必须实测 `xcodebuild archive` 后
+  `Payload/Lux.app/Frameworks/` 里确实有四个 framework,`otool -L` 里是 `@rpath/…`
+  (`LD_RUNPATH_SEARCH_PATHS` 已有 `@executable_path/Frameworks`);
 * 每个 framework 自带 `PrivacyInfo.xcprivacy`;App 的总清单里那三条
   「替 MPVKit 报」的 required-reason 声明可以只保留 App 自己用到的,
   `scripts/check-privacy-manifest.py --app` 的扫描口径要一起改;
