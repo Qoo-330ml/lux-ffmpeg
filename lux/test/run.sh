@@ -36,7 +36,7 @@ if [ ! -f "$INSTALL/lib/libavformat.a" ]; then
     printf '[run] %s 还没有构建,先构建\n' "$TARGET"
     bash "$LUX/build/build-ffmpeg.sh" "$TARGET" || { echo "build failed"; exit 1; }
 fi
-for lib in libavformat.a libavcodec.a libswresample.a libavutil.a; do
+for lib in libavformat.a libavcodec.a libavfilter.a libswscale.a libswresample.a libavutil.a; do
     [ -f "$INSTALL/lib/$lib" ] || { echo "missing $INSTALL/lib/$lib"; exit 1; }
 done
 pass "静态库: $INSTALL/lib/"
@@ -90,9 +90,11 @@ if ! xcrun --sdk macosx clang -arch arm64 -mmacosx-version-min=14.0 -isysroot "$
         -I"$INSTALL/include" \
         -o "$BIN" "$LUX/test/read_mkv.c" \
         "$INSTALL/lib/libavformat.a" "$INSTALL/lib/libavcodec.a" \
+        "$INSTALL/lib/libavfilter.a" "$INSTALL/lib/libswscale.a" \
         "$INSTALL/lib/libswresample.a" "$INSTALL/lib/libavutil.a" \
         -framework CoreFoundation -framework CoreVideo -framework CoreMedia \
         -framework VideoToolbox -framework AudioToolbox -framework Security \
+        -framework CoreImage \
         > "$WORK/compile.log" 2>&1; then
     cat "$WORK/compile.log" >&2
     echo "[FAIL] read_mkv 编译/链接失败"; exit 1
@@ -163,9 +165,11 @@ if ! xcrun --sdk macosx clang -arch arm64 -mmacosx-version-min=14.0 -isysroot "$
         -I"$INSTALL/include" \
         -o "$PROBE" "$LUX/test/patch_probe.c" \
         "$INSTALL/lib/libavformat.a" "$INSTALL/lib/libavcodec.a" \
+        "$INSTALL/lib/libavfilter.a" "$INSTALL/lib/libswscale.a" \
         "$INSTALL/lib/libswresample.a" "$INSTALL/lib/libavutil.a" \
         -framework CoreFoundation -framework CoreVideo -framework CoreMedia \
         -framework VideoToolbox -framework AudioToolbox -framework Security \
+        -framework CoreImage \
         > "$WORK/patch_probe-compile.log" 2>&1; then
     cat "$WORK/patch_probe-compile.log" >&2
     fail "patch_probe 编译/链接失败"
@@ -214,9 +218,11 @@ else
             -I"$INSTALL/include" \
             -o "$P12" "$LUX/test/hevc12_probe.c" \
             "$INSTALL/lib/libavformat.a" "$INSTALL/lib/libavcodec.a" \
+            "$INSTALL/lib/libavfilter.a" "$INSTALL/lib/libswscale.a" \
             "$INSTALL/lib/libswresample.a" "$INSTALL/lib/libavutil.a" \
             -framework CoreFoundation -framework CoreVideo -framework CoreMedia \
             -framework VideoToolbox -framework AudioToolbox -framework Security \
+        -framework CoreImage \
             > "$WORK/hevc12-compile.log" 2>&1; then
         cat "$WORK/hevc12-compile.log" >&2
         fail "hevc12_probe 编译/链接失败"

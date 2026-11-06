@@ -7,6 +7,7 @@
  *   0006  aac_at 编码器在产物里(白名单靠它,补丁改了它的布局/采样率表)
  *   0007  mkv 封面用的 webp / mjpeg 解码器在产物里
  *   0008  DTS-HD HRA X / IMAX 的公开 profile 常量
+ *   0010/0011  VT/CoreImage 滤镜注册进 libavfilter(avfilter_get_by_name)
  *   0002/0003 只做结构性改动,没有稳定的公开 API 可以观测,靠 build + code review 保证
  *
  * 退出码:0 = 全部通过,1 = 有失败。
@@ -18,6 +19,7 @@
 #include <string.h>
 
 #include <libavcodec/avcodec.h>
+#include <libavfilter/avfilter.h>
 #include <libavutil/hwcontext.h>
 #include <libavutil/opt.h>
 #include <libavutil/pixdesc.h>
@@ -105,6 +107,24 @@ static void check_tier2(void)
 #endif
 }
 
+static void check_filters(void)
+{
+    static const struct { const char *name; const char *tag; } filters[] = {
+        { "scale_vt",     "0010" },
+        { "transpose_vt", "0011" },
+        { "format",       "avfilter" },
+        { "scale",        "swscale" },
+        { NULL, NULL },
+    };
+    int i;
+
+    for (i = 0; filters[i].name; i++) {
+        char msg[128];
+        snprintf(msg, sizeof(msg), "%s 滤镜 %s 已注册", filters[i].tag, filters[i].name);
+        ok_check(avfilter_get_by_name(filters[i].name) != NULL, "%s", msg);
+    }
+}
+
 static void check_vt_device(void)
 {
     AVBufferRef *dev = NULL;
@@ -120,6 +140,7 @@ int main(void)
     check_codec_par();
     check_encoders();
     check_tier2();
+    check_filters();
     check_vt_device();
     printf("failures: %d\n", fails);
     printf("RESULT: %s\n", fails ? "FAIL" : "PASS");

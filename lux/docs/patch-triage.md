@@ -43,25 +43,29 @@ Main12 4:2:0(`YUV420P12`)。lux 版把它并进 `YUV444P10`/`YUV420P12`/`YUV444P
 注意:0007 会让 `libavcodec.a` 里出现 FFmpeg 内建的 `_ff_vpx_*` 符号(VP8 range coder),
 `verify-license.sh` 的外部库检查因此改成按 libvpx 自己的 API 名(`vpx_codec_`/`vpx_img_`)匹配。
 
-## 第三档:F2(libmpv / avfilter)再评估
+## 第三档:已移植(F2 的第一块)
 
-| 补丁 | 依赖 | 说明 |
-| --- | --- | --- |
-| 0043 | avfilter + videotoolbox | `scale_vt` 加 `format` 选项(NV12↔P010),转 SDR 时清 HDR 元数据 |
-| 0046 | metal + corevideo | `tonemap_videotoolbox`(Metal shader) |
-| 0056 | metal + corevideo | `bwdif`/`yadif_videotoolbox` 去隔行 |
-| 0044 | metal + corevideo + coreimage | `overlay_videotoolbox` |
-| 0045 | coreimage | `transpose_vt` 改成 CoreImage 实现 |
-| 0053 | avfilter + swscale | `tonemapx` 的 aarch64 NEON(10k 行;只有不用 GPU tonemap 时才值得) |
+| lux 补丁 | 来源 | 内容 | 前置条件 |
+| --- | --- | --- | --- |
+| `0010` | jellyfin 0043 | `scale_vt` 的 `format`(NV12↔P010) | avfilter + videotoolbox |
+| `0011` | jellyfin 0045 | `transpose_vt` 改 CoreImage | avfilter + coreimage |
+| `0012` | jellyfin 0044 | `overlay_videotoolbox` | Metal |
+| `0013` | jellyfin 0046 | `tonemap_videotoolbox` | Metal |
+| `0014` | jellyfin 0056 | `bwdif`/`yadif_videotoolbox` | Metal |
 
-改造点:
+落地时改了构建形态:
 
-- `--enable-avfilter --enable-swscale --enable-metal --enable-coreimage`;
-- **Metal 交叉编译**:`configure` 默认 `--metalcc="xcrun -sdk macosx metal"`,iOS 目标必须换成
-  `xcrun -sdk iphoneos metal` / `xcrun -sdk iphonesimulator metal`(`metallib` 同理),否则
-  `test_cmd $metalcc -v` 会直接 disable metal;
-- 新增 `.m`/`.metal` 源文件要进 `verify-license.sh` 的 `.d` 源审计;
-- 体积与首帧延迟要重新量。
+- `--enable-avfilter --enable-swscale --enable-coreimage`,产物从 4 个 `.a` 变成 6 个(总计 7.44 MB → 9.20 MB,avfilter +306 KB、swscale +1.45 MB);
+- `LUX_FILTERS`(7 项)是必过项;`LUX_FILTERS_METAL`(4 项)只有在 `CONFIG_METAL=1` 时才是硬性检查;
+- Metal 编译器按目标 SDK 传:`--metalcc="xcrun -sdk <sdk> metal"`、`--metallib="xcrun -sdk <sdk> metallib"`,
+  默认的 `xcrun -sdk macosx metal` 不能给 iOS 用;
+- F1 的 framework 从 4 个变成 6 个(`Libavfilter`、`Libswscale`),`verify-frameworks.sh` 的依赖白名单
+  与头文件检查同步扩了。
+
+**未完成**:本机没有 Metal Toolchain(`xcodebuild -downloadComponent MetalToolchain` 正在拉,688 MB,
+速率约 1 MB/min),所以 0012–0014 目前只是"补丁已应用、configure 会把滤镜关掉"。装上 toolchain 后
+`ff_target_setup` 会自动检测到,重新构建即可让三个 Metal 滤镜生效,`verify-license.sh` 也会从
+`[warn]` 变成硬性检查。
 
 ## 不移植:看起来能用但实际有害的三个
 

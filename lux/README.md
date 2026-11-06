@@ -25,17 +25,19 @@
 | configure 输出 | `License: LGPL version 3 or later` | 同 | 同 |
 | 耗时(实测,`-j10`) | **50–73 s**(configure 29–54 s) | **50–57 s**(configure 29–35 s) | **60–72 s**(configure 38–43 s) |
 | 产物 | `lux/.build/<target>/install/lib/*.a` | 同 | 同 |
-| 合计 | 7,210,328 B(6.88 MiB) | 7,090,976 B(6.76 MiB) | 7,205,784 B(6.87 MiB) |
+| 合计 | 9,201,200 B(8.77 MiB) | 9,068,056 B(8.65 MiB) | 9,196,312 B(8.77 MiB) |
 
-各库大小(F0 产物里只有这四个;`lib/` 下不会出现 avfilter/swscale/avdevice):
+各库大小(F2 起 avfilter/swscale 进产物;`lib/` 下仍然不会出现 avdevice):
 
 | 库 | macOS arm64 | iOS device | iOS sim arm64 |
 | --- | --- | --- | --- |
-| `libavformat.a` | 1,174,720 | 1,160,384 | 1,174,544 |
-| `libavcodec.a` | 4,881,216 | 4,779,896 | 4,876,896 |
-| `libswresample.a` | 135,904 | 132,808 | 135,984 |
-| `libavutil.a` | 1,018,488 | 1,017,888 | 1,018,360 |
-| **合计** | **7,210,328** | **7,090,976** | **7,205,784** |
+| `libavformat.a` | 1,175,416 | 1,161,104 | 1,175,248 |
+| `libavcodec.a` | 5,113,344 | 5,009,048 | 5,108,568 |
+| `libavfilter.a` | 306,424 | 303,360 | 306,512 |
+| `libswscale.a` | 1,450,464 | 1,442,680 | 1,450,472 |
+| `libswresample.a` | 136,120 | 133,024 | 136,200 |
+| `libavutil.a` | 1,019,432 | 1,018,840 | 1,019,312 |
+| **合计** | **9,201,200** | **9,068,056** | **9,196,312** |
 
 以上数字是 `BUILD-INFO.txt` 里的实测值(每次构建重写)。耗时随磁盘缓存/并发波动,上表给的是多次实测的区间(单目标、串行、`-j10`;三个目标同时构建时单个会到 ~105 s)。整棵 `lux/.build/`(源码树外编译目录 +
 日志 + 夹具 + 三个目标)约 **112 MB**。
@@ -100,9 +102,9 @@ cd /Volumes/Toshiba/mywork/lux-ffmpeg
 
 它做 8 组检查,任何一条失败即非零退出:
 
-1. 四个 `.a` 齐全,且**没有** `libavfilter.a`/`libswscale.a`/`libavdevice.a`;
+1. 六个 `.a` 齐全,且**没有** `libavdevice.a`/`libpostproc.a`;
 2. `config.h`:`CONFIG_GPL 0`、`CONFIG_NONFREE 0`、`CONFIG_VERSION3 1`、`CONFIG_LGPLV3 1`、
-   `CONFIG_AVFILTER 0`、`CONFIG_SWSCALE 0`、`CONFIG_AVDEVICE 0`、`CONFIG_NETWORK 0`;
+   `CONFIG_AVFILTER 1`、`CONFIG_SWSCALE 1`、`CONFIG_AVDEVICE 0`、`CONFIG_NETWORK 0`;
 3. `configure` 日志里的 `License:` 行必须是 `License: LGPL version 3 or later`;参数里不得有
    GPL/nonfree/外部编码库;
 4. `avutil_license()`:macOS 目标编译并运行探针(输出必须以 `LGPL` 开头);iOS 目标不能运行,
@@ -169,7 +171,7 @@ RESULT: PASS
 - **基线**:上游 FFmpeg **8.1.3**(取自 jellyfin-ffmpeg `v8.1.3-2`;该 tag 是 Debian 打包分支,
   源码树本身是 pristine 上游,`debian/patches/` 里的 106 个补丁**默认一个都不应用**)。
   实际编进产物的补丁只有两部分:§6.1 的 GPL 守卫(2 处源码改动)+ §6.2 从 jellyfin 补丁系列
-  移植的 9 个补丁。上游源码树是 **LGPL/GPL 混合**:`libavfilter` 下有 50 个文件是 GPL,
+  移植的 14 个补丁。上游源码树是 **LGPL/GPL 混合**:`libavfilter` 下有 50 个文件是 GPL,
   `libavcodec/aarch64/ac3dsp_*` 与 `libavutil/aarch64/crc.S` 也是 GPL。本构建**只启用 LGPL 部分**。
 - `configure` 输出:`License: LGPL version 3 or later`(因为 `--disable-gpl --disable-nonfree
   --enable-version3`);`config.h` 里 `CONFIG_GPL 0`、`CONFIG_NONFREE 0`、`CONFIG_VERSION3 1`、
@@ -199,7 +201,7 @@ CRC32 硬件加速。前者影响 AC-3 解码性能(未量化,列在「未解决
 
 ### 6.2 移植的上游补丁(`lux/patches/`)
 
-产物不是纯上游:`lux/patches/` 里有 9 个从 jellyfin-ffmpeg 补丁系列刷新(并按客户端需要改造)
+产物不是纯上游:`lux/patches/` 里有 14 个从 jellyfin-ffmpeg 补丁系列刷新(并按客户端需要改造)
 过的补丁,按 `lux/config/patches.txt` 的顺序应用,脚本是 `lux/build/apply-patches.sh`。
 
 | lux 补丁 | 来源 | 内容 | 改造点 |
@@ -213,6 +215,11 @@ CRC32 硬件加速。前者影响 AC-3 解码性能(未量化,列在「未解决
 | `0007` | jellyfin 0088 | matroska 认 `image/webp` 封面 attachment | 白名单加了 `webp`/`mjpeg` 解码器(webp 会连带 `vp8`) |
 | `0008` | jellyfin 0087 | DTS:X / DTS-HD HRA(X、IMAX)profile 识别 | 无(只加公开 profile 常量) |
 | `0009` | jellyfin 0027 | Dolby Vision 配置校验后写进 mp4 | 只取 `movenc`/`dovi_isom`;删掉服务端的 hls/mpegts 分支 |
+| `0010` | jellyfin 0043 | `scale_vt` 新增 `format` 选项(NV12↔P010) | 无 |
+| `0011` | jellyfin 0045 | `transpose_vt` 改成 CoreImage 实现 | 白名单开 `coreimage`,产物多 `libavfilter.a`/`libswscale.a` |
+| `0012` | jellyfin 0044 | `overlay_videotoolbox`(Metal) | 需要 Metal Toolchain;`--metalcc/--metallib` 指向目标 SDK |
+| `0013` | jellyfin 0046 | `tonemap_videotoolbox`(Metal) | 同上 |
+| `0014` | jellyfin 0056 | `bwdif`/`yadif_videotoolbox`(Metal) | 同上 |
 
 用法与约束:
 
@@ -619,9 +626,9 @@ done
 
 ### 12.9 F2(libmpv)需要的前置
 
-1. **白名单扩容**:`libavfilter`、`libswscale` 进构建。avfilter 是 GPL 文件最多的地方
-   (F0 统计 50 个),`--disable-gpl` 不等于「不会编译 GPL 文件」,必须把 `verify-license.sh`
-   的 `.d` 反查审计扩展到新组件,并逐项重写 `allowlist.md`。
+1. **白名单扩容**:`libavfilter`、`libswscale` 已进构建(§6.2 的 0010–0014),`.d` 反查审计和
+   `allowlist.md` 已覆盖;libmpv 还要的滤镜(scale/format 之外的)按需再加。avfilter 是 GPL 文件
+   最多的地方(50 个),每加一项都要确认 `CONFIG_GPL=0` 且没有 GPL 源文件被无条件编译。
 2. **`--disable-everything` 的 select 连锁**:avfilter / libmpv 需要的 filter、swscale、
    网络协议会通过 `_select` 拉进更多组件(verify 的 `[warn]` 机制会暴露),需要一次完整的
    组件对账。
@@ -639,7 +646,7 @@ done
 ### 12.10 LGPL 合规清单(F1 交付时需要随包提供)
 
 - **源码**:上游 FFmpeg **8.1.3** 的完整源码(取自 jellyfin-ffmpeg `v8.1.3-2` 的源码树)+
-  本仓库 `lux/patches/` 里的 9 个补丁(见 §6.2)+ `lux/` 下的构建脚本
+  本仓库 `lux/patches/` 里的 14 个补丁(见 §6.2)+ `lux/` 下的构建脚本
   (`config/`、`build/`、`test/`)——它们共同是「如何从源码得到这个二进制」的对应源码。
   交付时用 `./lux/build/apply-patches.sh status` 与 `BUILD-INFO.txt` 里的 `patches_digest` 对账。
 - **补丁清单**:

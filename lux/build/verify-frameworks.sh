@@ -112,7 +112,7 @@ verify_slice() {
 
         local deps bad
         deps=$(otool -L "$bin" | awk 'NR>2 {print $1}')
-        bad=$(printf '%s\n' "$deps" | grep -Ev '^(@rpath/(Libavutil|Libswresample|Libavcodec|Libavformat)\.framework/(Libavutil|Libswresample|Libavcodec|Libavformat)$|/usr/lib/|/System/Library/Frameworks/)')
+        bad=$(printf '%s\n' "$deps" | grep -Ev '^(@rpath/(Libavutil|Libswresample|Libavcodec|Libswscale|Libavfilter|Libavformat)\.framework/(Libavutil|Libswresample|Libavcodec|Libswscale|Libavfilter|Libavformat)$|/usr/lib/|/System/Library/Frameworks/)')
         if [ -n "$bad" ]; then
             fail "$fw: 依赖里出现非 @rpath / 非系统库: $(printf '%s ' $bad)"
         else
@@ -168,6 +168,12 @@ verify_slice() {
             Libavcodec)
                 grep -qx "avcodec_send_packet" "$VERIFY_ROOT/$target-$fw.symbols" \
                     && pass "$fw: 导出 avcodec_send_packet" || fail "$fw: 没导出 avcodec_send_packet" ;;
+            Libavfilter)
+                grep -qx "avfilter_get_by_name" "$VERIFY_ROOT/$target-$fw.symbols" \
+                    && pass "$fw: 导出 avfilter_get_by_name" || fail "$fw: 没导出 avfilter_get_by_name" ;;
+            Libswscale)
+                grep -qx "sws_scale" "$VERIFY_ROOT/$target-$fw.symbols" \
+                    && pass "$fw: 导出 sws_scale" || fail "$fw: 没导出 sws_scale" ;;
         esac
 
         # ------------------------------------------------------------ 7.5 结构
@@ -182,6 +188,8 @@ verify_slice() {
             Libavcodec)  [ -f "$headers/$lib/avcodec.h" ]     || fail "$fw: 缺少 Headers/$lib/avcodec.h" ;;
             Libavformat)[ -f "$headers/$lib/avformat.h" ]     || fail "$fw: 缺少 Headers/$lib/avformat.h" ;;
             Libswresample) [ -f "$headers/$lib/swresample.h" ] || fail "$fw: 缺少 Headers/$lib/swresample.h" ;;
+            Libavfilter) [ -f "$headers/$lib/avfilter.h" ]    || fail "$fw: 缺少 Headers/$lib/avfilter.h" ;;
+            Libswscale)  [ -f "$headers/$lib/swscale.h" ]     || fail "$fw: 缺少 Headers/$lib/swscale.h" ;;
         esac
         for dep in $LUX_FRAMEWORKS; do
             lib=$(ff_lib_from_framework "$dep")

@@ -117,6 +117,23 @@ hwaccel 有对应的 codec 上下文(configure 里 hwaccel 会 `select` decoder)
 | `matroska` muxer | F0 的产物方向是 fMP4;写 mkv 用不到,不开。 |
 | av1/vp9/prores 等解码器 | 名单外。以后要支持再加,加之前先看它的 `_select` 拉进来什么。 |
 
+## filter(F2 起)
+
+| 组件 | 为什么在名单上 |
+| --- | --- |
+| `scale_vt` | VT 上做缩放与 NV12↔P010 转换(补丁 0010 给它加了 `format` 选项),HDR/10-bit 内容不必先落回 CPU 再上屏。 |
+| `transpose_vt` | 旋转/镜像走 CoreImage(补丁 0011),避开 VT 旋转对格式的限制。 |
+| `format` | 任何滤镜图的第一跳:协商像素格式与色彩属性。 |
+| `scale` | swscale 软缩放;`format`/`scale` 是组图与以后 libmpv 的底座。 |
+| `null` | 空滤镜,做基准图与"只测链路"用。 |
+| `hwupload` / `hwdownload` | 软件帧 ↔ VideoToolbox 帧(带了 0002 的 device derive 才能在没有显式 device 时工作)。 |
+| `tonemap_videotoolbox`(Metal) | HDR→SDR 的 Metal 实现;不在 `LUX_FILTERS` 里,需要 Metal Toolchain 才启用(`LUX_FILTERS_METAL`)。 |
+| `overlay_videotoolbox`(Metal) | 字幕/水印叠加,Metal 实现。 |
+| `bwdif_videotoolbox` / `yadif_videotoolbox`(Metal) | 硬件去隔行。 |
+
+Metal 三项没有 Metal Toolchain 时会被 configure 关掉,`verify-license.sh` 会打 `[warn]` 而不是
+`[FAIL]`;装上 toolchain 后自动变成硬性检查。
+
 ## configure 自动带入的组件(不在白名单里,但不是我们主动开的)
 
 `verify-license.sh` 会把它们打成 `[warn]`,方便对账:

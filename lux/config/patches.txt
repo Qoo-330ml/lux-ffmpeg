@@ -22,3 +22,10 @@
 0007-matroskadec-webp-cover.patch                # jellyfin 0088 mkv 认 image/webp 封面
 0008-dca-dtsx-profile.patch                      # jellyfin 0087 DTS:X / DTS-HD HRA 识别
 0009-movenc-dovi-side-data.patch                  # jellyfin 0027 的 movenc 部分(DV 写入 mp4)
+
+# --- F2:VideoToolbox / CoreImage 滤镜(需要 avfilter;Metal 类需要 Metal Toolchain) ---
+0010-scale-vt-output-format.patch                 # jellyfin 0043 scale_vt 的 format 选项
+0011-transpose-vt-coreimage.patch                 # jellyfin 0045 transpose_vt 改 CoreImage
+0012-vf-overlay-videotoolbox.patch                # jellyfin 0044 overlay_videotoolbox(Metal)
+0013-vf-tonemap-videotoolbox.patch                # jellyfin 0046 tonemap_videotoolbox(Metal)
+0014-vf-bwdif-videotoolbox.patch                  # jellyfin 0056 bwdif/yadif_videotoolbox(Metal)

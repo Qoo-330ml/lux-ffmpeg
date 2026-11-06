@@ -108,15 +108,15 @@ verify_target() {
     # 产物必须由当前补丁集生成
     check_patches "$build"
 
-    # 不该出现的库文件
-    for lib in libavfilter.a libswscale.a libavdevice.a libpostproc.a; do
+    # 不该出现的库文件(avfilter/swscale 自 F2 起是白名单内的产物)
+    for lib in libavdevice.a libpostproc.a; do
         [ -f "$install/lib/$lib" ] && fail "不该存在的产物 $lib"
     done
 
     # ---------------------------------------------------------------- 2. 许可开关
     local check
     for check in "CONFIG_GPL 0" "CONFIG_NONFREE 0" "CONFIG_VERSION3 1" \
-                 "CONFIG_LGPLV3 1" "CONFIG_AVFILTER 0" "CONFIG_SWSCALE 0" \
+                 "CONFIG_LGPLV3 1" "CONFIG_AVFILTER 1" "CONFIG_SWSCALE 1" \
                  "CONFIG_AVDEVICE 0" "CONFIG_NETWORK 0"; do
         local name=${check% *} want=${check#* }
         if grep -qE "^#define $name ${want}$" "$build/config.h"; then
@@ -283,7 +283,8 @@ EOF
     local cc="$build/config_components.h"
     local kind suffix want enabled_list extra
     for kind in demuxer:DEMUXER muxer:MUXER parser:PARSER decoder:DECODER \
-                encoder:ENCODER bsf:BSF protocol:PROTOCOL hwaccel:HWACCEL; do
+                encoder:ENCODER bsf:BSF protocol:PROTOCOL hwaccel:HWACCEL \
+                filter:FILTER; do
         suffix=${kind#*:}
         case "$kind" in
             demuxer*) want=$LUX_DEMUXERS ;;
@@ -294,6 +295,7 @@ EOF
             bsf*)     want=$LUX_BSFS ;;
             protocol*) want=$LUX_PROTOCOLS ;;
             hwaccel*) want=$LUX_HWACCELS ;;
+            filter*)  want=$LUX_FILTERS ;;
         esac
         enabled_list=$(grep -E "^#define CONFIG_[A-Z0-9_]+_${suffix} 1\$" "$cc" |
                        sed -E "s/^#define CONFIG_//; s/_${suffix} 1\$//" | tr 'A-Z' 'a-z' | sort)
@@ -310,6 +312,19 @@ EOF
                         <(printf '%s\n' "$enabled_list") 2>/dev/null | tr '\n' ' ')
         [ -n "${extra// /}" ] && warn "$kind 额外启用了(configure 自动 select): $extra"
     done
+
+    # Metal 滤镜:只有 CONFIG_METAL=1 时才是构建承诺(否则是环境里没装 Metal Toolchain)
+    if grep -qE '^#define CONFIG_METAL 1$' "$cc"; then
+        local mf missing_m=""
+        for mf in $LUX_FILTERS_METAL; do
+            grep -qE "^#define CONFIG_$(printf '%s' "$mf" | tr 'a-z' 'A-Z')_FILTER 1$" "$cc" \
+                || missing_m="$missing_m $mf"
+        done
+        [ -z "$missing_m" ] && pass "Metal 滤镜齐全: $LUX_FILTERS_METAL" \
+                            || fail "Metal 滤镜未生效:$missing_m"
+    else
+        warn "CONFIG_METAL=0(没装 Metal Toolchain),Metal 滤镜未启用: $LUX_FILTERS_METAL"
+    fi
 
     # 启用的解码器/编码器里不能出现 GPL 组件名
     local gpl_comp
