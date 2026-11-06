@@ -17,3 +17,8 @@
 # --- 通用修正 ----------------------------------------------------------------
 0005-codec-par-use-sw-pix-fmt.patch              # jellyfin 0090 codec_par 用 sw_pix_fmt
 0006-audiotoolbox-encoder-layouts-and-rates.patch # jellyfin 0062 aac_at 布局/采样率/S32
+
+# --- 客户端信息/封面 ----------------------------------------------------------
+0007-matroskadec-webp-cover.patch                # jellyfin 0088 mkv 认 image/webp 封面
+0008-dca-dtsx-profile.patch                      # jellyfin 0087 DTS:X / DTS-HD HRA 识别
+0009-movenc-dovi-side-data.patch                  # jellyfin 0027 的 movenc 部分(DV 写入 mp4)

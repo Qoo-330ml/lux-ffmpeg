@@ -20,7 +20,7 @@ LGPL 边界"三条标准重新分诊。本文记录结论;已经落地的部分�
 | fftools(CLI) | 11 | 不移植(`--disable-programs`) |
 | 容器/BSF/流媒体(segment/id3v2/dovi→HLS/ass/trim) | 7 | 暂不移植 |
 | 音频(AC-4/DTS:X/libopus) | 3 | 暂不移植 |
-| 杂项/通用修复 | 11 | 移植 2 个(0090、0088 待定) |
+| 杂项/通用修复 | 11 | 移植 3 个(0090、0088、0087) |
 
 ## 第一档:已移植(`lux/patches/`)
 
@@ -32,13 +32,16 @@ jellyfin 0048、0049、0055、0057(解码)、0090(通用)、0062(AudioToolbox)�
 Main12 4:2:0(`YUV420P12`)。lux 版把它并进 `YUV444P10`/`YUV420P12`/`YUV444P12` 共用的 case 块,
 并去掉重复候选;在本机 macOS 上实测 12-bit 4:2:0 已经走 `videotoolbox_vld` 硬解。
 
-## 第二档:可做,但要先定产品口径
+## 第二档:已移植
 
-| 补丁 | 内容 | 前置条件 |
-| --- | --- | --- |
-| 0088 | matroska 里 `image/webp` 封面 | 要真解出封面还得把 `webp`/`png`/`mjpeg` 解码器加进白名单 |
-| 0087 | DTS:X / DTS-HD HRA profile 识别 | 往 `defs.h` 加公开 profile 枚举;收益只是信息显示正确 |
-| 0027 | Dolby Vision side data 传给 muxer | 只保留 `movenc`/`matroskaenc` 部分;`hlsenc`/`mpegtsenc` 是服务端 HLS 链,删掉 |
+| lux 补丁 | 来源 | 内容 | 改造点 |
+| --- | --- | --- | --- |
+| `0007` | jellyfin 0088 | matroska 认 `image/webp` 封面 | 白名单加 `webp` + `mjpeg` 解码器;pkg 里连带 `vp8`(`webp_decoder_select`) |
+| `0008` | jellyfin 0087 | DTS:X / DTS-HD HRA(X、IMAX)profile | 无(只加公开 profile 常量 51/52) |
+| `0009` | jellyfin 0027 | Dolby Vision 配置校验后写进 mp4 | 只取 `movenc` + `dovi_isom`;删掉 `hlsenc`/`mpegtsenc` 的服务端分支 |
+
+注意:0007 会让 `libavcodec.a` 里出现 FFmpeg 内建的 `_ff_vpx_*` 符号(VP8 range coder),
+`verify-license.sh` 的外部库检查因此改成按 libvpx 自己的 API 名(`vpx_codec_`/`vpx_img_`)匹配。
 
 ## 第三档:F2(libmpv / avfilter)再评估
 

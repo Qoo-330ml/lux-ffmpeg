@@ -1,0 +1,15 @@
+# lux patch — 由 debian/patches/0088-add-webp-to-matroskadec-image-mime-types.patch 刷新而来(上游 FFmpeg 8.1.3 树)
+# matroska: 认 image/webp 封面 attachment(配合 --enable-decoder=webp)。
+# 许可:只改 LGPL 组件,不引入 GPL/nonfree 代码。
+diff --git a/libavformat/matroskadec.c b/libavformat/matroskadec.c
+index 344e610..2d1daa0 100644
+--- a/libavformat/matroskadec.c
++++ b/libavformat/matroskadec.c
+@@ -818,6 +818,7 @@ static const CodecMime mkv_image_mime_tags[] = {
+     {"image/jpeg"                 , AV_CODEC_ID_MJPEG},
+     {"image/png"                  , AV_CODEC_ID_PNG},
+     {"image/tiff"                 , AV_CODEC_ID_TIFF},
++    {"image/webp"                 , AV_CODEC_ID_WEBP},
+ 
+     {""                           , AV_CODEC_ID_NONE}
+ };

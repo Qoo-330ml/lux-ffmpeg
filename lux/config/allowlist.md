@@ -61,6 +61,8 @@ hwaccel 有对应的 codec 上下文(configure 里 hwaccel 会 `select` decoder)
 | `subrip` | SRT 字幕(封装成 mkv/mp4 的 text 轨)。 |
 | `ass` | ASS/SSA 字幕解码(渲染由外部 libass 负责,F1 才引入)。 |
 | `webvtt` | WebVTT 字幕。 |
+| `webp` | mkv 的 `image/webp` 封面 attachment(补丁 0007 把 mime 映射到它);客户端列表/详情页的封面图。 |
+| `mjpeg` | mkv/mp4 里最常见的封面格式(`image/jpeg`),同样是 attachment 解码。 |
 
 ## encoder
 
@@ -123,8 +125,9 @@ hwaccel 有对应的 codec 上下文(configure 里 hwaccel 会 `select` decoder)
 | --- | --- |
 | `mlp` parser | `truehd_decoder_select="mlp_parser"`(configure:3286) |
 | `vp9_superframe` bsf | `mov_muxer_select="… vp9_superframe_bsf …"`(configure:3910) |
+| `vp8` decoder | `webp_decoder_select="vp8_decoder"`(configure:3313);webp 封面里的有损部分是 VP8 关键帧 |
 
-两者都是 LGPL,且体积极小,保留。
+三条都是 LGPL,体积极小(加起来 < 300 KB),保留。
 
 ## 版本差异 / 名字不存在(如实记录)
 

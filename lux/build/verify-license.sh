@@ -32,7 +32,7 @@ warn() { printf '  [warn] %s\n' "$*"; WARNS=$((WARNS + 1)); }
 hdr()  { printf '\n== %s\n' "$*"; }
 
 # 符号表里绝对不允许出现的东西(外部库 / GPL 组件 / 我们没构建的库)
-FORBIDDEN_SYMBOL_RE='x264|x265|fdk|fdkaac|xvid|vidstab|xavs|postproc|mp3lame|libmp3lame|theora|dav1d|svt_|svtav1|libvpx|_vpx_|faac|vo_aacenc|opencore|libass|fribidi|fontconfig|freetype|gnutls|openssl|libvorbis|libopus|zimg|placebo|shaderc|chromaprint|vid\.stab'
+FORBIDDEN_SYMBOL_RE='x264|x265|fdk|fdkaac|xvid|vidstab|xavs|postproc|mp3lame|libmp3lame|theora|dav1d|svt_|svtav1|libvpx|vpx_codec_|vpx_img_|faac|vo_aacenc|opencore|libass|fribidi|fontconfig|freetype|gnutls|openssl|libvorbis|libopus|zimg|placebo|shaderc|chromaprint|vid\.stab'
 # 符号先落到文件再 grep:直接 `nm ... | grep -q` 会让 grep 提前关闭管道,
 # 在 pipefail 下把 nm 的 SIGPIPE 当失败。
 dump_symbols() { # $1 = archive, $2 = 输出文件

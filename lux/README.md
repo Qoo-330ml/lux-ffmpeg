@@ -112,7 +112,9 @@ cd /Volumes/Toshiba/mywork/lux-ffmpeg
    GPL 标记(LGPL 的 "Lesser" 不算);有 GPL 源文件被编译就失败。另外单独确认已知的两个上游
    GPL 目标文件不在归档里;
 6. 符号表:四个 `.a` 的 `nm` 里没有 `x264|x265|fdk|xvid|vidstab|postproc|mp3lame|theora|dav1d|
-   libvpx|libass|freetype|gnutls|openssl|…`;同时正向确认每个库都有 `av*/swr*` 符号(不是空归档);
+   libvpx|libass|freetype|gnutls|openssl|…`(libvpx 按它自己的 API 名 `vpx_codec_`/`vpx_img_`
+   匹配;FFmpeg 内建的 `_ff_vpx_*` 是 LGPL 的 VP8 range coder,不算外部库);
+   同时正向确认每个库都有 `av*/swr*` 符号(不是空归档);
 7. 平台:`lipo -info` 必须是 arm64;`vtool -show-build`(vtool 不认 `.a`,从归档里抽
    `version.o`)必须是 `platform IOS / minos 17.0`、`platform IOSSIMULATOR / minos 17.0`、
    `platform MACOS / minos 14.0`;
@@ -167,7 +169,7 @@ RESULT: PASS
 - **基线**:上游 FFmpeg **8.1.3**(取自 jellyfin-ffmpeg `v8.1.3-2`;该 tag 是 Debian 打包分支,
   源码树本身是 pristine 上游,`debian/patches/` 里的 106 个补丁**默认一个都不应用**)。
   实际编进产物的补丁只有两部分:§6.1 的 GPL 守卫(2 处源码改动)+ §6.2 从 jellyfin 补丁系列
-  移植的 6 个补丁。上游源码树是 **LGPL/GPL 混合**:`libavfilter` 下有 50 个文件是 GPL,
+  移植的 9 个补丁。上游源码树是 **LGPL/GPL 混合**:`libavfilter` 下有 50 个文件是 GPL,
   `libavcodec/aarch64/ac3dsp_*` 与 `libavutil/aarch64/crc.S` 也是 GPL。本构建**只启用 LGPL 部分**。
 - `configure` 输出:`License: LGPL version 3 or later`(因为 `--disable-gpl --disable-nonfree
   --enable-version3`);`config.h` 里 `CONFIG_GPL 0`、`CONFIG_NONFREE 0`、`CONFIG_VERSION3 1`、
@@ -197,7 +199,7 @@ CRC32 硬件加速。前者影响 AC-3 解码性能(未量化,列在「未解决
 
 ### 6.2 移植的上游补丁(`lux/patches/`)
 
-产物不是纯上游:`lux/patches/` 里有 6 个从 jellyfin-ffmpeg 补丁系列刷新(并按客户端需要改造)
+产物不是纯上游:`lux/patches/` 里有 9 个从 jellyfin-ffmpeg 补丁系列刷新(并按客户端需要改造)
 过的补丁,按 `lux/config/patches.txt` 的顺序应用,脚本是 `lux/build/apply-patches.sh`。
 
 | lux 补丁 | 来源 | 内容 | 改造点 |
@@ -208,6 +210,9 @@ CRC32 硬件加速。前者影响 AC-3 解码性能(未量化,列在「未解决
 | `0004` | jellyfin 0057 | HEVC 12-bit 的 `get_format()` 候选里加 VT | **扩到 `YUV420P12`**(Main12 4:2:0;原补丁只覆盖 4:2:2/4:4:4),并去掉重复候选 |
 | `0005` | jellyfin 0090 | `avcodec_parameters_from_context()` 优先用 `sw_pix_fmt` | 无 |
 | `0006` | jellyfin 0062 | `aac_at` 的 7.1 布局标签、`supported_samplerates`、S32 采样格式 | 无 |
+| `0007` | jellyfin 0088 | matroska 认 `image/webp` 封面 attachment | 白名单加了 `webp`/`mjpeg` 解码器(webp 会连带 `vp8`) |
+| `0008` | jellyfin 0087 | DTS:X / DTS-HD HRA(X、IMAX)profile 识别 | 无(只加公开 profile 常量) |
+| `0009` | jellyfin 0027 | Dolby Vision 配置校验后写进 mp4 | 只取 `movenc`/`dovi_isom`;删掉服务端的 hls/mpegts 分支 |
 
 用法与约束:
 
@@ -634,7 +639,7 @@ done
 ### 12.10 LGPL 合规清单(F1 交付时需要随包提供)
 
 - **源码**:上游 FFmpeg **8.1.3** 的完整源码(取自 jellyfin-ffmpeg `v8.1.3-2` 的源码树)+
-  本仓库 `lux/patches/` 里的 6 个补丁(F1 起,见 §6.2)+ `lux/` 下的构建脚本
+  本仓库 `lux/patches/` 里的 9 个补丁(见 §6.2)+ `lux/` 下的构建脚本
   (`config/`、`build/`、`test/`)——它们共同是「如何从源码得到这个二进制」的对应源码。
   交付时用 `./lux/build/apply-patches.sh status` 与 `BUILD-INFO.txt` 里的 `patches_digest` 对账。
 - **补丁清单**:

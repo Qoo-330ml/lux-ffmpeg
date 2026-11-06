@@ -5,6 +5,8 @@
  *   0001  新增 AV_HWACCEL_FLAG_LOW_PRIORITY + hwaccel_flags 的 low_priority 选项
  *   0005  avcodec_parameters_from_context() 优先使用 sw_pix_fmt
  *   0006  aac_at 编码器在产物里(白名单靠它,补丁改了它的布局/采样率表)
+ *   0007  mkv 封面用的 webp / mjpeg 解码器在产物里
+ *   0008  DTS-HD HRA X / IMAX 的公开 profile 常量
  *   0002/0003 只做结构性改动,没有稳定的公开 API 可以观测,靠 build + code review 保证
  *
  * 退出码:0 = 全部通过,1 = 有失败。
@@ -89,6 +91,20 @@ static void check_encoders(void)
              "0006 aac_at 编码器在产物里");
 }
 
+static void check_tier2(void)
+{
+    ok_check(avcodec_find_decoder(AV_CODEC_ID_WEBP) != NULL,
+             "0007 webp 解码器在产物里(mkv 封面)");
+    ok_check(avcodec_find_decoder(AV_CODEC_ID_MJPEG) != NULL,
+             "0007 mjpeg 解码器在产物里(jpeg 封面)");
+#ifdef AV_PROFILE_DTS_HD_HRA_X
+    ok_check(AV_PROFILE_DTS_HD_HRA_X == 51 && AV_PROFILE_DTS_HD_HRA_X_IMAX == 52,
+             "0008 DTS-HD HRA X / IMAX profile 常量 = 51 / 52");
+#else
+    ok_check(0, "0008 AV_PROFILE_DTS_HD_HRA_X 未定义");
+#endif
+}
+
 static void check_vt_device(void)
 {
     AVBufferRef *dev = NULL;
@@ -103,6 +119,7 @@ int main(void)
     check_low_priority();
     check_codec_par();
     check_encoders();
+    check_tier2();
     check_vt_device();
     printf("failures: %d\n", fails);
     printf("RESULT: %s\n", fails ? "FAIL" : "PASS");
