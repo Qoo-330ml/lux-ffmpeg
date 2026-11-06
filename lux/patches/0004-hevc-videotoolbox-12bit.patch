@@ -1,0 +1,35 @@
+# lux patch — 由 debian/patches/0057-add-12bit-decoding-on-videotoolbox.patch 刷新而来,并做了两处改造
+#   1) 把 VT 候选并入 YUV444P10/YUV420P12/YUV444P12 共用的 case 块(Main12 4:2:0 也能走硬解,
+#      这是 jellyfin 原补丁没有覆盖的、最常见的 12-bit 内容);
+#   2) 去掉重复的候选(原补丁在 444P10 与 444P12 各加了一次)。
+# 许可:只改 LGPL 组件(hevcdec.c),不引入 GPL/nonfree 代码。
+diff --git a/libavcodec/hevc/hevcdec.c b/libavcodec/hevc/hevcdec.c
+index cbb9075..45fbe65 100644
+--- a/libavcodec/hevc/hevcdec.c
++++ b/libavcodec/hevc/hevcdec.c
+@@ -680,12 +680,12 @@ static enum AVPixelFormat get_format(HEVCContext *s, const HEVCSPS *sps)
+ #endif
+         break;
+     case AV_PIX_FMT_YUV444P10:
+-#if CONFIG_HEVC_VIDEOTOOLBOX_HWACCEL
+-        *fmt++ = AV_PIX_FMT_VIDEOTOOLBOX;
+-#endif
+     /* NOTE: fallthrough */
+     case AV_PIX_FMT_YUV420P12:
+     case AV_PIX_FMT_YUV444P12:
++#if CONFIG_HEVC_VIDEOTOOLBOX_HWACCEL
++        *fmt++ = AV_PIX_FMT_VIDEOTOOLBOX;
++#endif
+ #if CONFIG_HEVC_VAAPI_HWACCEL
+        *fmt++ = AV_PIX_FMT_VAAPI;
+ #endif
+@@ -708,6 +708,9 @@ static enum AVPixelFormat get_format(HEVCContext *s, const HEVCSPS *sps)
+ #endif
+ #if CONFIG_HEVC_NVDEC_HWACCEL
+         *fmt++ = AV_PIX_FMT_CUDA;
++#endif
++#if CONFIG_HEVC_VIDEOTOOLBOX_HWACCEL
++        *fmt++ = AV_PIX_FMT_VIDEOTOOLBOX;
+ #endif
+         break;
+     }

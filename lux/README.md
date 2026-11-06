@@ -46,10 +46,16 @@
 lux/README.md                  # 本文件
 lux/config/ffmpeg-ios.conf     # configure 参数的唯一真相(被 build 脚本 source)
 lux/config/allowlist.md        # 白名单逐项理由 + 版本差异 + 上游 GPL 文件发现
+lux/config/patches.txt         # 上游补丁集的顺序(apply-patches.sh 读它)
+lux/patches/*.patch            # 刷新过的移植补丁(事实来源,见 §6.2)
+lux/docs/patch-triage.md       # 106 个 jellyfin 补丁的分诊结论
 lux/build/build-ffmpeg.sh      # macos-arm64 | ios-arm64 | ios-sim-arm64 | clean
-lux/build/verify-license.sh    # 许可 / 符号 / 平台 / 组件对账,失败非零退出
+lux/build/apply-patches.sh     # 补丁集 apply/check/revert/status/digest
+lux/build/verify-license.sh    # 许可 / 符号 / 平台 / 组件对账 / 补丁指纹,失败非零退出
 lux/test/read_mkv.c            # 最小 C 程序:读 mkv,打印流信息/时长/首关键帧偏移
-lux/test/run.sh                # 合成夹具 → 编译 read_mkv → 运行 → 断言
+lux/test/patch_probe.c         # 补丁公开 API 探针(0001/0005/0006)
+lux/test/hevc12_probe.c        # 12-bit HEVC:VT 候选 + 回退(0004)
+lux/test/run.sh                # 合成夹具 → 编译三个 C 程序 → 运行 → 断言
 lux/.build/                    # 全部产物(git 忽略)
 ```
 
@@ -158,8 +164,10 @@ RESULT: PASS
 
 ## 6. 许可记录
 
-- **基线**:jellyfin-ffmpeg `v8.1.3-2`,即 FFmpeg **8.1.3** + jellyfin 补丁(本仓库 `lux/8.1.3`
-  分支,提交 `f2e0673`)。上游源码树是 **LGPL/GPL 混合**:`libavfilter` 下有 50 个文件是 GPL,
+- **基线**:上游 FFmpeg **8.1.3**(取自 jellyfin-ffmpeg `v8.1.3-2`;该 tag 是 Debian 打包分支,
+  源码树本身是 pristine 上游,`debian/patches/` 里的 106 个补丁**默认一个都不应用**)。
+  实际编进产物的补丁只有两部分:§6.1 的 GPL 守卫(2 处源码改动)+ §6.2 从 jellyfin 补丁系列
+  移植的 6 个补丁。上游源码树是 **LGPL/GPL 混合**:`libavfilter` 下有 50 个文件是 GPL,
   `libavcodec/aarch64/ac3dsp_*` 与 `libavutil/aarch64/crc.S` 也是 GPL。本构建**只启用 LGPL 部分**。
 - `configure` 输出:`License: LGPL version 3 or later`(因为 `--disable-gpl --disable-nonfree
   --enable-version3`);`config.h` 里 `CONFIG_GPL 0`、`CONFIG_NONFREE 0`、`CONFIG_VERSION3 1`、
@@ -186,6 +194,39 @@ AC-3/E-AC-3 解码、或者编 libavutil,它们就会进 `libavcodec.a`/`libavut
 代价:LGPL 构建里 **AC-3/E-AC-3 的 NEON DSP 被关掉**(退回 C 实现),`av_crc` 也失去 ARMv8
 CRC32 硬件加速。前者影响 AC-3 解码性能(未量化,列在「未解决」),后者只影响 CRC 计算,对 F0
 的白名单组件基本无感。GPL 构建(`--enable-gpl`)行为完全不变。
+
+### 6.2 移植的上游补丁(`lux/patches/`)
+
+产物不是纯上游:`lux/patches/` 里有 6 个从 jellyfin-ffmpeg 补丁系列刷新(并按客户端需要改造)
+过的补丁,按 `lux/config/patches.txt` 的顺序应用,脚本是 `lux/build/apply-patches.sh`。
+
+| lux 补丁 | 来源 | 内容 | 改造点 |
+| --- | --- | --- | --- |
+| `0001` | jellyfin 0048 | VT 解码低优先级(`AV_HWACCEL_FLAG_LOW_PRIORITY`)+ `skip_frame>=NONKEY` 时只解关键帧 | 无(只刷新上下文) |
+| `0002` | jellyfin 0049 | VT hwcontext 的 `device_derive` | 无 |
+| `0003` | jellyfin 0055 | 非 HEVC 的 VT 从 `RequireHardware` 改为 `EnableHardware`(允许软解回退) | 无 |
+| `0004` | jellyfin 0057 | HEVC 12-bit 的 `get_format()` 候选里加 VT | **扩到 `YUV420P12`**(Main12 4:2:0;原补丁只覆盖 4:2:2/4:4:4),并去掉重复候选 |
+| `0005` | jellyfin 0090 | `avcodec_parameters_from_context()` 优先用 `sw_pix_fmt` | 无 |
+| `0006` | jellyfin 0062 | `aac_at` 的 7.1 布局标签、`supported_samplerates`、S32 采样格式 | 无 |
+
+用法与约束:
+
+```sh
+./lux/build/apply-patches.sh status     # 每个补丁 applied / not applied
+./lux/build/apply-patches.sh check      # 全量试打一遍再回滚(验收)
+./lux/build/apply-patches.sh apply      # 要求工作区干净
+./lux/build/apply-patches.sh revert     # 提交代码前恢复干净工作区
+```
+
+- 应用是**零 fuzz** 的(`git apply`,不加 `-C`/`-3`);上游一漂移就重新生成补丁,不靠模糊匹配。
+  6 个补丁里有 4 个(jellyfin 0044/0046/0047/0057)在原样 `git apply` 时会因上下文漂移失败,
+  所以 `debian/patches/` 只能当参考,`lux/patches/` 才是事实来源。
+- `build-ffmpeg.sh` / `build-frameworks.sh` 在 configure 前会 `apply-patches.sh ensure`,
+  并把补丁条数与 `sha256` 指纹写进 `BUILD-INFO.txt`;`verify-license.sh` 核对这个指纹,
+  **改了补丁没重建会直接 FAIL**。
+- 补丁只改 LGPL 文件,§5.1 第 5 项的 GPL 源文件审计照常覆盖它们(本次仍是 417 个源文件、0 命中)。
+- 没移植的补丁(服务端转码、Windows/Linux 硬件、fftools、avfilter 类)与理由见
+  `lux/docs/patch-triage.md`。
 
 ## 7. 与 MPVKit 现有静态库的粗略对比
 
@@ -592,14 +633,15 @@ done
 
 ### 12.10 LGPL 合规清单(F1 交付时需要随包提供)
 
-- **源码**:jellyfin-ffmpeg `v8.1.3-2`(本例 = FFmpeg 8.1.3 + jellyfin 补丁)的完整源码,
-  对应本仓库 `lux/8.1.3` 分支的 tag/提交;以及本仓库 `lux/` 下的构建脚本
-  (`config/`、`build/`、`test/`)——它们是「如何从源码得到这个二进制」的对应源码。
-- **补丁清单**(`lux:` 提交,`git log lux/8.1.3`):
+- **源码**:上游 FFmpeg **8.1.3** 的完整源码(取自 jellyfin-ffmpeg `v8.1.3-2` 的源码树)+
+  本仓库 `lux/patches/` 里的 6 个补丁(F1 起,见 §6.2)+ `lux/` 下的构建脚本
+  (`config/`、`build/`、`test/`)——它们共同是「如何从源码得到这个二进制」的对应源码。
+  交付时用 `./lux/build/apply-patches.sh status` 与 `BUILD-INFO.txt` 里的 `patches_digest` 对账。
+- **补丁清单**:
   - `662b2fe lux: keep GPL-only aarch64 AC3/CRC objects out of LGPL builds`
     (`libavcodec/aarch64/Makefile`、`libavcodec/ac3dsp.c`、`libavutil/aarch64/Makefile`);
+  - `lux/patches/0001..0006`(移植自 jellyfin 补丁系列,逐条说明见 §6.2);
   - `56a5356`、`215b006` 是 F0 的文档/实测记录,不含二进制。
-  F1 本身**没有改任何上游文件**,只加了 `lux/` 下的新文件。
 - **许可文本**:`COPYING.LGPLv3`(本仓库根目录);动态链接的四个 dylib 可被替换
   (替换后用自己的证书重签即可)。
 - **dSYM**:单独存档,不随 App 提交(App Store Connect 需要时再上传)。

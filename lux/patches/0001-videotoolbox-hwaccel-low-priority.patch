@@ -1,0 +1,62 @@
+# lux patch — 由 debian/patches/0048-add-vt-low-priority-keyframe-decoding.patch 刷新而来(上游 FFmpeg 8.1.3 树,上下文已重生成)
+# VT: 新增 AV_HWACCEL_FLAG_LOW_PRIORITY(后台解码低优先级) + skip_frame>=NONKEY 时只解关键帧。
+# 许可:只改 LGPL 组件,不引入 GPL/nonfree 代码。
+# 重新生成:见 lux/README.md「移植的上游补丁」。
+diff --git a/libavcodec/avcodec.h b/libavcodec/avcodec.h
+index 6824bfc..f24a245 100644
+--- a/libavcodec/avcodec.h
++++ b/libavcodec/avcodec.h
+@@ -2040,6 +2040,13 @@ typedef struct AVHWAccel {
+  */
+ #define AV_HWACCEL_FLAG_UNSAFE_OUTPUT (1 << 3)
+ 
++/**
++ * Some hardware decoders (like VideoToolbox) supports decode session priority
++ * that run decode pipeline at a lower priority than is used for realtime decoding.
++ * This will be useful for background processing without interrupting normal playback.
++ */
++#define AV_HWACCEL_FLAG_LOW_PRIORITY (1 << 4)
++
+ /**
+  * @}
+  */
+diff --git a/libavcodec/options_table.h b/libavcodec/options_table.h
+index ebfe2c3..a3830c2 100644
+--- a/libavcodec/options_table.h
++++ b/libavcodec/options_table.h
+@@ -403,6 +403,7 @@ static const AVOption avcodec_options[] = {
+ {"allow_high_depth", "allow to output YUV pixel formats with a different chroma sampling than 4:2:0 and/or other than 8 bits per component", 0, AV_OPT_TYPE_CONST, {.i64 = AV_HWACCEL_FLAG_ALLOW_HIGH_DEPTH }, INT_MIN, INT_MAX, V | D, .unit = "hwaccel_flags"},
+ {"allow_profile_mismatch", "attempt to decode anyway if HW accelerated decoder's supported profiles do not exactly match the stream", 0, AV_OPT_TYPE_CONST, {.i64 = AV_HWACCEL_FLAG_ALLOW_PROFILE_MISMATCH }, INT_MIN, INT_MAX, V | D, .unit = "hwaccel_flags"},
+ {"unsafe_output", "allow potentially unsafe hwaccel frame output that might require special care to process successfully", 0, AV_OPT_TYPE_CONST, {.i64 = AV_HWACCEL_FLAG_UNSAFE_OUTPUT }, INT_MIN, INT_MAX, V | D, .unit = "hwaccel_flags"},
++{"low_priority", "attempt to run decode pipeline at a lower priority than is used for realtime decoding", 0, AV_OPT_TYPE_CONST, {.i64 = AV_HWACCEL_FLAG_LOW_PRIORITY }, INT_MIN, INT_MAX, V | D, .unit = "hwaccel_flags"},
+ {"extra_hw_frames", "Number of extra hardware frames to allocate for the user", OFFSET(extra_hw_frames), AV_OPT_TYPE_INT, { .i64 = -1 }, -1, INT_MAX, V|D },
+ {"discard_damaged_percentage", "Percentage of damaged samples to discard a frame", OFFSET(discard_damaged_percentage), AV_OPT_TYPE_INT, {.i64 = 95 }, 0, 100, V|D },
+ {"side_data_prefer_packet", "Comma-separated list of side data types for which user-supplied (container) data is preferred over coded bytestream",
+diff --git a/libavcodec/videotoolbox.c b/libavcodec/videotoolbox.c
+index 2cd22cb..4c09fca 100644
+--- a/libavcodec/videotoolbox.c
++++ b/libavcodec/videotoolbox.c
+@@ -1025,6 +1025,23 @@ static int videotoolbox_start(AVCodecContext *avctx)
+         av_log(avctx, AV_LOG_VERBOSE, "VideoToolbox reported invalid data.\n");
+         return AVERROR_INVALIDDATA;
+     case 0:
++        if (avctx->skip_frame >= AVDISCARD_NONKEY) {
++            status = VTSessionSetProperty(videotoolbox->session,
++                                          kVTDecompressionPropertyKey_OnlyTheseFrames,
++                                          kVTDecompressionProperty_OnlyTheseFrames_KeyFrames);
++            if (status) {
++                av_log(avctx, AV_LOG_WARNING, "kVTDecompressionProperty_OnlyTheseFrames_KeyFrames is not supported on this device. Ignoring.\n");
++            }
++        }
++        if (avctx->hwaccel_flags & AV_HWACCEL_FLAG_LOW_PRIORITY) {
++            status = VTSessionSetProperty(videotoolbox->session,
++                                          kVTDecompressionPropertyKey_RealTime,
++                                          kCFBooleanFalse);
++            av_log(avctx, AV_LOG_INFO, "Decoder running at lower priority.\n");
++            if (status) {
++                av_log(avctx, AV_LOG_WARNING, "kVTDecompressionPropertyKey_RealTime is not supported on this device. Ignoring.\n");
++            }
++        }
+         return 0;
+     default:
+         av_log(avctx, AV_LOG_VERBOSE, "Unknown VideoToolbox session creation error %d\n", (int)status);

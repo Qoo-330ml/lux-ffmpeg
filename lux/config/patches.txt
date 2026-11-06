@@ -1,0 +1,19 @@
+# lux 上游补丁集 —— 顺序即应用顺序(脚本:lux/build/apply-patches.sh)
+#
+# 规则:
+#   * 每一行一个补丁文件名,相对 lux/patches/;`#` 之后是注释。
+#   * 补丁必须能对当前源码树「零 fuzz」应用,由 apply-patches.sh check 把关。
+#   * 每条补丁的出处(jellyfin debian/patches 编号)、改造点和许可判断写在补丁头里。
+#   * 目录 lux/patches/ 是唯一事实来源;debian/patches/ 只作为上游参考,构建不读它。
+#
+# 变更补丁集时:改这里 + 重新生成补丁 + 跑 apply-patches.sh check + 重建三个目标。
+
+# --- 视频解码(VideoToolbox) -------------------------------------------------
+0001-videotoolbox-hwaccel-low-priority.patch     # jellyfin 0048 低优先级解码 / 只解关键帧
+0002-videotoolbox-device-derive.patch            # jellyfin 0049 hwcontext device_derive
+0003-videotoolbox-allow-software-fallback.patch  # jellyfin 0055 非 HEVC 允许软解回退
+0004-hevc-videotoolbox-12bit.patch               # jellyfin 0057 + 扩到 420P12、去重复候选
+
+# --- 通用修正 ----------------------------------------------------------------
+0005-codec-par-use-sw-pix-fmt.patch              # jellyfin 0090 codec_par 用 sw_pix_fmt
+0006-audiotoolbox-encoder-layouts-and-rates.patch # jellyfin 0062 aac_at 布局/采样率/S32

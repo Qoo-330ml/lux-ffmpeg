@@ -1,0 +1,31 @@
+# lux patch — 由 debian/patches/0049-add-dummy-device-derive-to-videotoolbox-hwcontext.patch 刷新而来(上游 FFmpeg 8.1.3 树,上下文已重生成)
+# VT: hwcontext 支持 device_derive,av_hwdevice_ctx_create_derived 不再返回 ENOSYS。
+# 许可:只改 LGPL 组件,不引入 GPL/nonfree 代码。
+# 重新生成:见 lux/README.md「移植的上游补丁」。
+diff --git a/libavutil/hwcontext_videotoolbox.c b/libavutil/hwcontext_videotoolbox.c
+index 2764097..30735a8 100644
+--- a/libavutil/hwcontext_videotoolbox.c
++++ b/libavutil/hwcontext_videotoolbox.c
+@@ -831,6 +831,14 @@ static int vt_device_create(AVHWDeviceContext *ctx, const char *device,
+     return 0;
+ }
+ 
++static int vt_device_derive(AVHWDeviceContext *device_ctx,
++                            AVHWDeviceContext *src_ctx, AVDictionary *opts,
++                            int flags)
++{
++    // There is no context to be setup with VT, just return.
++    return 0;
++}
++
+ const HWContextType ff_hwcontext_type_videotoolbox = {
+     .type                 = AV_HWDEVICE_TYPE_VIDEOTOOLBOX,
+     .name                 = "videotoolbox",
+@@ -838,6 +846,7 @@ const HWContextType ff_hwcontext_type_videotoolbox = {
+     .frames_hwctx_size    = sizeof(VTFramesContext),
+ 
+     .device_create        = vt_device_create,
++    .device_derive        = vt_device_derive,
+     .frames_init          = vt_frames_init,
+     .frames_get_buffer    = vt_get_buffer,
+     .frames_get_constraints = vt_frames_get_constraints,

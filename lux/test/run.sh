@@ -154,6 +154,93 @@ grep -q "^packets_stream_0: " "$OUT" && grep -q "^packets_stream_1: " "$OUT" \
     && pass "两路流都有包计数" || fail "缺少按流的包计数"
 
 # ---------------------------------------------------------------------------
+# 6. 补丁集:公开 API 探针
+# ---------------------------------------------------------------------------
+PROBE="$WORK/patch_probe"
+printf '[run] 编译 patch_probe.c\n'
+if ! xcrun --sdk macosx clang -arch arm64 -mmacosx-version-min=14.0 -isysroot "$SDK" \
+        -Wall -Wextra -Wno-unused-parameter -O1 \
+        -I"$INSTALL/include" \
+        -o "$PROBE" "$LUX/test/patch_probe.c" \
+        "$INSTALL/lib/libavformat.a" "$INSTALL/lib/libavcodec.a" \
+        "$INSTALL/lib/libswresample.a" "$INSTALL/lib/libavutil.a" \
+        -framework CoreFoundation -framework CoreVideo -framework CoreMedia \
+        -framework VideoToolbox -framework AudioToolbox -framework Security \
+        > "$WORK/patch_probe-compile.log" 2>&1; then
+    cat "$WORK/patch_probe-compile.log" >&2
+    fail "patch_probe 编译/链接失败"
+else
+    POUT="$WORK/patch_probe.out"
+    if "$PROBE" > "$POUT" 2>&1; then
+        pass "patch_probe 全过(0001/0005/0006)"
+    else
+        fail "patch_probe 有失败项"
+    fi
+    sed 's/^/       /' "$POUT"
+fi
+
+# ---------------------------------------------------------------------------
+# 7. 12-bit HEVC:VT 候选 + 硬解失败回退(补丁 0004)
+# ---------------------------------------------------------------------------
+FIX12="$FIXDIR/lux-12bit-hevc.mkv"
+SYS_FFMPEG=$(command -v ffmpeg || true)
+HAVE_X265_12=no
+if [ -n "$SYS_FFMPEG" ] && "$SYS_FFMPEG" -hide_banner -h encoder=libx265 2>/dev/null | grep -q yuv420p12le; then
+    HAVE_X265_12=yes
+fi
+
+if [ "$HAVE_X265_12" = no ]; then
+    printf '[skip] 系统 ffmpeg 没有 12-bit libx265,跳过 12-bit HEVC 解验证\n'
+else
+    if [ ! -s "$FIX12" ]; then
+        printf '[run] 合成 12-bit HEVC 夹具 -> %s\n' "$FIX12"
+        if "$SYS_FFMPEG" -hide_banner -loglevel error -y \
+                -f lavfi -i "testsrc2=size=320x240:rate=10:duration=2" \
+                -c:v libx265 -pix_fmt yuv420p12le \
+                -x265-params log-level=error -f matroska "$FIX12" 2>"$WORK/fixture12.log"; then
+            pass "12-bit 夹具已生成: $FIX12"
+        else
+            cat "$WORK/fixture12.log" >&2
+            fail "12-bit 夹具生成失败"
+        fi
+    else
+        pass "12-bit 夹具已存在: $FIX12"
+    fi
+
+    P12="$WORK/hevc12_probe"
+    printf '[run] 编译 hevc12_probe.c\n'
+    if ! xcrun --sdk macosx clang -arch arm64 -mmacosx-version-min=14.0 -isysroot "$SDK" \
+            -Wall -Wextra -Wno-unused-parameter -O1 \
+            -I"$INSTALL/include" \
+            -o "$P12" "$LUX/test/hevc12_probe.c" \
+            "$INSTALL/lib/libavformat.a" "$INSTALL/lib/libavcodec.a" \
+            "$INSTALL/lib/libswresample.a" "$INSTALL/lib/libavutil.a" \
+            -framework CoreFoundation -framework CoreVideo -framework CoreMedia \
+            -framework VideoToolbox -framework AudioToolbox -framework Security \
+            > "$WORK/hevc12-compile.log" 2>&1; then
+        cat "$WORK/hevc12-compile.log" >&2
+        fail "hevc12_probe 编译/链接失败"
+    else
+        O12="$WORK/hevc12_probe.out"
+        if "$P12" "$FIX12" > "$O12" 2>"$WORK/hevc12_probe.err"; then
+            pass "12-bit HEVC 解码通过(VT 候选 + 回退)"
+        else
+            cat "$WORK/hevc12_probe.err" >&2
+            fail "12-bit HEVC 解码失败"
+        fi
+        grep -q '^vt_candidate: yes$' "$O12" && pass "0004:12-bit 的 get_format 候选里有 VideoToolbox" \
+            || fail "0004 未生效:候选里没有 VideoToolbox"
+        n12=$(awk '/^frames_decoded: /{print $2}' "$O12")
+        if [ -n "$n12" ] && [ "$n12" -ge 1 ] 2>/dev/null; then
+            pass "12-bit 解出 $n12 帧(回退路径正常)"
+        else
+            fail "12-bit 一帧都没解出来"
+        fi
+        sed 's/^/       /' "$O12"
+    fi
+fi
+
+# ---------------------------------------------------------------------------
 printf '\n'
 if [ "$FAILS" -gt 0 ]; then
     printf 'RESULT: FAIL (%d 项)\n' "$FAILS"

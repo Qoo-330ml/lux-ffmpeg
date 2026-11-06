@@ -1,0 +1,18 @@
+# lux patch — 由 debian/patches/0090-backport-a-fix-to-use-sw-pix-fmt-in-codec-par-if-set.patch 刷新而来(上游 FFmpeg 8.1.3 树,上下文已重生成)
+# avcodec: avcodec_parameters_from_context 优先用 sw_pix_fmt,硬解后导出的 format 不再错报。
+# 许可:只改 LGPL 组件,不引入 GPL/nonfree 代码。
+# 重新生成:见 lux/README.md「移植的上游补丁」。
+diff --git a/libavcodec/codec_par.c b/libavcodec/codec_par.c
+index ddf349c..d8c0177 100644
+--- a/libavcodec/codec_par.c
++++ b/libavcodec/codec_par.c
+@@ -154,7 +154,8 @@ int avcodec_parameters_from_context(AVCodecParameters *par,
+ 
+     switch (par->codec_type) {
+     case AVMEDIA_TYPE_VIDEO:
+-        par->format              = codec->pix_fmt;
++        par->format              = codec->sw_pix_fmt != AV_PIX_FMT_NONE ?
++                                   codec->sw_pix_fmt : codec->pix_fmt;
+         par->width               = codec->width;
+         par->height              = codec->height;
+         par->field_order         = codec->field_order;

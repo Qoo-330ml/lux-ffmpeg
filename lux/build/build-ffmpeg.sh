@@ -73,6 +73,14 @@ case " ${FF_OPTS[*]} " in
     *) die "--disable-gpl / --disable-nonfree missing from FF_OPTS" ;;
 esac
 
+# ---------------------------------------------------------------- 补丁集
+# lux/patches/ 必须先零 fuzz 应用;指纹写进 BUILD-INFO,verify-license.sh 用它
+# 证明"这个产物对应的补丁集"和仓库里的一致。
+"$LUX/build/apply-patches.sh" ensure || die "lux 补丁集未就绪,先看 lux/build/apply-patches.sh status"
+patches_count=$("$LUX/build/apply-patches.sh" count) || die "cannot count lux patches"
+patches_digest=$("$LUX/build/apply-patches.sh" digest) || die "cannot digest lux patches"
+log "patches     : $patches_count ($patches_digest)"
+
 # ---------------------------------------------------------------- configure
 # 每次从零开始:避免上一次 configure 的 config.h/.o 影响结果(日志保留在 logs/)
 if [ -d "$BUILD" ]; then
@@ -132,6 +140,8 @@ total=0
     printf 'configure_seconds=%s\n' "$cfg_elapsed"
     printf 'build_seconds=%s\n' "$elapsed"
     printf 'license=%s\n' "${license_line#License: }"
+    printf 'patches_count=%s\n' "$patches_count"
+    printf 'patches_digest=%s\n' "$patches_digest"
 } > "$BUILD/BUILD-INFO.txt"
 
 log "sizes:"

@@ -48,6 +48,34 @@ src_is_gpl() {
         grep -qi .
 }
 
+# 补丁集:BUILD-INFO 里记录的指纹必须等于仓库当前 lux/patches 的指纹,
+# 否则说明产物和源码不对应(改了补丁没重建,或者构建时没打补丁)。
+check_patches() { # $1 = build dir
+    local build=$1
+    local info="$build/BUILD-INFO.txt"
+    local digest count rec
+
+    digest=$("$LUX/build/apply-patches.sh" digest 2>/dev/null) || { fail "读取补丁集指纹失败"; return; }
+    count=$("$LUX/build/apply-patches.sh" count 2>/dev/null)
+
+    if [ ! -f "$info" ]; then
+        fail "缺少 $info(不是用 lux/build/build-ffmpeg.sh 构建的?)"
+        return
+    fi
+    rec=$(sed -n 's/^patches_digest=//p' "$info")
+    case "$rec" in
+        "")
+            fail "BUILD-INFO.txt 没有 patches_digest(产物早于补丁集)"
+            ;;
+        "$digest")
+            pass "补丁集一致:$count 条,$digest"
+            ;;
+        *)
+            fail "补丁集指纹不一致:产物 $rec ≠ 仓库 $digest(需要重新构建)"
+            ;;
+    esac
+}
+
 # ---------------------------------------------------------------------------
 # 单个目标的检查
 # ---------------------------------------------------------------------------
@@ -76,6 +104,9 @@ verify_target() {
         return
     fi
     pass "静态库齐全: $(printf '%s ' $LUX_STATIC_LIBS)"
+
+    # 产物必须由当前补丁集生成
+    check_patches "$build"
 
     # 不该出现的库文件
     for lib in libavfilter.a libswscale.a libavdevice.a libpostproc.a; do

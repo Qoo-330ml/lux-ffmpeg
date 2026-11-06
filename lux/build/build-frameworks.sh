@@ -108,6 +108,13 @@ build_target() {
         *) die "--disable-gpl / --disable-nonfree missing from FF_OPTS" ;;
     esac
 
+    # 补丁集:与 build-ffmpeg.sh 同一套保证(F1 的 dylib 也必须是打了补丁的源码编出来的)。
+    "$LUX/build/apply-patches.sh" ensure || die "lux 补丁集未就绪"
+    local patches_count patches_digest
+    patches_count=$("$LUX/build/apply-patches.sh" count) || die "cannot count lux patches"
+    patches_digest=$("$LUX/build/apply-patches.sh" digest) || die "cannot digest lux patches"
+    log "target=$target patches=$patches_count ($patches_digest)"
+
     if [ "${LUX_SKIP_FFMPEG_BUILD:-0}" = 1 ] && [ -f "$install/lib/libavformat.dylib" ]; then
         log "target=$target: reusing $install (LUX_SKIP_FFMPEG_BUILD=1)"
         package_target "$target"
@@ -154,6 +161,8 @@ build_target() {
         printf 'configure_seconds=%s\n' "$cfg_elapsed"
         printf 'build_seconds=%s\n' "$elapsed"
         printf 'license=%s\n' "${license_line#License: }"
+        printf 'patches_count=%s\n' "$patches_count"
+        printf 'patches_digest=%s\n' "$patches_digest"
     } > "$build/BUILD-INFO.txt"
 
     package_target "$target"

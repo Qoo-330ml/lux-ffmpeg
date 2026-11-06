@@ -1,0 +1,19 @@
+# lux patch — 由 debian/patches/0055-allow-vt-sw-decoder-for-every-codec.patch 刷新而来(上游 FFmpeg 8.1.3 树,上下文已重生成)
+# VT: 非 HEVC 从 RequireHardware 改为 EnableHardware,无硬解时允许软解回退。
+# 许可:只改 LGPL 组件,不引入 GPL/nonfree 代码。
+# 重新生成:见 lux/README.md「移植的上游补丁」。
+diff --git a/libavcodec/videotoolbox.c b/libavcodec/videotoolbox.c
+index 2cd22cb..5bb9742 100644
+--- a/libavcodec/videotoolbox.c
++++ b/libavcodec/videotoolbox.c
+@@ -843,9 +843,7 @@ static CFDictionaryRef videotoolbox_decoder_config_create(CMVideoCodecType codec
+                                                                    &kCFTypeDictionaryValueCallBacks);
+ 
+     CFDictionarySetValue(config_info,
+-                         codec_type == kCMVideoCodecType_HEVC ?
+-                            kVTVideoDecoderSpecification_EnableHardwareAcceleratedVideoDecoder :
+-                            kVTVideoDecoderSpecification_RequireHardwareAcceleratedVideoDecoder,
++                         kVTVideoDecoderSpecification_EnableHardwareAcceleratedVideoDecoder,
+                          kCFBooleanTrue);
+ 
+     avc_info = CFDictionaryCreateMutable(kCFAllocatorDefault,
