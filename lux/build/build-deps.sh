@@ -103,10 +103,27 @@ PC
     libplacebo)
       # 动态库(LGPL-2.1+),含 MoltenVK 静态库与 shaderc 静态库(由 pkg-config 提供)。
       extract libplacebo-v7.360.1.tar.gz libplacebo
+      # glad 头文件已入库(vendor/glad-2.0.8,见其 README.md)。替换 glad 的构建期生成步骤,
+      # 只保留它提供的 glad_dep;加载函数由宿主通过 get_proc_address 提供,因此关闭内置加载器。
+      cp -R "$REPO/lux/vendor/glad-2.0.8/include/glad" "$WORK/libplacebo/src/opengl/include/"
+      printf "%s\n" "glad_dep = declare_dependency(include_directories: include_directories('..'))" > "$WORK/libplacebo/src/opengl/include/glad/meson.build"
+      # vk.xml 来自锁定的 Vulkan-Headers 归档(与 MoltenVK 同一提交),用于生成 Vulkan 辅助代码
+      rm -rf "$WORK/vulkan-headers"; mkdir -p "$WORK/vulkan-headers"
+      tar -C "$WORK/vulkan-headers" -xzf "$SRC/e3b1eec08173d6b825cd3ac88c885a63b621504a.tar.gz"
+      VK_XML="$(find "$WORK/vulkan-headers" -path '*/registry/vk.xml' | head -1)"
+      [ -n "$VK_XML" ] || { echo "vk.xml not found in Vulkan-Headers archive" >&2; return 1; }
+      # MoltenVK 静态并入 libplacebo(Apache-2.0 放进 LGPL 动态库是允许的组合);链接参数取自 vulkan.pc
+      LINK_VULKAN="$(PKG_CONFIG_LIBDIR="$PREFIX/lib/pkgconfig" pkg-config --libs vulkan)"
+      [ -n "$LINK_VULKAN" ] || { echo "vulkan.pc not found in $PREFIX" >&2; return 1; }
+      # fast_float(header-only,MIT/Apache-2.0)为 libplacebo 的 3rdparty 子模块;按锁定的 v8.0.2 归档解开并加入 include 路径
+      rm -rf "$WORK/fast_float"; mkdir -p "$WORK/fast_float"
+      tar -C "$WORK/fast_float" -xzf "$SRC/v8.0.2.tar.gz" --strip-components=1
       rm -rf "$WORK/libplacebo/build-$TARGET"
       meson setup "$WORK/libplacebo/build-$TARGET" "$WORK/libplacebo" --prefix="$PREFIX" --buildtype=release \
         --default-library=shared $DEPS_MESON_CROSS \
-        -Dvulkan=enabled -Dvk-proc-addr=disabled -Dopengl=enabled -Dshaderc=enabled -Dglslang=disabled \
+        -Dcpp_args="$DEPS_CFLAGS -I$WORK/fast_float/include" \
+        -Dc_link_args="$DEPS_LDFLAGS $LINK_VULKAN" -Dcpp_link_args="$DEPS_LDFLAGS $LINK_VULKAN" \
+        -Dvulkan=enabled -Dvk-proc-addr=disabled -Dopengl=enabled -Dgl-proc-addr=disabled -Dvulkan-registry="$VK_XML" -Dshaderc=enabled -Dglslang=disabled \
         -Dlcms=enabled -Ddovi=disabled -Dlibdovi=disabled -Dunwind=disabled -Dd3d11=disabled \
         -Ddemos=false -Dtests=false > "$WORK/libplacebo.log" 2>&1 || { tail -40 "$WORK/libplacebo.log" >&2; return 1; }
       ninja -C "$WORK/libplacebo/build-$TARGET" -j"$JOBS" >> "$WORK/libplacebo.log" 2>&1 \
