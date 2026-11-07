@@ -167,3 +167,17 @@ Metal 三项没有 Metal Toolchain 时会被 configure 关掉,`verify-license.sh
 
 `verify-license.sh` 的第 4 项检查就是干这个的:它用 `*.d` 依赖文件反查每个 `.o` 的源文件,
 扫源码头里的许可标记;一旦有 GPL 源文件被编进去就**非零退出**。这两个文件就是被它抓出来的。
+
+## F2-1 网络与 TLS(libmpv 播放远程地址所需)
+
+| 项 | 开关 | 理由 | 许可 |
+|---|---|---|---|
+| 网络 | `--enable-network` | `http`/`https`/`tls` 协议的前提。F1 的 `--disable-network` 会让远程 URL 在 libmpv 里直接失败 | 随 FFmpeg(LGPL) |
+| 协议 `http` `https` `tcp` `tls` | `--enable-protocol=...`(经 `LUX_PROTOCOLS`) | libmpv 的 `http-header-fields` 注入头与远程播放地址都走这些协议 | 随 FFmpeg(LGPL) |
+| TLS 后端 | `--enable-securetransport` | 使用 Apple 系统 Security 框架的 SecureTransport,信任根是系统的,iOS 上无需随包 CA、无第三方库。代价:TLS 1.2 上限、Apple 标记为弃用 API。与 openssl/gnutls/mbedtls/libtls 在 configure 中互斥(`configure:4051`) | 随 FFmpeg(LGPL) + 系统框架 |
+
+**未开启(留给后续判断)**
+
+- `zlib`:仍 `--disable-zlib`。是否需要由 F2-3 的 libmpv 链接/运行结果决定;没有证据之前不开。
+- `avdevice`:仍 `--disable-avdevice`。Homebrew 的 mpv.pc 把 libavdevice 列入 Requires.private,但那是 Homebrew 构建的特性集合,不能证明 mpv 0.41 在 MPVKit 式的最小配置下必须它。**UNVERIFIED**,由 F2-3 第一天用 mpv 的 meson feature 表确认。
+- `libdav1d`:仍被 `ffmpeg-ios.conf` 禁止。AV1 首版使用 FFmpeg 原生解码器。

@@ -117,7 +117,7 @@ verify_target() {
     local check
     for check in "CONFIG_GPL 0" "CONFIG_NONFREE 0" "CONFIG_VERSION3 1" \
                  "CONFIG_LGPLV3 1" "CONFIG_AVFILTER 1" "CONFIG_SWSCALE 1" \
-                 "CONFIG_AVDEVICE 0" "CONFIG_NETWORK 0"; do
+                 "CONFIG_AVDEVICE 0" "CONFIG_NETWORK 1" "CONFIG_SECURETRANSPORT 1"; do
         local name=${check% *} want=${check#* }
         if grep -qE "^#define $name ${want}$" "$build/config.h"; then
             pass "config.h: $name = $want"

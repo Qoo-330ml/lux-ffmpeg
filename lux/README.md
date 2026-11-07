@@ -333,6 +333,8 @@ F0 证明了「能出 LGPL-only 的静态库」。F1 解决的是**链接方式*
 而 MPVKit 现有的 framework 只能靠 macOS 默认大小写不敏感的文件系统才能 `import`(A0 的发现)。
 这一节记录 F1 的做法、产物、验证与踩过的坑。
 
+**更正(F2-1,2026-11-07):实际产物是六个库(另有 `Libavfilter` / `Libswscale`,见 `lux/config/ffmpeg-ios.conf` 的 `LUX_FRAMEWORKS`),下面以“四个”描述的段落仅指前四个库的历史细节,语义适用于全部六个。**
+
 **一句话结论:四个库各出一个真正的动态 framework(`Libavutil` / `Libswresample` / `Libavcodec` /
 `Libavformat`),三切片合成 xcframework;Swift 可以直接 `import Libavformat` 等,不需要 C shim、
 不需要 `-I`,也不依赖大小写不敏感的文件系统(已在 Case-sensitive APFS 卷镜像上验证)。**
@@ -681,3 +683,12 @@ done
 - App Store Connect 的 dSYM / 隐私清单上传检查;
 - 首帧延迟、启动耗时(dyld 多 4 个镜像)、真实片源矩阵。
 
+## 13. F2-1 网络与 TLS(2026-11-07)
+
+- 配置:`lux/config/ffmpeg-ios.conf` 打开 `--enable-network`、`--enable-securetransport`,
+  协议表 `file http https tcp tls`。理由与未开启项(zlib、avdevice、dav1d)见 `lux/config/allowlist.md`「F2-1」。
+- 验证:`verify-frameworks.sh` PASS;`verify-license.sh` PASS(LGPL-only;`CONFIG_NETWORK 1`、`CONFIG_SECURETRANSPORT 1`
+  已加入检查)。
+- https 探针:`lux/test/https_probe.c`,在 macOS 静态构建上链接(`clang ... -framework Security -framework CoreFoundation ...`),
+  URL 只从环境变量 `LUX_TEST_HTTPS_URL` 读取,不写入仓库。实测:协议表 https/http/tls/tcp/file 均存在;
+  经 SecureTransport 打开一个公开 https 文件并读取 1810 字节,返回 PASS。
