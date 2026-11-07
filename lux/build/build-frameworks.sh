@@ -433,7 +433,6 @@ create_xcframeworks() {
         printf '%s  %s\n' "$checksum" "$fw.xcframework.zip" >> "$DIST_ROOT/checksums.txt"
     done
     ( cd "$DIST_ROOT" && ditto -c -k --sequesterRsrc --keepParent dSYMs dSYMs.zip )
-    cp "$DIST_ROOT/checksums.txt" "$DIST_ROOT/checksums.txt.tmp"
     log "xcframeworks in $DIST_ROOT"
     cat "$DIST_ROOT/checksums.txt"
 }

@@ -27,5 +27,8 @@
 0010-scale-vt-output-format.patch                 # jellyfin 0043 scale_vt 的 format 选项
 0011-transpose-vt-coreimage.patch                 # jellyfin 0045 transpose_vt 改 CoreImage
 0012-vf-overlay-videotoolbox.patch                # jellyfin 0044 overlay_videotoolbox(Metal)
-0013-vf-tonemap-videotoolbox.patch                # jellyfin 0046 tonemap_videotoolbox(Metal)
+# 暂缓(未进入应用集):0015 与 0013 需要 jellyfin 0004 中 colorspace.h/.c 的 DOVI 结构体与
+#   ff_map_dovi_metadata,lux 尚未移植该依赖链;见 lux/docs/patch-triage.md 的“暂缓”一节。
+# 0015-dither-matrix-header.patch                # jellyfin 0003 中的 libavfilter/dither_matrix.h
+# 0013-vf-tonemap-videotoolbox.patch            # jellyfin 0046 tonemap_videotoolbox(Metal)
 0014-vf-bwdif-videotoolbox.patch                  # jellyfin 0056 bwdif/yadif_videotoolbox(Metal)
