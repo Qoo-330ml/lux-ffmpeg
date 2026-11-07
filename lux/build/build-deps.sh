@@ -14,6 +14,7 @@ WORK="$REPO/lux/.build/deps/$TARGET/work"
 mkdir -p "$WORK" "$PREFIX"
 export PKG_CONFIG_LIBDIR="$PREFIX/lib/pkgconfig:$PREFIX/share/pkgconfig"
 export PKG_CONFIG_PATH=""
+export CC="$DEPS_CC" CXX="$DEPS_CXX" AR="$DEPS_AR" RANLIB="$DEPS_RANLIB"
 # libplacebo 的 glad 生成器(glad2 2.0.8,PyPI),装在项目内的 pydeps 目录
 export PYTHONPATH="$REPO/lux/.build/deps/pydeps${PYTHONPATH:+:$PYTHONPATH}"
 export CFLAGS="$DEPS_CFLAGS" CXXFLAGS="$DEPS_CFLAGS" LDFLAGS="$DEPS_LDFLAGS"
@@ -79,7 +80,7 @@ build_one() {
       cmake -S "$WORK/shaderc" -B "$WORK/shaderc/build-$TARGET" -DCMAKE_INSTALL_PREFIX="$PREFIX" \
         -DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=OFF \
         -DSHADERC_SKIP_TESTS=ON -DSHADERC_SKIP_EXAMPLES=ON -DENABLE_GLSLANG_BINARIES=OFF \
-        -DCMAKE_OSX_ARCHITECTURES=arm64 -DCMAKE_OSX_SYSROOT="$DEPS_SDK" \
+        -DCMAKE_OSX_ARCHITECTURES=arm64 -DCMAKE_OSX_SYSROOT="$DEPS_SDK" $DEPS_CMAKE_SYSTEM \
         -DCMAKE_OSX_DEPLOYMENT_TARGET="${DEPS_MIN_VERSION:-14.0}" -DCMAKE_POLICY_VERSION_MINIMUM=3.5 \
         -DCMAKE_POSITION_INDEPENDENT_CODE=ON > "$WORK/shaderc.log" 2>&1 \
         || { tail -30 "$WORK/shaderc.log" >&2; return 1; }
@@ -119,6 +120,9 @@ PC
       rm -rf "$WORK/fast_float"; mkdir -p "$WORK/fast_float"
       tar -C "$WORK/fast_float" -xzf "$SRC/v8.0.2.tar.gz" --strip-components=1
       rm -rf "$WORK/libplacebo/build-$TARGET"
+      # iOS/macOS 的 clang 原生提供 C11 原子操作(compiler-rt),Apple 的 SDK 没有 libatomic;
+      # libplacebo 的 cc.links 探测在 iOS 交叉链接下失败,会误加 find_library('atomic')。这里去掉该探测。
+      case "$TARGET" in ios-*) python3 -I -c "import sys,pathlib; p=pathlib.Path(sys.argv[1]); s=p.read_text(); p.write_text(s.replace(\"if not cc.links(atomic_test)\", \"if false\"))" "$WORK/libplacebo/src/meson.build" ;; esac
       meson setup "$WORK/libplacebo/build-$TARGET" "$WORK/libplacebo" --prefix="$PREFIX" --buildtype=release \
         --default-library=shared $DEPS_MESON_CROSS \
         -Dcpp_args="$DEPS_CFLAGS -I$WORK/fast_float/include" \
@@ -134,7 +138,7 @@ PC
       rm -rf "$WORK/uchardet/build-$TARGET"
       cmake -S "$WORK/uchardet" -B "$WORK/uchardet/build-$TARGET" -DCMAKE_INSTALL_PREFIX="$PREFIX" \
         -DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=ON -DBUILD_STATIC=OFF \
-        -DCMAKE_OSX_ARCHITECTURES=arm64 -DCMAKE_OSX_SYSROOT="$DEPS_SDK" \
+        -DCMAKE_OSX_ARCHITECTURES=arm64 -DCMAKE_OSX_SYSROOT="$DEPS_SDK" $DEPS_CMAKE_SYSTEM \
         -DCMAKE_OSX_DEPLOYMENT_TARGET="${DEPS_MIN_VERSION:-14.0}" -DCMAKE_POLICY_VERSION_MINIMUM=3.5 > "$WORK/uchardet.log" 2>&1
       cmake --build "$WORK/uchardet/build-$TARGET" -j"$JOBS" >> "$WORK/uchardet.log" 2>&1
       cmake --install "$WORK/uchardet/build-$TARGET" >> "$WORK/uchardet.log" 2>&1 ;;

@@ -44,4 +44,14 @@ objc_args = ['-arch', 'arm64', '${minflag}', '-isysroot', '$sdk', '-fPIC']
 objc_link_args = ['-arch', 'arm64', '${minflag}', '-isysroot', '$sdk']
 CROSS
     DEPS_MESON_CROSS="--cross-file $cross"
+    # autotools / cmake 使用的编译器与 CMake 系统名(iOS 必须声明 iOS,否则 cmake 会按 macOS 构建)
+    DEPS_CC="$cc"
+    DEPS_CXX="$(xcrun --sdk "$sdkname" -f clang++)"
+    DEPS_AR="$(xcrun --sdk "$sdkname" -f ar)"
+    DEPS_RANLIB="$(xcrun --sdk "$sdkname" -f ranlib)"
+    case "$1" in
+        ios-*) DEPS_CMAKE_SYSTEM="-DCMAKE_SYSTEM_NAME=iOS -DCMAKE_MACOSX_BUNDLE=OFF" ;;  # 工具不打成 bundle
+        *)     DEPS_CMAKE_SYSTEM="" ;;
+    esac
+    DEPS_MIN_VERSION="${minflag##*=}"
 }

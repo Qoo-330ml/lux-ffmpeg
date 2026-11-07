@@ -8,7 +8,8 @@ REPO="$(cd "$(dirname "$0")/../.." && pwd)"
 TARGET="${1:?target required}"
 case "$TARGET" in
   macos-arm64) PLATFORM="macOS"; SCHEME_OS="macOS"; MVK_TARGET="MoltenVK-macOS"; SDK="macosx" ;;
-  *) echo "build-moltenvk.sh: $TARGET not implemented yet (F2-3)" >&2; exit 2 ;;
+  ios-arm64) PLATFORM="iOS"; SCHEME_OS="iOS"; MVK_TARGET="MoltenVK-iOS"; SDK="iphoneos" ;;
+  *) echo "build-moltenvk.sh: $TARGET not implemented yet (simulator slice: F2-3)" >&2; exit 2 ;;
 esac
 SRC="$REPO/lux/.build/deps/src"
 ROOT="$REPO/lux/.build/deps/$TARGET/moltenvk"
@@ -49,15 +50,40 @@ rm -rf "$MVK/External/SPIRV-Tools/__MACOSX"
 
 # 3. 外部静态库(SPIRVCross / SPIRVTools)
 ( cd "$MVK" && xcodebuild build -project ExternalDependencies.xcodeproj -scheme "ExternalDependencies-$SCHEME_OS" \
-    -configuration Release -destination "generic/platform=$PLATFORM" -derivedDataPath "$DD/ext" \
+    -configuration Release -destination "generic/platform=$PLATFORM" -derivedDataPath "$DD/ext-$TARGET" \
     ARCHS=arm64 ONLY_ACTIVE_ARCH=YES ) > "$ROOT/ext.log" 2>&1 || { tail -30 "$ROOT/ext.log" >&2; exit 1; }
+# 外部静态库:按平台保存到 lux/.build/deps/moltenvk-ext/<target>/,再由 xcodebuild 合成 xcframework。
+# (MoltenVK 自带的 create_ext_lib_xcframeworks.sh 依赖 Intermediates 暂存目录,而 xcodebuild 的产物不写那里。)
+EXT_LIBS="$REPO/lux/.build/deps/moltenvk-ext"
+for lib in libSPIRVCross.a libSPIRVTools.a; do
+  found="$(find "$DD/ext-$TARGET" -name "$lib" -not -path '*Intermediates*' | head -1)"
+  [ -n "$found" ] || { echo "$lib not produced for $TARGET" >&2; exit 1; }
+  mkdir -p "$EXT_LIBS/$TARGET"; cp "$found" "$EXT_LIBS/$TARGET/$lib"
+done
+# 合成 xcframework:汇总所有已保存的平台切片(macOS 与 iOS 可以先后构建,互不覆盖)
+XCF_OUT="$MVK/External/build/Release"
+rm -rf "$XCF_OUT"; mkdir -p "$XCF_OUT"
+for pair in "SPIRVCross:libSPIRVCross.a:SPIRV-Cross" "SPIRVTools:libSPIRVTools.a:SPIRV-Tools"; do
+  name="${pair%%:*}"; rest="${pair#*:}"; libname="${rest%%:*}"; srcdir="${rest#*:}"
+  hdr="$ROOT/xcf-headers/$name"; rm -rf "$hdr"; mkdir -p "$hdr"
+  ln -sfn "$MVK/External/$srcdir" "$hdr/$name"
+  args=()
+  for plat in "$EXT_LIBS"/*/; do
+    [ -f "$plat/$libname" ] && args+=(-library "$plat/$libname" -headers "$hdr")
+  done
+  xcodebuild -create-xcframework "${args[@]}" -output "$XCF_OUT/$name.xcframework" >> "$ROOT/ext-package.log" 2>&1 \
+    || { tail -20 "$ROOT/ext-package.log" >&2; exit 1; }
+done
 ln -sfn Release "$MVK/External/build/Latest"
 
-# 4. MoltenVK 库本体(-target 而不是 scheme,避开 MoltenVKShaderConverter 对 x86_64 切片的假设)
+# 4. MoltenVK 库本体。macOS 不指定 -sdk(与已验证的构建一致),iOS 才指定
+MVK_SDK_ARG=()
+[ "$SDK" = "macosx" ] || MVK_SDK_ARG=(-sdk "$SDK")
+# 使用 -target 而不是 scheme,避开 MoltenVKShaderConverter 对 x86_64 切片的假设
 ( cd "$MVK" && xcodebuild build -project MoltenVKPackaging.xcodeproj -target "$MVK_TARGET" -configuration Release \
-    ARCHS=arm64 ONLY_ACTIVE_ARCH=YES SYMROOT="$DD/products" OBJROOT="$DD/obj" ) > "$ROOT/mvk.log" 2>&1 \
+    ${MVK_SDK_ARG[@]+"${MVK_SDK_ARG[@]}"} ARCHS=arm64 ONLY_ACTIVE_ARCH=YES SYMROOT="$DD/products-$TARGET" OBJROOT="$DD/obj-$TARGET" ) > "$ROOT/mvk.log" 2>&1 \
   || { tail -30 "$ROOT/mvk.log" >&2; exit 1; }
-LIB="$DD/products/Release/libMoltenVK.a"
+LIB="$(find "$DD/products-$TARGET" -name libMoltenVK.a -not -path '*XCFrameworkStaging*' | head -1)"
 [ -f "$LIB" ] || { echo "libMoltenVK.a not produced" >&2; exit 1; }
 
 # 5. 安装到前缀:静态库 + Vulkan 头文件 + vulkan.pc(供 libplacebo 找到头文件与 MoltenVK)
@@ -65,6 +91,12 @@ cp "$LIB" "$PREFIX/lib/libMoltenVK.a"
 mkdir -p "$PREFIX/include/vulkan"
 cp -R "$MVK/External/Vulkan-Headers/include/vulkan/." "$PREFIX/include/vulkan/"
 cp -R "$MVK/External/Vulkan-Headers/include/vk_video" "$PREFIX/include/" 2>/dev/null || true
+# MoltenVK 依赖的系统框架:macOS 需要 AppKit/IOKit,iOS 需要 UIKit
+if [ "$SDK" = "macosx" ]; then
+  VK_FRAMEWORKS="-framework Metal -framework IOSurface -framework QuartzCore -framework IOKit -framework CoreGraphics -framework Foundation -framework AppKit"
+else
+  VK_FRAMEWORKS="-framework Metal -framework IOSurface -framework QuartzCore -framework CoreGraphics -framework Foundation -framework UIKit"
+fi
 mkdir -p "$PREFIX/lib/pkgconfig"
 cat > "$PREFIX/lib/pkgconfig/vulkan.pc" <<PC
 prefix=$PREFIX
@@ -74,6 +106,6 @@ Name: Vulkan
 Description: Vulkan API (MoltenVK 1.4.2, static)
 Version: 1.4.357
 Cflags: -I\${includedir}
-Libs: -L\${libdir} -lMoltenVK -framework Metal -framework IOSurface -framework QuartzCore -framework IOKit -framework CoreGraphics -framework Foundation -framework AppKit
+Libs: -L\${libdir} -lMoltenVK $VK_FRAMEWORKS
 PC
 echo "[built] moltenvk 1.4.2 ($TARGET) -> $PREFIX/lib/libMoltenVK.a"
