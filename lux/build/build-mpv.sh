@@ -82,7 +82,8 @@ export PKG_CONFIG_PATH=""
 # coreaudio(ao_coreaudio)只在 macOS 有 AudioDevice API,这里全部关闭;播放走 avfoundation / audiounit
 AUDIOUNIT=disabled
 IOS_GL=disabled
-case "$TARGET" in ios-*) AUDIOUNIT=enabled; IOS_GL=enabled ;; esac
+AVFOUNDATION=enabled
+case "$TARGET" in ios-*) AUDIOUNIT=enabled; IOS_GL=enabled; AVFOUNDATION=disabled ;; esac
 rm -rf "$WORK/build"
 meson setup "$WORK/build" "$WORK" --prefix="$PREFIX" --buildtype=release \
   --default-library=shared $DEPS_MESON_CROSS \
@@ -93,7 +94,7 @@ meson setup "$WORK/build" "$WORK" --prefix="$PREFIX" --buildtype=release \
   -Dzlib=disabled -Dcocoa=disabled -Dmacos-cocoa-cb=disabled -Dswift-build=disabled \
   -Duchardet=enabled -Dlcms2=enabled \
   -Dgl=enabled -Dplain-gl=enabled -Dios-gl=$IOS_GL -Dvideotoolbox-gl=disabled -Dvideotoolbox-pl=enabled \
-  -Dvulkan=enabled -Dshaderc=disabled -Daudiounit=$AUDIOUNIT -Dcoreaudio=disabled -Davfoundation=enabled \
+  -Dvulkan=enabled -Dshaderc=disabled -Daudiounit=$AUDIOUNIT -Dcoreaudio=disabled -Davfoundation=$AVFOUNDATION \
   -Dtests=false -Dmanpage-build=disabled -Dhtml-build=disabled -Dpdf-build=disabled \
   > "$WORK/configure.log" 2>&1 || { tail -40 "$WORK/configure.log" >&2; exit 1; }
 # 3. 编译与安装
