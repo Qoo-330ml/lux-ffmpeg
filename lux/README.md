@@ -72,7 +72,7 @@ lux/.build/                    # 全部产物(git 忽略)
 ## 4. 构建
 
 ```sh
-cd /Volumes/Toshiba/mywork/lux-ffmpeg
+# 在仓库根目录执行(下面的命令都以仓库根为相对路径)
 ./lux/build/build-ffmpeg.sh macos-arm64      # 本机,可以真跑
 ./lux/build/build-ffmpeg.sh ios-arm64        # 交叉编译
 ./lux/build/build-ffmpeg.sh ios-sim-arm64
