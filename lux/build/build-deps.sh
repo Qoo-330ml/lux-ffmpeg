@@ -14,6 +14,8 @@ WORK="$REPO/lux/.build/deps/$TARGET/work"
 mkdir -p "$WORK" "$PREFIX"
 export PKG_CONFIG_LIBDIR="$PREFIX/lib/pkgconfig:$PREFIX/share/pkgconfig"
 export PKG_CONFIG_PATH=""
+# libplacebo 的 glad 生成器(glad2 2.0.8,PyPI),装在项目内的 pydeps 目录
+export PYTHONPATH="$REPO/lux/.build/deps/pydeps${PYTHONPATH:+:$PYTHONPATH}"
 export CFLAGS="$DEPS_CFLAGS" CXXFLAGS="$DEPS_CFLAGS" LDFLAGS="$DEPS_LDFLAGS"
 JOBS=$(sysctl -n hw.ncpu)
 extract() { # $1 archive basename
@@ -85,7 +87,30 @@ build_one() {
         || { tail -30 "$WORK/shaderc.log" >&2; return 1; }
       cp "$WORK/shaderc/build-$TARGET/libshaderc_combined.a" "$PREFIX/lib/" 2>/dev/null \
         || find "$WORK/shaderc/build-$TARGET" -name 'libshaderc_combined.a' -exec cp {} "$PREFIX/lib/" \;
-      mkdir -p "$PREFIX/include"; cp -R "$WORK/shaderc/libshaderc/include/shaderc" "$PREFIX/include/" ;;
+      mkdir -p "$PREFIX/include"; cp -R "$WORK/shaderc/libshaderc/include/shaderc" "$PREFIX/include/"
+      mkdir -p "$PREFIX/lib/pkgconfig"
+      cat > "$PREFIX/lib/pkgconfig/shaderc.pc" <<PC
+prefix=$PREFIX
+includedir=\${prefix}/include
+libdir=\${prefix}/lib
+Name: shaderc
+Description: shaderc (static combined library, Apache-2.0)
+Version: 2025.5
+Cflags: -I\${includedir}
+Libs: -L\${libdir} -lshaderc_combined -lc++
+PC
+      ;;
+    libplacebo)
+      # 动态库(LGPL-2.1+),含 MoltenVK 静态库与 shaderc 静态库(由 pkg-config 提供)。
+      extract libplacebo-v7.360.1.tar.gz libplacebo
+      rm -rf "$WORK/libplacebo/build-$TARGET"
+      meson setup "$WORK/libplacebo/build-$TARGET" "$WORK/libplacebo" --prefix="$PREFIX" --buildtype=release \
+        --default-library=shared $DEPS_MESON_CROSS \
+        -Dvulkan=enabled -Dvk-proc-addr=disabled -Dopengl=enabled -Dshaderc=enabled -Dglslang=disabled \
+        -Dlcms=enabled -Ddovi=disabled -Dlibdovi=disabled -Dunwind=disabled -Dd3d11=disabled \
+        -Ddemos=false -Dtests=false > "$WORK/libplacebo.log" 2>&1 || { tail -40 "$WORK/libplacebo.log" >&2; return 1; }
+      ninja -C "$WORK/libplacebo/build-$TARGET" -j"$JOBS" >> "$WORK/libplacebo.log" 2>&1 \
+        && ninja -C "$WORK/libplacebo/build-$TARGET" install >> "$WORK/libplacebo.log" 2>&1 || { tail -40 "$WORK/libplacebo.log" >&2; return 1; } ;;
     uchardet)
       # 动态库(LGPL-2.1+,选 LGPL 许可),独立 framework 的候选;这里只构建 dylib 版本
       extract uchardet-0.0.8.tar.xz uchardet
@@ -100,5 +125,5 @@ build_one() {
   esac
   echo "[built] $name ($TARGET)"
 }
-if [ $# -eq 0 ]; then set -- freetype harfbuzz fribidi libunibreak lcms2 libass uchardet shaderc; fi
+if [ $# -eq 0 ]; then set -- freetype harfbuzz fribidi libunibreak lcms2 libass uchardet shaderc libplacebo; fi
 for n in "$@"; do build_one "$n"; done
