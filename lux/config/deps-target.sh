@@ -40,6 +40,8 @@ c_args = ['-arch', 'arm64', '${minflag}', '-isysroot', '$sdk', '-fPIC']
 c_link_args = ['-arch', 'arm64', '${minflag}', '-isysroot', '$sdk']
 cpp_args = ['-arch', 'arm64', '${minflag}', '-isysroot', '$sdk', '-fPIC']
 cpp_link_args = ['-arch', 'arm64', '${minflag}', '-isysroot', '$sdk']
+objc_args = ['-arch', 'arm64', '${minflag}', '-isysroot', '$sdk', '-fPIC']
+objc_link_args = ['-arch', 'arm64', '${minflag}', '-isysroot', '$sdk']
 CROSS
     DEPS_MESON_CROSS="--cross-file $cross"
 }
