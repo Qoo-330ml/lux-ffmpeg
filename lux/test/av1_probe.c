@@ -18,7 +18,11 @@
  *   探针把这种情况记为 `av1_result: unsupported_sw_decode`(而不是失败),同时保留
  *   「若将来 av1 真能解出帧就按相同标准比对」的分支。
  *
- * 两个解码器都不挂 hw_device_ctx,走纯软件路径。
+ * 两个解码器都不挂 hw_device_ctx,走纯软件路径。本步只实测 **8-bit 4:2:0**:
+ * dav1d 的输出必须是 yuv420p,否则直接判 FAIL(luma_average() 也按 8-bit 读)。
+ *
+ * 失败注入(只给返工验证用):LUX_AV1_TEST_STUCK_EAGAIN=1 会让发送路径永远返回
+ * EAGAIN,用来验证自旋保护会退出并 FAIL;正常运行不设置。
  *
  * 用法: av1_probe <file> [max_frames]    (max_frames 默认 60,N 至少 30)
  *
@@ -45,6 +49,15 @@
 
 #define DEFAULT_MAX_FRAMES 60
 #define MIN_FRAMES         30
+
+/* EAGAIN 自旋保护:同一个 packet 连续 EAGAIN 超过 spins 上限,或连续 no_progress 次
+ * drain 一帧都没取到,就判定解码器卡死。正常路径下 send 之后必 drain,send 不该 EAGAIN。 */
+#define MAX_EAGAIN_SPINS        1000
+#define MAX_EAGAIN_NO_PROGRESS  32
+
+/* 仅用于返工验证的故障注入:设置 LUX_AV1_TEST_STUCK_EAGAIN=1 时,发送路径永远假装
+ * 返回 EAGAIN,用来确认自旋保护会退出并 FAIL。正常运行不设置该变量。 */
+static int test_stuck_eagain;
 
 typedef struct RunResult {
     int opened;                  /* 解码器找到并 avcodec_open2 成功 */
@@ -240,17 +253,34 @@ static int probe_decoder(const char *path, const char *decoder_name, int max_fra
          * send 返回 EAGAIN 表示解码器内部还有帧没取走,**这个 packet 并没有被消费**:
          * 先 drain 到 EAGAIN/EOF,再用同一个 pkt 重发;在成功之前绝不能 unref,
          * 否则会丢帧(旧实现就在 EAGAIN 时 unref 了)。
+         *
+         * 自旋保护:同一个 pkt 连续 EAGAIN 超过 MAX_EAGAIN_SPINS 次,或连续
+         * MAX_EAGAIN_NO_PROGRESS 次 drain 一帧都没取到,就判定解码器卡死、直接 FAIL。
+         * 正常情况下 send 之后都会 drain,send 不应该返回 EAGAIN。
          */
+        int spins = 0, no_progress = 0;
         for (;;) {
-            ret = avcodec_send_packet(dec, pkt);
+            ret = test_stuck_eagain ? AVERROR(EAGAIN) : avcodec_send_packet(dec, pkt);
             if (ret != AVERROR(EAGAIN)) {
                 sent = 1;
                 break;
             }
+            spins++;
+            int before = r->frames;
             if (drain_frames(dec, frame, r, max_frames) < 0)
                 goto fail;
             if (r->enosys || r->frames >= max_frames)
                 break;      /* 已经没必要/没办法再送这个包 */
+            if (r->frames == before)
+                no_progress++;
+            else
+                no_progress = 0;
+            if (spins >= MAX_EAGAIN_SPINS || no_progress >= MAX_EAGAIN_NO_PROGRESS) {
+                printf("[FAIL] send_packet: decoder stuck — EAGAIN 自旋 spins=%d "
+                       "no_progress=%d,已放弃\n", spins, no_progress);
+                av_packet_unref(pkt);
+                goto fail;
+            }
         }
         av_packet_unref(pkt);
 
@@ -264,7 +294,7 @@ static int probe_decoder(const char *path, const char *decoder_name, int max_fra
                 goto done;
             }
             /* drain 完仍然 EAGAIN:libavcodec 不该出现,记错误而不是死循环。 */
-            printf("send_packet: EAGAIN after draining, decoder is stuck\n");
+            printf("[FAIL] send_packet: EAGAIN after draining, decoder is stuck\n");
             goto fail;
         }
         if (ret == AVERROR(ENOSYS)) {
@@ -341,8 +371,11 @@ int main(int argc, char **argv)
     }
 
     av_log_set_level(AV_LOG_ERROR);
+    test_stuck_eagain = getenv("LUX_AV1_TEST_STUCK_EAGAIN") != NULL;
 
     printf("av1_probe: input=%s max_frames=%d\n", argv[1], max_frames);
+    if (test_stuck_eagain)
+        printf("test_hook: LUX_AV1_TEST_STUCK_EAGAIN=1 (forced EAGAIN, expect FAIL)\n");
     printf("decoder_order: libdav1d av1\n");
 
     /* 流信息只打一次,方便断言样片本身是 AV1 / 320x240。 */
@@ -394,11 +427,20 @@ int main(int argc, char **argv)
                          native.width == native.expect_width &&
                          native.height == native.expect_height;
 
+    int dav1d_8bit = dav1d.pix_fmt == AV_PIX_FMT_YUV420P;
     int dav1d_ok = dav1d.opened && !dav1d.failed && !dav1d.enosys &&
                    dav1d.frames >= MIN_FRAMES && dav1d.consistent &&
-                   dav1d_dims_ok && dav1d_complete;
-    int native_decoded = native.opened && !native.failed && !native.enosys &&
-                         native.frames >= MIN_FRAMES && native_complete;
+                   dav1d_dims_ok && dav1d_complete && dav1d_8bit;
+
+    /* 原生 av1 一旦声称解出帧,就必须通过与 dav1d 相同的全部检查:
+     * 帧数、逐帧一致、完整、宽高、像素格式、亮度均值,以及和 dav1d 的帧数/宽高/
+     * 像素格式一致。任何一项不满足都计入 fails,不允许「只看帧数」的假阳性。 */
+    int native_produced = native.opened && !native.failed && !native.enosys &&
+                          native.frames >= MIN_FRAMES;
+    int native_ok = native_produced && native.consistent && native_complete &&
+                    native_dims_ok && native.luma_avg > 1.0 &&
+                    native.pix_fmt == dav1d.pix_fmt &&
+                    dav1d_ok && native.frames == dav1d.frames;
     int native_unsupported = native.opened && !native.failed && native.enosys &&
                              native.frames == 0;
     int native_partial_enosys = native.opened && native.enosys && native.frames > 0;
@@ -417,6 +459,9 @@ int main(int argc, char **argv)
         else if (!dav1d_dims_ok)
             printf("[FAIL] libdav1d 解码宽高 %dx%d 与 codecpar %dx%d 不一致\n",
                    dav1d.width, dav1d.height, dav1d.expect_width, dav1d.expect_height);
+        else if (!dav1d_8bit)
+            printf("[FAIL] libdav1d 输出像素格式 %s 不是 yuv420p(本步只实测 8-bit 4:2:0)\n",
+                   pix_name(dav1d.pix_fmt));
         else
             printf("[FAIL] libdav1d 帧数不完整: frames=%d stop=%s(max_frames=%d)\n",
                    dav1d.frames, dav1d.stop, max_frames);
@@ -430,18 +475,42 @@ int main(int argc, char **argv)
         printf("av1_result: partial_then_enosys\n");
         printf("[FAIL] 原生 av1 解出 %d 帧后遇到 ENOSYS(部分帧不算成功)\n", native.frames);
         fails++;
-    } else if (native_decoded) {
-        printf("av1_result: decoded\n");
-        if (!native_dims_ok || native.width != dav1d.width || native.height != dav1d.height) {
-            printf("[FAIL] 两个解码器解出的分辨率不一致: %dx%d vs %dx%d(codecpar %dx%d)\n",
-                   dav1d.width, dav1d.height, native.width, native.height,
-                   native.expect_width, native.expect_height);
+    } else if (native_produced) {
+        printf("av1_result: %s\n", native_ok ? "decoded" : "decoded_mismatch");
+        if (!native.consistent) {
+            printf("[FAIL] 原生 av1 输出帧的分辨率/格式前后不一致\n");
             fails++;
         }
-        if (native.pix_fmt != dav1d.pix_fmt) {
-            printf("[FAIL] 两个解码器的像素格式不一致: %s vs %s\n",
-                   pix_name(dav1d.pix_fmt), pix_name(native.pix_fmt));
+        if (!native_complete) {
+            printf("[FAIL] 原生 av1 帧数不完整: frames=%d stop=%s(max_frames=%d)\n",
+                   native.frames, native.stop, max_frames);
             fails++;
+        }
+        if (!native_dims_ok) {
+            printf("[FAIL] 原生 av1 解码宽高 %dx%d 与 codecpar %dx%d 不一致\n",
+                   native.width, native.height, native.expect_width, native.expect_height);
+            fails++;
+        }
+        if (native.luma_avg <= 1.0) {
+            printf("[FAIL] 原生 av1 第一帧 Y 均值 %.2f <= 1,疑似空帧/坏帧\n", native.luma_avg);
+            fails++;
+        }
+        if (dav1d_ok) {
+            if (native.frames != dav1d.frames) {
+                printf("[FAIL] 两个解码器帧数不一致: dav1d=%d av1=%d(frames_match=0)\n",
+                       dav1d.frames, native.frames);
+                fails++;
+            }
+            if (native.width != dav1d.width || native.height != dav1d.height) {
+                printf("[FAIL] 两个解码器解出的分辨率不一致: %dx%d vs %dx%d\n",
+                       dav1d.width, dav1d.height, native.width, native.height);
+                fails++;
+            }
+            if (native.pix_fmt != dav1d.pix_fmt) {
+                printf("[FAIL] 两个解码器的像素格式不一致: %s vs %s\n",
+                       pix_name(dav1d.pix_fmt), pix_name(native.pix_fmt));
+                fails++;
+            }
         }
     } else if (native_unsupported) {
         printf("av1_result: unsupported_sw_decode\n");
@@ -458,11 +527,12 @@ int main(int argc, char **argv)
         fails++;
     }
 
+    int comparable = dav1d_ok && native_produced;
     printf("compare: frames_match=%s dims_match=%s pixfmt_match=%s\n",
-           native_decoded ? (native.frames == dav1d.frames ? "1" : "0") : "na",
-           native_decoded ? (native_dims_ok && native.width == dav1d.width &&
-                             native.height == dav1d.height ? "1" : "0") : "na",
-           native_decoded ? (native.pix_fmt == dav1d.pix_fmt ? "1" : "0") : "na");
+           comparable ? (native.frames == dav1d.frames ? "1" : "0") : "na",
+           comparable ? (native_dims_ok && native.width == dav1d.width &&
+                         native.height == dav1d.height ? "1" : "0") : "na",
+           comparable ? (native.pix_fmt == dav1d.pix_fmt ? "1" : "0") : "na");
 
     printf("failures: %d\n", fails);
     printf("RESULT: %s\n", fails ? "FAIL" : "PASS");

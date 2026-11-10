@@ -97,10 +97,11 @@ P1 白名单里,因此不是 D4 新增项,也不属于 MPVKit 缺口。
     本构建 `LUX_HWACCELS` 只开 `h264_videotoolbox`/`hevc_videotoolbox`,所有
     `CONFIG_AV1_*_HWACCEL` 均为 0,因此原生 `av1` 在当前产物里**解不出任何 AV1 帧**。
   - 结论:AV1 软解只有 `libdav1d` 一条路径;原生 `av1` 是 hwaccel 入口,不能当软解回退。
-    需要硬件 AV1 解码得另评 `av1_videotoolbox` hwaccel(M 系列芯片支持,但会改白名单,
-    本步未动 `ffmpeg-ios.conf`)。探针对这种「控制组无法软件解码」的情况输出
+    需要硬件 AV1 解码得另评 `av1_videotoolbox` hwaccel:Apple 只有 **M3 及以后**的芯片支持
+    AV1 硬解,**M1/M2 不支持**(所以在这两类机器上即使开了 hwaccel 也仍然解不出帧),
+    而且会改白名单,本步未动 `ffmpeg-ios.conf`。探针对这种「控制组无法软件解码」的情况输出
     `av1_result: unsupported_sw_decode` 并说明原因;若将来换成能解的构建,同一段会自动
-    改走「两边都 ≥30 帧、分辨率/像素格式一致」的断言分支。
+    改走「两边都完整解出、帧数/宽高/像素格式一致(compare 全 1)」的断言分支。
 - 链接约定:`libavcodec.a` 里的 `libdav1d` 解码器引用 `dav1d_*` 符号,任何链接本构建静态库的程序
   都要在 `libavcodec.a` 之后追加 `lux/.build/deps/<target>/install/lib/libdav1d.a`
   (`lux/test/run.sh` 已按此修改);动态 framework 构建时由 configure 的 EXTRALIBS 自动带上。

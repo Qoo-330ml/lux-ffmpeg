@@ -272,24 +272,35 @@ if [ -n "$SYS_FFMPEG" ] && "$SYS_FFMPEG" -hide_banner -h encoder=libsvtav1 2>/de
     HAVE_SVTAV1=yes
 fi
 
-if [ ! -s "$FIXAV1" ] && [ "$HAVE_SVTAV1" = no ]; then
-    printf '[skip] 系统 ffmpeg 没有 libsvtav1,跳过 AV1 解码实测\n'
+# 与 H.264 夹具同策略:夹具必须存在、且必须能现场生成;两者都不成立就 FAIL,
+# 不允许 [skip] 之后还让脚本 PASS(否则 CI 会静默丢掉 AV1 覆盖)。
+AV1_READY=1
+if [ -s "$FIXAV1" ]; then
+    pass "AV1 夹具已存在: $FIXAV1 ($(stat -f %z "$FIXAV1") bytes)"
+elif [ "$HAVE_SVTAV1" = no ]; then
+    AV1_READY=0
+    cat >&2 <<'AV1MSG'
+[FAIL] 找不到能生成 AV1 样片的 ffmpeg:PATH 里的 ffmpeg 不存在,或没有 libsvtav1 编码器。
+       本段需要带 libsvtav1 的 ffmpeg(例如 Homebrew 的 `brew install ffmpeg`)合成
+       320x240/25fps/100 帧的 AV1 样片,或者预先放好 lux/.build/fixtures/lux-av1-fixture.mkv。
+       与 H.264 夹具不同,这里不提供 [skip]:没有样片就等于没有 AV1 解码实测。
+AV1MSG
+    fail "缺少 AV1 样片且无法现场生成(需要带 libsvtav1 的 ffmpeg)"
 else
-    if [ -s "$FIXAV1" ]; then
-        pass "AV1 夹具已存在: $FIXAV1 ($(stat -f %z "$FIXAV1") bytes)"
+    printf '[run] 合成 AV1 夹具 -> %s\n' "$FIXAV1"
+    if "$SYS_FFMPEG" -hide_banner -loglevel error -y \
+            -f lavfi -i "testsrc2=size=320x240:rate=25:duration=4" \
+            -c:v libsvtav1 -preset 8 -crf 40 -pix_fmt yuv420p -g 25 \
+            -f matroska "$FIXAV1" 2>"$WORK/fixture-av1.log"; then
+        pass "AV1 夹具已生成: $FIXAV1 ($(stat -f %z "$FIXAV1") bytes)"
     else
-        printf '[run] 合成 AV1 夹具 -> %s\n' "$FIXAV1"
-        if "$SYS_FFMPEG" -hide_banner -loglevel error -y \
-                -f lavfi -i "testsrc2=size=320x240:rate=25:duration=4" \
-                -c:v libsvtav1 -preset 8 -crf 40 -pix_fmt yuv420p -g 25 \
-                -f matroska "$FIXAV1" 2>"$WORK/fixture-av1.log"; then
-            pass "AV1 夹具已生成: $FIXAV1 ($(stat -f %z "$FIXAV1") bytes)"
-        else
-            cat "$WORK/fixture-av1.log" >&2
-            fail "AV1 夹具生成失败"
-        fi
+        cat "$WORK/fixture-av1.log" >&2
+        AV1_READY=0
+        fail "AV1 夹具生成失败"
     fi
+fi
 
+if [ "$AV1_READY" = 1 ]; then
     AV1BIN="$WORK/av1_probe"
     printf '[run] 编译 av1_probe.c\n'
     if ! xcrun --sdk macosx clang -arch arm64 -mmacosx-version-min=14.0 -isysroot "$SDK" \
@@ -352,8 +363,9 @@ else
             && pass "原生 av1 解码器已注册" || fail "原生 av1 解码器不可用"
         if grep -q '^av1_result: decoded$' "$AOUT"; then
             pass "原生 av1 也完整解出 >= 30 帧(对照路径可用)"
-            grep -q '^compare: .*dims_match=1' "$AOUT" \
-                && pass "两种解码器分辨率一致" || fail "两种解码器分辨率不一致"
+            grep -q '^compare: frames_match=1 dims_match=1 pixfmt_match=1$' "$AOUT" \
+                && pass "两种解码器帧数/分辨率/像素格式全部一致" \
+                || fail "两种解码器的 compare 结果不是全 1"
         elif grep -q '^av1_result: unsupported_sw_decode$' "$AOUT"; then
             pass "原生 av1 = hwaccel-only,本构建无 AV1 hwaccel(对照结论已记录)"
         else
