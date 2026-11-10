@@ -7,6 +7,8 @@
 #   * 目录 lux/patches/ 是唯一事实来源;debian/patches/ 只作为上游参考,构建不读它。
 #
 # 变更补丁集时:改这里 + 重新生成补丁 + 跑 apply-patches.sh check + 重建三个目标。
+#
+# mpv 源码补丁不在本清单:见 lux/config/mpv-patches.txt(build-mpv.sh 在解包后应用)。
 
 # --- 视频解码(VideoToolbox) -------------------------------------------------
 0001-videotoolbox-hwaccel-low-priority.patch     # jellyfin 0048 低优先级解码 / 只解关键帧

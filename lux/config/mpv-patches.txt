@@ -1,0 +1,12 @@
+# lux 的 mpv 源码补丁集 —— 顺序即应用顺序(脚本:lux/build/build-mpv.sh)
+#
+# 规则:
+#   * 每一行一个补丁文件名,相对 lux/patches/mpv/;`#` 之后是注释。
+#   * build-mpv.sh 在解包 mpv 0.41.0 之后、meson setup 之前,对临时源码树
+#     逐个 `patch -p1 -N` 应用;补丁失败即中止构建。
+#   * 本清单只服务 mpv;FFmpeg 补丁集仍在 lux/config/patches.txt,
+#     由 lux/build/apply-patches.sh 管理,两者不要混用。
+#   * 补丁许可须与 mpv 本体一致(LGPL-2.1+),并在补丁头写明出处与许可。
+
+# --- iOS 渲染上下文 ----------------------------------------------------------
+0001-ios-moltenvk-context.patch   # iOS(设备/模拟器)MoltenVK 上下文,上下文名 moltenvk
