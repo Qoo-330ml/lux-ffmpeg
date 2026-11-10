@@ -311,7 +311,7 @@ else
 
         AOUT="$WORK/av1_probe.out"
         if "$AV1BIN" "$FIXAV1" 60 > "$AOUT" 2>"$WORK/av1_probe.err"; then
-            pass "AV1 解码探针通过(libdav1d 解出 >=30 帧)"
+            pass "AV1 解码探针通过(libdav1d 完整解出探针上限帧数)"
         else
             cat "$WORK/av1_probe.err" >&2
             fail "AV1 解码探针失败"
@@ -323,14 +323,24 @@ else
         grep -q '^decoder libdav1d: avail=1 open=1' "$AOUT" \
             && pass "libdav1d 解码器已注册且能打开" || fail "libdav1d 解码器不可用"
 
-        n_av1=$(sed -n 's/^libdav1d: frames=\([0-9]*\).*/\1/p' "$AOUT")
-        if [ -n "$n_av1" ] && [ "$n_av1" -ge 30 ] 2>/dev/null; then
-            pass "dav1d 解出 $n_av1 帧(>= 30)"
-        else
-            fail "dav1d 解出帧数不足: '$n_av1'"
-        fi
+        # 宽高必须在同一条 grep 里同时断言:320 和 240 都不能丢。
+        grep -q '^libdav1d: frames=[0-9]* width=320 height=240 expect=320x240 ' "$AOUT" \
+            && pass "dav1d 解出的帧是 320x240(与 codecpar 一致)" \
+            || fail "dav1d 解码宽高不是 320x240(或与 codecpar 不一致)"
         grep -q '^libdav1d: .*pix_fmt=yuv420p consistent=1' "$AOUT" \
-            && pass "dav1d 输出 320x240 yuv420p 且逐帧一致" || fail "dav1d 输出格式不符合预期"
+            && pass "dav1d 输出 yuv420p 且逐帧一致" || fail "dav1d 输出格式不符合预期"
+
+        # 帧数必须等于样片总帧数(100)或探针上限(60),并用 stop= 证明不是中途截断。
+        n_av1=$(sed -n 's/^libdav1d: frames=\([0-9]*\).*/\1/p' "$AOUT")
+        stop_av1=$(sed -n 's/^libdav1d: .*stop=\([a-z]*\).*/\1/p' "$AOUT")
+        if [ "$n_av1" = 60 ] && [ "$stop_av1" = limit ]; then
+            pass "dav1d 解出 $n_av1 帧 = 探针上限 60,stop=limit(没有中途截断)"
+        elif [ "$n_av1" = 100 ] && [ "$stop_av1" = eof ]; then
+            pass "dav1d 解完样片全部 100 帧,stop=eof"
+        else
+            fail "dav1d 帧数/终止原因不符: frames='$n_av1' stop='$stop_av1'(期望 60/limit 或 100/eof)"
+        fi
+
         lum_av1=$(sed -n 's/^libdav1d: .*luma_avg=\([0-9.]*\).*/\1/p' "$AOUT")
         if [ -n "$lum_av1" ] && awk -v v="$lum_av1" 'BEGIN{exit !(v>1)}'; then
             pass "dav1d 第一帧 Y 均值 $lum_av1(确实解出了像素,不是空帧)"
@@ -341,7 +351,7 @@ else
         grep -q '^decoder av1: avail=1 open=1' "$AOUT" \
             && pass "原生 av1 解码器已注册" || fail "原生 av1 解码器不可用"
         if grep -q '^av1_result: decoded$' "$AOUT"; then
-            pass "原生 av1 也解出 >= 30 帧(对照路径可用)"
+            pass "原生 av1 也完整解出 >= 30 帧(对照路径可用)"
             grep -q '^compare: .*dims_match=1' "$AOUT" \
                 && pass "两种解码器分辨率一致" || fail "两种解码器分辨率不一致"
         elif grep -q '^av1_result: unsupported_sw_decode$' "$AOUT"; then

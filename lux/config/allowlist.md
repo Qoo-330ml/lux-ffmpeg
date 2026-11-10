@@ -88,7 +88,9 @@ P1 白名单里,因此不是 D4 新增项,也不属于 MPVKit 缺口。
     `b506fa47ca778f0146668404eaaa673166b192afad56707b00c9b5967fb6c098`,生成命令与来源记在
     `lux/.build/delegate/av1-fixture.json`。样片不入库(与 H.264/12-bit HEVC 夹具同口径)。
   - `libdav1d`:解出 **60 帧**(探针上限 60,样片共 100 帧),**320x240、`yuv420p`**,逐帧分辨率/格式
-    一致,首帧 Y 平面均值 122.08(证明真的出了像素,不是空帧)。这是 AV1 软解可用的直接证据。
+    一致,首帧 Y 平面均值 122.08(证明真的出了像素,不是空帧)。`run.sh` 断言 `frames=60` 且
+    `stop=limit`(帧数等于探针上限,不是中途截断),宽高与 `codecpar` 的 320x240 一致。
+    这是 AV1 软解可用的直接证据。
   - 原生 `av1`:**0 帧**。FFmpeg 8.1.3 的 `av1` 解码器没有软件解码路径——
     `libavcodec/av1dec.c` 的 `get_pixel_format()` 在 `!avctx->hwaccel` 时直接返回
     `AVERROR(ENOSYS)`,源码注释写明 "the av1 decoder doesn't support native decode"。
@@ -196,8 +198,10 @@ P1 白名单里,因此不是 D4 新增项,也不属于 MPVKit 缺口。
 
 ## decoder
 
-全部是**软解**组件。开了 `h264`/`hevc` 才能让 `h264_videotoolbox`/`hevc_videotoolbox` 这两个
-hwaccel 有对应的 codec 上下文(configure 里 hwaccel 会 `select` decoder)。
+全部是**解码组件**。唯一例外是 `av1`:它只做 OBU 解析 + hwaccel,没有软件解码路径,
+AV1 软解由 `libdav1d` 提供(见「外部依赖:dav1d」)。开了 `h264`/`hevc` 才能让
+`h264_videotoolbox`/`hevc_videotoolbox` 这两个 hwaccel 有对应的 codec 上下文
+(configure 里 hwaccel 会 `select` decoder)。
 
 | 组件 | 为什么在名单上 |
 | --- | --- |

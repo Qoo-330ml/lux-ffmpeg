@@ -25,9 +25,9 @@
  * 输出(供 run.sh 断言):
  *   stream: index=0 codec=av1 width=320 height=240 pix_fmt=yuv420p
  *   decoder libdav1d: avail=1 open=1 impl="dav1d AV1 decoder by VideoLAN"
- *   libdav1d: frames=60 width=320 height=240 pix_fmt=yuv420p consistent=1 stop=limit luma_avg=...
+ *   libdav1d: frames=60 width=320 height=240 expect=320x240 pix_fmt=yuv420p consistent=1 stop=limit luma_avg=...
  *   decoder av1: avail=1 open=1 impl="Alliance for Open Media AV1"
- *   av1: frames=0 width=0 height=0 pix_fmt=? consistent=0 stop=error
+ *   av1: frames=0 width=0 height=0 expect=320x240 pix_fmt=? consistent=0 stop=error
  *   av1_result: unsupported_sw_decode
  *   compare: frames_match=na dims_match=na pixfmt_match=na
  *   RESULT: PASS|FAIL
@@ -53,6 +53,8 @@ typedef struct RunResult {
     int frames;                  /* 实际解出的帧数 */
     int width;
     int height;
+    int expect_width;            /* codecpar 里的宽高,用来核对解码输出 */
+    int expect_height;
     enum AVPixelFormat pix_fmt;  /* 第一帧的格式 */
     int consistent;              /* 后续帧的分辨率/格式是否与第一帧一致 */
     double luma_avg;             /* 第一帧 Y 平面均值(证明真的出了像素) */
@@ -102,6 +104,33 @@ static void account_frame(RunResult *r, const AVFrame *frame)
 }
 
 /*
+ * 把解码器里已经就绪的帧取干净,直到 EAGAIN/EOF 或到达 max_frames。
+ * 返回 0 表示正常(可能取到 0 帧),-1 表示真错误(已打印原因)。
+ * ENOSYS 不在这里当错误:它是 av1 解码器「没有软件解码路径」的明确信号,
+ * 记到 r->enosys,由调用方决定是 unsupported 还是 broken。
+ */
+static int drain_frames(AVCodecContext *dec, AVFrame *frame, RunResult *r, int max_frames)
+{
+    while (r->frames < max_frames) {
+        int ret = avcodec_receive_frame(dec, frame);
+        if (ret == AVERROR(EAGAIN) || ret == AVERROR_EOF)
+            return 0;
+        if (ret == AVERROR(ENOSYS)) {
+            r->enosys = 1;
+            r->stop = "error";
+            return 0;
+        }
+        if (ret < 0) {
+            print_error("avcodec_receive_frame", ret);
+            return -1;
+        }
+        account_frame(r, frame);
+        av_frame_unref(frame);
+    }
+    return 0;
+}
+
+/*
  * 用一个指定的解码器把样片从头解到 max_frames 帧(或 EOF),结果写进 *r。
  * 每次调用都重新 open 一遍输入,这样两个解码器从完全相同的起点开始。
  */
@@ -147,6 +176,10 @@ static int probe_decoder(const char *path, const char *decoder_name, int max_fra
         return -1;
     }
 
+    /* 容器里的声明宽高:解码输出必须和它一致,否则说明解码/探测有问题。 */
+    r->expect_width = fmt->streams[stream_index]->codecpar->width;
+    r->expect_height = fmt->streams[stream_index]->codecpar->height;
+
     const AVCodec *codec = avcodec_find_decoder_by_name(decoder_name);
     if (!codec) {
         printf("decoder %s: avail=0 open=0\n", decoder_name);
@@ -187,6 +220,8 @@ static int probe_decoder(const char *path, const char *decoder_name, int max_fra
     }
 
     while (r->frames < max_frames) {
+        int sent = 0;
+
         ret = av_read_frame(fmt, pkt);
         if (ret == AVERROR_EOF) {
             r->stop = "eof";
@@ -201,34 +236,53 @@ static int probe_decoder(const char *path, const char *decoder_name, int max_fra
             continue;
         }
 
-        ret = avcodec_send_packet(dec, pkt);
+        /*
+         * send 返回 EAGAIN 表示解码器内部还有帧没取走,**这个 packet 并没有被消费**:
+         * 先 drain 到 EAGAIN/EOF,再用同一个 pkt 重发;在成功之前绝不能 unref,
+         * 否则会丢帧(旧实现就在 EAGAIN 时 unref 了)。
+         */
+        for (;;) {
+            ret = avcodec_send_packet(dec, pkt);
+            if (ret != AVERROR(EAGAIN)) {
+                sent = 1;
+                break;
+            }
+            if (drain_frames(dec, frame, r, max_frames) < 0)
+                goto fail;
+            if (r->enosys || r->frames >= max_frames)
+                break;      /* 已经没必要/没办法再送这个包 */
+        }
         av_packet_unref(pkt);
+
+        if (r->enosys) {
+            r->stop = "error";
+            goto done;
+        }
+        if (!sent) {
+            if (r->frames >= max_frames) {
+                r->stop = "limit";
+                goto done;
+            }
+            /* drain 完仍然 EAGAIN:libavcodec 不该出现,记错误而不是死循环。 */
+            printf("send_packet: EAGAIN after draining, decoder is stuck\n");
+            goto fail;
+        }
         if (ret == AVERROR(ENOSYS)) {
             /* 原生 av1:没有软件解码路径,get_pixel_format 明确返回 ENOSYS。 */
             r->enosys = 1;
             r->stop = "error";
             goto done;
         }
-        if (ret < 0 && ret != AVERROR(EAGAIN)) {
+        if (ret < 0) {
             print_error("avcodec_send_packet", ret);
             goto fail;
         }
 
-        while (r->frames < max_frames) {
-            ret = avcodec_receive_frame(dec, frame);
-            if (ret == AVERROR(EAGAIN) || ret == AVERROR_EOF)
-                break;
-            if (ret == AVERROR(ENOSYS)) {
-                r->enosys = 1;
-                r->stop = "error";
-                goto done;
-            }
-            if (ret < 0) {
-                print_error("avcodec_receive_frame", ret);
-                goto fail;
-            }
-            account_frame(r, frame);
-            av_frame_unref(frame);
+        if (drain_frames(dec, frame, r, max_frames) < 0)
+            goto fail;
+        if (r->enosys) {
+            r->stop = "error";
+            goto done;
         }
         if (r->frames >= max_frames)
             r->stop = "limit";
@@ -236,17 +290,21 @@ static int probe_decoder(const char *path, const char *decoder_name, int max_fra
 
     /* 到达 EOF 时把解码器里缓冲的帧冲出来(受 max_frames 限制)。 */
     if (r->frames < max_frames && strcmp(r->stop, "eof") == 0) {
-        avcodec_send_packet(dec, NULL);
-        while (r->frames < max_frames) {
-            ret = avcodec_receive_frame(dec, frame);
-            if (ret == AVERROR(EAGAIN) || ret == AVERROR_EOF)
-                break;
-            if (ret < 0) {
-                print_error("avcodec_receive_frame (flush)", ret);
-                goto fail;
-            }
-            account_frame(r, frame);
-            av_frame_unref(frame);
+        ret = avcodec_send_packet(dec, NULL);
+        if (ret == AVERROR(ENOSYS)) {
+            r->enosys = 1;
+            r->stop = "error";
+            goto done;
+        }
+        if (ret < 0 && ret != AVERROR_EOF) {
+            print_error("avcodec_send_packet (flush)", ret);
+            goto fail;
+        }
+        if (drain_frames(dec, frame, r, max_frames) < 0)
+            goto fail;
+        if (r->enosys) {
+            r->stop = "error";
+            goto done;
         }
     }
 
@@ -312,39 +370,72 @@ int main(int argc, char **argv)
     int fails = 0;
 
     probe_decoder(argv[1], "libdav1d", max_frames, &dav1d);
-    printf("libdav1d: frames=%d width=%d height=%d pix_fmt=%s consistent=%d stop=%s luma_avg=%.2f\n",
-           dav1d.frames, dav1d.width, dav1d.height, pix_name(dav1d.pix_fmt),
-           dav1d.consistent, dav1d.stop, dav1d.luma_avg);
+    printf("libdav1d: frames=%d width=%d height=%d expect=%dx%d pix_fmt=%s consistent=%d stop=%s luma_avg=%.2f\n",
+           dav1d.frames, dav1d.width, dav1d.height, dav1d.expect_width, dav1d.expect_height,
+           pix_name(dav1d.pix_fmt), dav1d.consistent, dav1d.stop, dav1d.luma_avg);
 
     probe_decoder(argv[1], "av1", max_frames, &native);
-    printf("av1: frames=%d width=%d height=%d pix_fmt=%s consistent=%d stop=%s luma_avg=%.2f\n",
-           native.frames, native.width, native.height, pix_name(native.pix_fmt),
-           native.consistent, native.stop, native.luma_avg);
+    printf("av1: frames=%d width=%d height=%d expect=%dx%d pix_fmt=%s consistent=%d stop=%s luma_avg=%.2f\n",
+           native.frames, native.width, native.height, native.expect_width, native.expect_height,
+           pix_name(native.pix_fmt), native.consistent, native.stop, native.luma_avg);
 
-    int dav1d_ok = dav1d.opened && !dav1d.failed && dav1d.frames >= MIN_FRAMES &&
-                   dav1d.consistent && dav1d.width > 0 && dav1d.height > 0;
-    int native_decoded = native.opened && !native.failed && native.frames >= MIN_FRAMES;
+    /* 帧数完整:要么正好达到探针上限(stop=limit),要么读到 EOF(stop=eof)。
+     * 中途 stop=error 却只出了一部分帧,一律不算成功。 */
+    int dav1d_complete = (strcmp(dav1d.stop, "limit") == 0 && dav1d.frames == max_frames) ||
+                         (strcmp(dav1d.stop, "eof") == 0 && dav1d.frames > 0);
+    int native_complete = (strcmp(native.stop, "limit") == 0 && native.frames == max_frames) ||
+                          (strcmp(native.stop, "eof") == 0 && native.frames > 0);
+
+    /* 解码输出的宽高必须和容器 codecpar 声明的一致。 */
+    int dav1d_dims_ok = dav1d.expect_width > 0 && dav1d.expect_height > 0 &&
+                        dav1d.width == dav1d.expect_width &&
+                        dav1d.height == dav1d.expect_height;
+    int native_dims_ok = native.expect_width > 0 && native.expect_height > 0 &&
+                         native.width == native.expect_width &&
+                         native.height == native.expect_height;
+
+    int dav1d_ok = dav1d.opened && !dav1d.failed && !dav1d.enosys &&
+                   dav1d.frames >= MIN_FRAMES && dav1d.consistent &&
+                   dav1d_dims_ok && dav1d_complete;
+    int native_decoded = native.opened && !native.failed && !native.enosys &&
+                         native.frames >= MIN_FRAMES && native_complete;
     int native_unsupported = native.opened && !native.failed && native.enosys &&
                              native.frames == 0;
+    int native_partial_enosys = native.opened && native.enosys && native.frames > 0;
 
     if (!dav1d_ok) {
         if (!dav1d.opened)
             printf("[FAIL] libdav1d 解码器不可用或打开失败\n");
+        else if (dav1d.enosys && dav1d.frames > 0)
+            printf("[FAIL] libdav1d 解出 %d 帧后遇到 ENOSYS,输出不完整\n", dav1d.frames);
+        else if (dav1d.enosys)
+            printf("[FAIL] libdav1d 解码返回 ENOSYS\n");
         else if (dav1d.frames < MIN_FRAMES)
             printf("[FAIL] libdav1d 只解出 %d 帧(< %d)\n", dav1d.frames, MIN_FRAMES);
-        else
+        else if (!dav1d.consistent)
             printf("[FAIL] libdav1d 输出帧的分辨率/格式前后不一致\n");
+        else if (!dav1d_dims_ok)
+            printf("[FAIL] libdav1d 解码宽高 %dx%d 与 codecpar %dx%d 不一致\n",
+                   dav1d.width, dav1d.height, dav1d.expect_width, dav1d.expect_height);
+        else
+            printf("[FAIL] libdav1d 帧数不完整: frames=%d stop=%s(max_frames=%d)\n",
+                   dav1d.frames, dav1d.stop, max_frames);
         fails++;
     } else if (dav1d.luma_avg <= 0.0) {
         printf("[FAIL] libdav1d 第一帧的 Y 均值是 0,疑似没出真实像素\n");
         fails++;
     }
 
-    if (native_decoded) {
+    if (native_partial_enosys) {
+        printf("av1_result: partial_then_enosys\n");
+        printf("[FAIL] 原生 av1 解出 %d 帧后遇到 ENOSYS(部分帧不算成功)\n", native.frames);
+        fails++;
+    } else if (native_decoded) {
         printf("av1_result: decoded\n");
-        if (native.width != dav1d.width || native.height != dav1d.height) {
-            printf("[FAIL] 两个解码器解出的分辨率不一致: %dx%d vs %dx%d\n",
-                   dav1d.width, dav1d.height, native.width, native.height);
+        if (!native_dims_ok || native.width != dav1d.width || native.height != dav1d.height) {
+            printf("[FAIL] 两个解码器解出的分辨率不一致: %dx%d vs %dx%d(codecpar %dx%d)\n",
+                   dav1d.width, dav1d.height, native.width, native.height,
+                   native.expect_width, native.expect_height);
             fails++;
         }
         if (native.pix_fmt != dav1d.pix_fmt) {
@@ -369,7 +460,8 @@ int main(int argc, char **argv)
 
     printf("compare: frames_match=%s dims_match=%s pixfmt_match=%s\n",
            native_decoded ? (native.frames == dav1d.frames ? "1" : "0") : "na",
-           native_decoded ? (native.width == dav1d.width && native.height == dav1d.height ? "1" : "0") : "na",
+           native_decoded ? (native_dims_ok && native.width == dav1d.width &&
+                             native.height == dav1d.height ? "1" : "0") : "na",
            native_decoded ? (native.pix_fmt == dav1d.pix_fmt ? "1" : "0") : "na");
 
     printf("failures: %d\n", fails);
