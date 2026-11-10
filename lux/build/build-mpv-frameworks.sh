@@ -390,7 +390,7 @@ archive_dsym() { # $1 = framework, $2 = 二进制
         dwarf=no
     fi
     printf '%s %s dwarf=%s tags=%s\n' "$fw" "$uuid_dsym" "$dwarf" "${dwarf_tags:-0}" >> "$log"
-    printf 'dsym.%s=uuid=%s dwarf=%s\n' "$fw" "$uuid_dsym" "$dwarf" >> "$SLICE/P2-4-INFO.txt"
+    printf 'dsym.%s=uuid=%s dwarf=%s tags=%s\n' "$fw" "$uuid_dsym" "$dwarf" "${dwarf_tags:-0}" >> "$SLICE/P2-4-INFO.txt"
 
     if [ "$dwarf" = no ]; then
         warn "$fw: dSYM 只有 UUID,没有 DWARF(输入二进制未带 -g,见 P2-4-INFO.txt)"
