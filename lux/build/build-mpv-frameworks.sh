@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 #
-# lux/build/build-mpv-frameworks.sh — P2 第2/3步:把动态 libmpv 及其非系统依赖打包成 framework
+# lux/build/build-mpv-frameworks.sh — P2 第2/3步 + P2-4:把动态 libmpv 及其非系统依赖打包成
+# framework,并给每个 framework 生成隐私清单与 dSYM 归档
 #
 #   ./lux/build/build-mpv-frameworks.sh macos-arm64     # 打包 + 自检
 #   ./lux/build/build-mpv-frameworks.sh ios-arm64       # 同上(iOS device 切片)
@@ -19,6 +20,18 @@
 #   lux/.build/mpv-frameworks/<target>/Libplacebo.framework
 #   lux/.build/mpv-frameworks/<target>/Libfribidi.framework
 #   lux/.build/mpv-frameworks/<target>/Libuchardet.framework
+#   lux/.build/mpv-frameworks/<target>/dSYMs/<Name>.framework.dSYM(每个 framework 一个)
+#   lux/.build/mpv-frameworks/<target>/dSYMs.zip              (上面整目录的压缩包)
+#   lux/.build/mpv-frameworks/<target>/P2-4-INFO.txt          (隐私扫描与 dSYM UUID 记录)
+#
+# 隐私清单(P2-4,方法沿用 lux-client docs/PRIVACY.md):对每个 framework 的二进制跑
+# `nm -u`,只把扫描命中的 required-reason API 类别写进该 framework 的 PrivacyInfo.xcprivacy;
+# 扫不到的类别不声明(空的 NSPrivacyAccessedAPITypes 数组也算合法清单)。
+#
+# dSYM(P2-4):dsymutil 只能搬运二进制里已有的调试信息。当前 libmpv 与三个依赖都是
+# `meson --buildtype=release` 且没加 -g,所以 dSYM 里只有 UUID、没有 DWARF;脚本会打
+# [warn] 并记进 P2-4-INFO.txt(dwarf=no)。等 build-mpv.sh / build-deps.sh 补上 -g 之后,
+# 同一段代码就会产出带行号信息的 dSYM,可用 LUX_MPV_DSYM_REQUIRE_DWARF=1 把缺失变成硬失败。
 #
 # 规则:
 #   * 四个 framework 的 LC_ID_DYLIB 都是 @rpath/<Name>.framework/<Name>;
@@ -43,6 +56,9 @@ TARGETS="macos-arm64 ios-arm64 ios-sim-arm64"
 
 MPV_FRAMEWORKS="Libmpv Libplacebo Libfribidi Libuchardet"
 BUNDLE_ID_PREFIX="${LUX_MPV_BUNDLE_ID_PREFIX:-dev.lux.mpv}"
+
+# bash 3.2(macOS 自带的 /bin/bash)里 ${v:+$'\n'} 不可靠,换行统一走这个变量。
+NL=$'\n'
 
 # 目标相关变量。TARGET/DEPS_INSTALL/LIBDIR/INCDIR/SLICE/MIN_OS/PLIST_*/BUILD_PLATFORM
 # 全部由 set_target 设置,避免在函数里散落 target 判断。
@@ -83,6 +99,8 @@ log() { printf '[mpv-frameworks] %s\n' "$*"; }
 hdr() { printf '\n== %s\n' "$*"; }
 pass() { printf '  [ok]   %s\n' "$*"; }
 fail() { printf '  [FAIL] %s\n' "$*"; FAILS=$((FAILS + 1)); }
+# warn 只提示,不计入 FAILS:用于「产物本身正确、但上游输入有局限」的情况(如 dSYM 无 DWARF)。
+warn() { printf '  [warn] %s\n' "$*"; }
 
 usage() {
     die "usage: $0 <macos-arm64|ios-arm64|ios-sim-arm64|verify [target|all]|clean>"
@@ -224,6 +242,168 @@ write_info_plist() { # $1 = framework, $2 = version, $3 = output
 PLIST
 }
 
+# ---------------------------------------------------------------------------
+# P2-4:隐私清单(required-reason API)与 dSYM 归档
+# ---------------------------------------------------------------------------
+# 声明内容只能来自扫描:对二进制跑 `nm -u` 取未定义符号,命中哪一类就只声明哪一类。
+# 理由码取 Apple「required reason API」文档里与本项目实际用法相符的那条:
+#   FileTimestamp  C617.1  —— 只访问 App 容器内的文件(mpv 的缓存/临时文件)
+#   DiskSpace      E174.1  —— 写缓存前只读查询可用空间
+#   SystemBootTime 35F9.1  —— 用 mach 单调时钟算播放时钟/音视频同步,不跨启动关联
+#   UserDefaults   CA92.1  —— 只读写本 App 自己的偏好(本轮扫描未命中,留作兜底)
+# 当前四个库的扫描结果见 lux/.build/logs/p2-4-privacy-<target>.log。
+REASON_SYMS_FILETIME='^_(stat|fstat|lstat|fstatat|getattrlist|fgetattrlist|getattrlistbulk)(\$INODE64)?$'
+REASON_SYMS_DISK='^_(statfs|fstatfs|statvfs|fstatvfs|getattrlist|fgetattrlist|getattrlistbulk)(\$INODE64)?$'
+REASON_SYMS_BOOT='^_(mach_absolute_time|mach_continuous_time)$'
+REASON_SYMS_DEFAULTS='^(_NSUserDefaults|_OBJC_CLASS_\$_NSUserDefaults)$'
+
+symbol_hits() { # $1 = 符号列表(换行分隔), $2 = 正则 -> 命中的符号(空格分隔)
+    # 用 { grep ... || true; } 而不是整条管道加 || true:只吞掉「没有匹配」(grep 退出 1),
+    # 否则 set -o pipefail 会把「未命中」当成命令失败,函数在 set -e 下直接终止脚本。
+    printf '%s\n' "$1" | { grep -E "$2" || true; } | sort -u | tr '\n' ' ' | sed -e 's/[[:space:]]*$//'
+}
+
+scan_reason_apis() { # $1 = 二进制 -> REASON_CATEGORIES(空格分隔) / REASON_HITS(每行一个类别)
+    local bin=$1 syms cats="" hits="" m
+    syms=$(nm -u "$bin" 2>/dev/null | awk '{print $NF}')
+
+    m=$(symbol_hits "$syms" "$REASON_SYMS_FILETIME")
+    if [ -n "$m" ]; then
+        cats="$cats FileTimestamp"
+        hits="$hits${hits:+$NL}FileTimestamp: $m"
+    fi
+    m=$(symbol_hits "$syms" "$REASON_SYMS_DISK")
+    if [ -n "$m" ]; then
+        cats="$cats DiskSpace"
+        hits="$hits${hits:+$NL}DiskSpace: $m"
+    fi
+    m=$(symbol_hits "$syms" "$REASON_SYMS_BOOT")
+    if [ -n "$m" ]; then
+        cats="$cats SystemBootTime"
+        hits="$hits${hits:+$NL}SystemBootTime: $m"
+    fi
+    m=$(symbol_hits "$syms" "$REASON_SYMS_DEFAULTS")
+    if [ -n "$m" ]; then
+        cats="$cats UserDefaults"
+        hits="$hits${hits:+$NL}UserDefaults: $m"
+    fi
+
+    REASON_CATEGORIES=${cats# }
+    REASON_HITS=$hits
+    return 0
+}
+
+reason_code() { # $1 = 类别 -> 理由码
+    case "$1" in
+        FileTimestamp)  echo C617.1 ;;
+        DiskSpace)      echo E174.1 ;;
+        SystemBootTime) echo 35F9.1 ;;
+        UserDefaults)   echo CA92.1 ;;
+        *) return 1 ;;
+    esac
+}
+
+emit_privacy_manifest() { # $1 = framework, $2 = 二进制, $3 = 输出 plist
+    local fw=$1 bin=$2 out=$3 cat reason
+    scan_reason_apis "$bin"
+
+    {
+        cat <<'PLIST'
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>NSPrivacyTracking</key>
+    <false/>
+    <key>NSPrivacyTrackingDomains</key>
+    <array/>
+    <key>NSPrivacyCollectedDataTypes</key>
+    <array/>
+    <key>NSPrivacyAccessedAPITypes</key>
+    <array>
+PLIST
+        for cat in $REASON_CATEGORIES; do
+            reason=$(reason_code "$cat") || die "未知的 required-reason 类别: $cat"
+            cat <<ENTRY
+        <dict>
+            <key>NSPrivacyAccessedAPIType</key>
+            <string>NSPrivacyAccessedAPICategory$cat</string>
+            <key>NSPrivacyAccessedAPITypeReasons</key>
+            <array>
+                <string>$reason</string>
+            </array>
+        </dict>
+ENTRY
+        done
+        cat <<'PLIST'
+    </array>
+</dict>
+</plist>
+PLIST
+    } > "$out"
+
+    # 原始证据:每个命中的符号都写进日志(与 lux-client PRIVACY.md 的扫描命令同一口径)。
+    {
+        printf '## %s %s\n' "$TARGET" "$fw"
+        printf '# cmd: nm -u %s | awk {print $NF} | grep -E <required-reason>\n' "$bin"
+        if [ -n "$REASON_CATEGORIES" ]; then
+            printf '%s\n' "$REASON_HITS"
+        else
+            printf '(no required-reason API hits)\n'
+        fi
+        printf 'categories=%s\n\n' "${REASON_CATEGORIES:-<none>}"
+    } >> "$LOGDIR/p2-4-privacy-$TARGET.log"
+
+    # 每个 framework 的声明结果写进切片内的记录文件,便于离线复核。
+    printf 'privacy.%s=%s\n' "$fw" "${REASON_CATEGORIES:-<none>}" >> "$SLICE/P2-4-INFO.txt"
+}
+
+archive_dsym() { # $1 = framework, $2 = 二进制
+    local fw=$1 bin=$2 out="$SLICE/dSYMs/$1.framework.dSYM" log="$LOGDIR/p2-4-dsym-$TARGET.log"
+    local uuid_bin uuid_dsym dwarf
+    mkdir -p "$SLICE/dSYMs"
+    rm -rf "$out"
+    if ! dsymutil "$bin" -o "$out" >> "$log" 2>&1; then
+        tail -5 "$log" >&2
+        die "dsymutil failed for $fw"
+    fi
+
+    uuid_bin=$(dwarfdump --uuid "$bin" 2>/dev/null | awk '{print $2}' | head -1)
+    uuid_dsym=$(dwarfdump --uuid "$out" 2>/dev/null | awk '{print $2}' | head -1)
+    if [ -z "$uuid_bin" ] || [ "$uuid_bin" != "$uuid_dsym" ]; then
+        die "$fw: dSYM UUID 与二进制不一致(bin='${uuid_bin:-none}' dsym='${uuid_dsym:-none}')"
+    fi
+
+    # dSYM 里有没有真正的 DWARF,取决于输入二进制是否带调试信息(dsymutil 只能搬运,不能凭空生成)。
+    if dwarfdump --debug-info "$out" 2>/dev/null | grep -q 'DW_TAG'; then
+        dwarf=yes
+    else
+        dwarf=no
+    fi
+    printf '%s %s dwarf=%s\n' "$fw" "$uuid_dsym" "$dwarf" >> "$log"
+    printf 'dsym.%s=uuid=%s dwarf=%s\n' "$fw" "$uuid_dsym" "$dwarf" >> "$SLICE/P2-4-INFO.txt"
+
+    if [ "$dwarf" = no ]; then
+        warn "$fw: dSYM 只有 UUID,没有 DWARF(输入二进制未带 -g,见 P2-4-INFO.txt)"
+        if [ "${LUX_MPV_DSYM_REQUIRE_DWARF:-0}" = 1 ]; then
+            die "$fw: dSYM 不含 DWARF,而 LUX_MPV_DSYM_REQUIRE_DWARF=1"
+        fi
+    fi
+}
+
+zip_dsyms() {
+    local out="$SLICE/dSYMs.zip" log="$LOGDIR/p2-4-archive-$TARGET.log" n
+    rm -f "$out"
+    if ! ( cd "$SLICE" && ditto -c -k --sequesterRsrc --keepParent dSYMs "$out" ) >> "$log" 2>&1; then
+        tail -5 "$log" >&2
+        die "dSYMs.zip 打包失败"
+    fi
+    n=$(unzip -l "$out" 2>/dev/null | grep -c '\.dSYM/Contents/Info\.plist$' || true)
+    [ "${n:-0}" -eq 4 ] || die "dSYMs.zip 里只有 $n 个 dSYM(期望 4)"
+    printf 'zip=%s bytes=%s dsyms=%s\n' "$out" "$(stat -f %z "$out")" "$n" >> "$log"
+    printf 'dsyms.zip.bytes=%s\n' "$(stat -f %z "$out")" >> "$SLICE/P2-4-INFO.txt"
+}
+
 rewrite_deps() { # $1 = framework, $2 = binary
     local fw=$1 bin=$2 dep base target
     while IFS= read -r dep; do
@@ -277,6 +457,16 @@ package_slice() {
     rm -rf "$SLICE"
     mkdir -p "$SLICE"
 
+    # P2-4 的日志每跑一个 target 重写一次:里面有本次扫描的原始符号与 dSYM UUID。
+    : > "$LOGDIR/p2-4-privacy-$TARGET.log"
+    : > "$LOGDIR/p2-4-dsym-$TARGET.log"
+    : > "$LOGDIR/p2-4-archive-$TARGET.log"
+    {
+        printf 'target=%s\n' "$TARGET"
+        printf 'built_at=%s\n' "$(date -u '+%Y-%m-%dT%H:%M:%SZ')"
+        printf '# required-reason API 扫描: nm -u;dSYM: dsymutil,dwarf=yes/no 表示是否含调试信息\n'
+    } > "$SLICE/P2-4-INFO.txt"
+
     for fw in $MPV_FRAMEWORKS; do
         dylib=$(dylib_for "$(fw_stem "$fw")") || die "缺少 $(fw_stem "$fw").<ver>.dylib in $LIBDIR"
         version=$(dylib_version "$dylib")
@@ -289,11 +479,20 @@ package_slice() {
         copy_headers "$fw" "$fr"
         write_module_map "$fw" "$fr"
         write_info_plist "$fw" "$version" "$fr/Info.plist"
+        # 隐私清单必须写在 codesign 之前,否则不在签名封存的 bundle 内容里。
+        emit_privacy_manifest "$fw" "$fr/$fw" "$fr/PrivacyInfo.xcprivacy"
     done
 
     for fw in $MPV_FRAMEWORKS; do
         rewrite_deps "$fw" "$SLICE/$fw.framework/$fw"
     done
+
+    # dSYM 从「依赖已改写完」的最终二进制抽,保证 UUID 与出货二进制一致。
+    # 必须在 codesign 之前:签名会往文件末尾追加 LC_CODE_SIGNATURE。
+    for fw in $MPV_FRAMEWORKS; do
+        archive_dsym "$fw" "$SLICE/$fw.framework/$fw"
+    done
+    zip_dsyms
 
     for fw in $MPV_FRAMEWORKS; do
         fr="$SLICE/$fw.framework"
@@ -313,8 +512,22 @@ package_slice() {
     log "frameworks in $SLICE"
 }
 
+declared_categories() { # $1 = PrivacyInfo.xcprivacy -> 声明的类别(空格分隔,去掉 Apple 的 NSPrivacyAccessedAPICategory 前缀)
+    local i=0 cat out=""
+    while cat=$(plutil -extract "NSPrivacyAccessedAPITypes.$i.NSPrivacyAccessedAPIType" raw -o - "$1" 2>/dev/null); do
+        out="$out ${cat#NSPrivacyAccessedAPICategory}"
+        i=$((i + 1))
+    done
+    printf '%s\n' "${out# }"
+}
+
+sorted_words() { # $1 = 空格分隔的词 -> 排序去重后的一行
+    printf '%s\n' "$1" | tr ' ' '\n' | sed -e '/^$/d' | sort -u | tr '\n' ' ' | sed -e 's/[[:space:]]*$//'
+}
+
 verify_slice() {
     local fw fr bin dep id deps bad vtool_out platform minos ass_count hits plist_platform plist_minos
+    local privacy declared expected dsym uuid_bin uuid_dsym dwarf_count dsym_count
     FAILS=0
 
     hdr "verify: $SLICE"
@@ -392,6 +605,39 @@ verify_slice() {
             fail "codesign --verify --strict"
         fi
 
+        # P2-4:隐私清单存在、可解析,且声明内容与「现场重扫 nm -u」的结果一致。
+        privacy="$fr/PrivacyInfo.xcprivacy"
+        if [ -f "$privacy" ] && plutil -lint "$privacy" >/dev/null 2>&1; then
+            pass "PrivacyInfo.xcprivacy 是合法 plist"
+            declared=$(declared_categories "$privacy")
+            scan_reason_apis "$bin"
+            expected=$(sorted_words "$REASON_CATEGORIES")
+            declared=$(sorted_words "$declared")
+            if [ "$declared" = "$expected" ]; then
+                pass "隐私声明与 nm -u 扫描一致:${declared:-<none>}"
+            else
+                fail "隐私声明 '${declared:-<none>}' 与扫描结果 '${expected:-<none>}' 不一致"
+            fi
+        else
+            fail "缺少或非法的 PrivacyInfo.xcprivacy"
+        fi
+
+        # P2-4:dSYM 存在,UUID 与出货二进制一致;DWARF 有无取决于上游是否带 -g。
+        dsym="$SLICE/dSYMs/$fw.framework.dSYM"
+        uuid_bin=$(dwarfdump --uuid "$bin" 2>/dev/null | awk '{print $2}' | head -1)
+        uuid_dsym=$(dwarfdump --uuid "$dsym" 2>/dev/null | awk '{print $2}' | head -1)
+        if [ -d "$dsym" ] && [ -n "$uuid_bin" ] && [ "$uuid_bin" = "$uuid_dsym" ]; then
+            dwarf_count=$(dwarfdump --debug-info "$dsym" 2>/dev/null | grep -c 'DW_TAG' || true)
+            if [ "${dwarf_count:-0}" -gt 0 ]; then
+                pass "dSYM UUID=$uuid_dsym(DWARF 条目 $dwarf_count)"
+            else
+                pass "dSYM UUID=$uuid_dsym"
+                warn "dSYM 无 DWARF:输入二进制未带 -g(见 $SLICE/P2-4-INFO.txt)"
+            fi
+        else
+            fail "dSYM 缺失或 UUID 不一致(bin='${uuid_bin:-none}' dsym='${uuid_dsym:-none}')"
+        fi
+
         if [ "$fw" = Libmpv ]; then
             ass_count=$(nm -gU "$bin" 2>/dev/null | awk '{print $NF}' | grep -c '^_ass_' || true)
             if [ "${ass_count:-0}" -gt 0 ]; then
@@ -409,6 +655,19 @@ verify_slice() {
             done
         fi
     done
+
+    # P2-4:dSYM 归档包(每个切片一个 zip,里面四个 .dSYM)。
+    if [ -f "$SLICE/dSYMs.zip" ]; then
+        pass "dSYMs.zip 存在($(stat -f %z "$SLICE/dSYMs.zip") bytes)"
+    else
+        fail "缺少 $SLICE/dSYMs.zip"
+    fi
+    dsym_count=$(find "$SLICE/dSYMs" -maxdepth 1 -name '*.framework.dSYM' -type d 2>/dev/null | wc -l | tr -d ' ')
+    if [ "${dsym_count:-0}" -eq 4 ]; then
+        pass "dSYMs/ 里有 4 个 .dSYM"
+    else
+        fail "dSYMs/ 里有 ${dsym_count:-0} 个 .dSYM(期望 4)"
+    fi
 
     hdr "result"
     if [ "$FAILS" -eq 0 ]; then
