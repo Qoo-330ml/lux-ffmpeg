@@ -30,8 +30,9 @@ spirv-tools-mvk  0d6fd73ca73830ccab5fa1f00ed5ed40124e2c55  20219c0962dffb0d7644b
 spirv-headers-mvk 29981f65241605e08b0ede4cfeb999fe3b723c6a  232899f1ad4104fb5bc377b94596c7621575eee62ad9a9e8f929b63a7dd8a7ad  https://github.com/KhronosGroup/SPIRV-Headers/archive/29981f65241605e08b0ede4cfeb999fe3b723c6a.tar.gz  selfstore=lux/release/sources/spirv-headers-mvk-29981f65241605e08b0ede4cfeb999fe3b723c6a.tar.gz
 volk         776893306c5d3b22b6185b5d4a258b81d94572bf  ff5b63e1b7104b34955eb4a993b94882a55f8561e971b92119069e496e3496b5  https://github.com/zeux/volk/archive/776893306c5d3b22b6185b5d4a258b81d94572bf.tar.gz  selfstore=lux/release/sources/volk-776893306c5d3b22b6185b5d4a258b81d94572bf.tar.gz
 cereal       a56bad8bbb770ee266e930c95d37fff2a5be7fea  12e10fb541270632f6683286ce8c7e8c321fe4addb53fa91ed498b95c1758f93  https://github.com/USCiLab/cereal/archive/a56bad8bbb770ee266e930c95d37fff2a5be7fea.tar.gz  selfstore=lux/release/sources/cereal-a56bad8bbb770ee266e930c95d37fff2a5be7fea.tar.gz
-# glad2 2.0.8(PyPI)为 libplacebo 生成 OpenGL 加载器;安装到 lux/.build/deps/pydeps(python3 -m pip install --target)。
-# PyPI 安装未做 hash 校验,发布前改为 --require-hashes。
+# glad2 2.0.8(PyPI)为 libplacebo 生成 OpenGL 加载器;由 lux/build/install-glad.sh 用
+# `python3 -m pip install --require-hashes -r lux/config/requirements-glad.txt` 装到
+# lux/.build/deps/pydeps。glad2 / Jinja2 / MarkupSafe 的 sha256 锁在 requirements-glad.txt(不在本文件)。
 fast_float   8.0.2     e14a33089712b681d74d94e2a11362643bd7d769ae8f7e7caefe955f57f7eacd  https://github.com/fastfloat/fast_float/archive/refs/tags/v8.0.2.tar.gz  selfstore=lux/release/sources/fast_float-8.0.2.tar.gz
 # --- dav1d:FFmpeg 的 libdav1d 解码器(BSD-2-Clause,静态并入 Libavcodec)。
 # 版本 = 上游最新稳定版(https://downloads.videolan.org/pub/videolan/dav1d/ 的 last/)。

@@ -1,0 +1,38 @@
+# glad2 及其运行时依赖的 hash 锁,供 lux/build/install-glad.sh 以 --require-hashes 安装。
+# 版本与 lux/config/deps.lock 一致:glad2 2.0.8;Jinja2 3.1.6 / MarkupSafe 3.0.4 是它的传递依赖。
+# hashes 来源:python3 -m pip download --no-deps 取到本机(macOS arm64,CPython 3.15)实际会装的产物后
+# 计算 sha256,并与 PyPI JSON API 的 digests.sha256 逐字交叉核对;
+# 列出的文件 = sdist + 纯 Python 通用 wheel + macOS wheel,换平台/CPython 时需补对应 wheel 的 hash。
+# 更新方式:改下面的版本号 → 重新 pip download → 把新产物与 PyPI 上的 sha256 一起并入本文件。
+
+# glad2 2.0.8:2 个文件(sdist + 通用 wheel + macOS wheel)
+glad2==2.0.8 \
+    --hash=sha256:b84079b9fa404f37171b961bdd1d8da21370e6c818defb8481c5b3fe3d6436da \
+    --hash=sha256:cfe84018233043554710aa747d0bf4be55015154f8bcd451765d1984bcc9d70b
+
+# Jinja2 3.1.6:2 个文件(sdist + 通用 wheel + macOS wheel)
+Jinja2==3.1.6 \
+    --hash=sha256:0137fb05990d35f1275a587e9aee6d56da821fc83491a0fb838183be43f66d6d \
+    --hash=sha256:85ece4451f492d0c13c5dd7c13a64681a86afae63a5f347908daf103ce6d2f67
+
+# MarkupSafe 3.0.4:19 个文件(sdist + 通用 wheel + macOS wheel)
+MarkupSafe==3.0.4 \
+    --hash=sha256:2e9ad7dd851bf45fab9f75cbff4cb493fee9979e8d8c7c9c3ee119022518edd6 \
+    --hash=sha256:dd8ea6ebee7aedbf7c749fa80521d9ccf1ba473e0d1e14805caafbaad281c889 \
+    --hash=sha256:dff05cb7016dff1e9fd68f4122c127b65dfc59de5306cfb7ad92f956f230bee2 \
+    --hash=sha256:9e25feb9e330b63edb0278a0acdf85e50d0cb0fbf49c3084abbe4e24ae195346 \
+    --hash=sha256:7d3391b2188d18737cb2fa147028b1096236eaa7e156446c650a489fa2cadc91 \
+    --hash=sha256:61631e08084be9e21a8967ec3139c7616ed7c5e9368e05c86d1b39562c8a57b6 \
+    --hash=sha256:0930db9bdc62d22944e10b066448bb65dc9abe9112880c7cab8da54db4284d5f \
+    --hash=sha256:2d1b7d9308288661f56672b1b157d75fc536714d3638487bbea17b6318a78248 \
+    --hash=sha256:73e77980c7207854f00fc4e71fb1626868d5740ab4012623d55c7a99ad122a72 \
+    --hash=sha256:4cf3468d5ec187ffffcaca8e61929a37448f215dafc1386a12c750a72fe53634 \
+    --hash=sha256:52704c5d36eb6dda8866493decd61111fff86244c9b1ad225ca01b9e91e5970f \
+    --hash=sha256:805c8b84534fa10891890f0e4be39f3a99e94615d93e8836bf9fa1fdca2feeb2 \
+    --hash=sha256:fa95848c929b6a75f6848d3c9793e59db365ee436776e57db835cdbfa79ba977 \
+    --hash=sha256:799c39bdf5e2f1292fedd3009f7b3c9e760f10b2420cb9638d56920840ff6db8 \
+    --hash=sha256:ae9dcb8fbe244cb82f8a6458b455b927a03685e383d9bacf1ea5ce180b96dc97 \
+    --hash=sha256:c61750fadcd119d0825bcb7d7d675dd264dcc89cc05292aab5be68ebdbb374ad \
+    --hash=sha256:1c0df495a977d10460a94941799c72d5b5ab03d3858d949b55b5a66c8f371c99 \
+    --hash=sha256:f291bcf42ae98eb5107edb162c3c998b4a89648fd8e99ed4cbd12705292788cd \
+    --hash=sha256:ac0c7c9f1609b0c4c114feb1d7a3409564c7fb77e360bed9e97e5d25dfeaf868
