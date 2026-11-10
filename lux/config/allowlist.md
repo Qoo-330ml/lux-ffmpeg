@@ -58,6 +58,7 @@
 | `dash` demuxer | `configure:3868` 要求 `libxml2` | 后续单独评估 libxml2(连同许可/体积)。 |
 | `libdav1d` decoder | `configure:3768` 要求 `libdav1d` | AV1 软解单独成步;原生 `av1` decoder 已保留。 |
 | `libuavs3d` decoder | `configure:3820` 要求 `libuavs3d` | 需要外部 AVS3 解码库,单独评估。 |
+| `tscc` decoder | `configure:3290` select `inflate_wrapper`,后者 `deps="zlib"` | 当前 `--disable-zlib`;需与 zlib 一起评估。它虽然出现在 `--list-decoders`,实际 configure 会因依赖不满足而关闭。 |
 | `ffrtmpcrypt` protocol | `configure:4017` 要求 `gcrypt`/`gmp`/`openssl`/`mbedtls` 之一 | 与 RTMP 加密一起后续评估。 |
 | `rtmpe` protocol | select `ffrtmpcrypt` | 依赖上一项;本轮不开。 |
 | `rtmpte` protocol | select `ffrtmpcrypt` + `ffrtmphttp` | 依赖上一项;本轮不开。 |
@@ -85,9 +86,23 @@
 | `aac_latm` `adx` `amr` `cook` `dca` `dolby_e` `flac` `ftr` `g723_1` `g729` `gsm` `mlp` `mpegaudio` `sbc` `sipr` `tak` `xma` | 音频帧边界与 codecpar 解析。`mlp` 由 `truehd` 自动 select,也是 MPVKit 符号表未列出但本仓库确认存在的 parser。 |
 | `dvbsub` `dvdsub` `misc4` | 字幕/辅助流 parser;保留 MPVKit 的 DVB/DVD 字幕能力,但不启用 DVD 导航解析。 |
 
-### decoder
+### a) 本步新增:decoder
 
-decoder 的逐项理由见下一个 D4 提交;`mlp` 与 `webp` 两个 decoder 已在 P1 原白名单中,本步不为它们重复登记。
+本步新增 180 个 decoder;每个名字都在下面某一行的列表里独立启用。`libdav1d`、`libuavs3d` 与 `tscc` 是三个
+未加入的基线 decoder(见 b 类);`init_cabac`/`init_range`/`vpx_init_range` 不是 8.1.3 可启用的 decoder(见 c 类)。
+`mlp` 与 `webp` 已在 P1 原白名单中,故不重复列出。
+
+| 组件 | 理由 |
+| --- | --- |
+| `aac_at` `ac3_at` `adpcm_ima_qt_at` `alac_at` `amr_nb_at` `eac3_at` `gsm_ms_at` `ilbc_at` `mp1_at` `mp2_at` `mp3_at` `pcm_alaw_at` `pcm_mulaw_at` `qdm2_at` `qdmc_at` | Apple AudioToolbox 系统解码器,已在 `--enable-audiotoolbox` 下;不引入第三方库。用于系统硬件/低功耗音频路径。 |
+| `pcm_alaw` `pcm_bluray` `pcm_dvd` `pcm_f16le` `pcm_f24le` `pcm_f32be` `pcm_f32le` `pcm_f64be` `pcm_f64le` `pcm_lxf` `pcm_mulaw` `pcm_s16be` `pcm_s16be_planar` `pcm_s16le` `pcm_s16le_planar` `pcm_s24be` `pcm_s24daud` `pcm_s24le` `pcm_s24le_planar` `pcm_s32be` `pcm_s32le` `pcm_s32le_planar` `pcm_s64be` `pcm_s64le` `pcm_s8` `pcm_s8_planar` `pcm_sga` `pcm_u16be` `pcm_u16le` `pcm_u24be` `pcm_u24le` `pcm_u32be` `pcm_u32le` `pcm_u8` `pcm_vidc` | MPVKit 基线的 PCM 全格式覆盖,含 Blu-ray/DVD PCM、视频容器里的 PCM 与浮点 PCM。全部是 FFmpeg 原生实现。 |
+| `adpcm_4xm` `adpcm_adx` `adpcm_afc` `adpcm_agm` `adpcm_aica` `adpcm_argo` `adpcm_ct` `adpcm_dtk` `adpcm_ea` `adpcm_ea_maxis_xa` `adpcm_ea_r1` `adpcm_ea_r2` `adpcm_ea_r3` `adpcm_ea_xas` `adpcm_g722` `adpcm_g726` `adpcm_g726le` `adpcm_ima_acorn` `adpcm_ima_alp` `adpcm_ima_amv` `adpcm_ima_apc` `adpcm_ima_apm` `adpcm_ima_cunning` `adpcm_ima_dat4` `adpcm_ima_dk3` `adpcm_ima_dk4` `adpcm_ima_ea_eacs` `adpcm_ima_ea_sead` `adpcm_ima_iss` `adpcm_ima_moflex` `adpcm_ima_mtf` `adpcm_ima_oki` `adpcm_ima_qt` `adpcm_ima_rad` `adpcm_ima_smjpeg` `adpcm_ima_ssi` `adpcm_ima_wav` `adpcm_ima_ws` `adpcm_ima_xbox` `adpcm_ms` `adpcm_mtaf` `adpcm_psx` `adpcm_sanyo` `adpcm_sbpro_2` `adpcm_sbpro_3` `adpcm_sbpro_4` `adpcm_swf` `adpcm_thp` `adpcm_thp_le` `adpcm_vima` `adpcm_xa` `adpcm_xmd` `adpcm_yamaha` `adpcm_zork` | MPVKit 基线的游戏/相机/广播 ADPCM 族。主要出现在 AVI、MOV、MKV 的老片源与游戏录像;FFmpeg 原生,无外部库。 |
+| `mp1` `mp1float` `mp2` `mp2float` `mp3` `mp3adu` `mp3adufloat` `mp3float` `mp3on4` `mp3on4float` | MP1/MP2/MP3 及其浮点/ADU/MP3on4 变体。覆盖老旧音频与 MP4 中的 MP3 轨道。 |
+| `av1` `dxv` `ffv1` `ffvhuff` `flv` `h263` `h263i` `h263p` `hap` `huffyuv` `indeo5` `ipu` `media100` `mjpegb` `mpeg1video` `mpeg2video` `mpeg4` `mpegvideo` `msmpeg4v1` `msmpeg4v2` `msmpeg4v3` `mts2` `prores` `rv10` `rv20` `rv30` `rv40` `snow` `sonic` `svq3` `vc1` `vp6` `vp6a` `vp6f` `vp7` `vp8` `vp9` `wmv1` `wmv2` `wmv3` | MPVKit 基线的视频解码覆盖:AV1 原生软解、Motion JPEG/ProRes/VC-1/WMV/RV/VP6-9/MPEG-1/2/4 等。D4 决定默认保留;不含 dav1d/uavs3d,`tscc` 因 zlib 依赖见 b 类。 |
+| `aac_fixed` `aac_latm` `ac3_fixed` | AAC/AC-3 的定点与 LATM 变体;与主 decoder 共享 DSP,用于低功耗与广播流。 |
+| `alac` `amrnb` `amrwb` `ape` `cook` `dolby_e` `tta` `wmalossless` `wmapro` `wmav1` `wmav2` `wmavoice` `xma1` `xma2` | MPVKit 基线的无损/语音/WMA/XMA 音频族,覆盖 ALAC、APE、RealAudio Cook、Dolby E、TTA、WMA 与 Xbox XMA。 |
+| `ccaption` `dvbsub` `dvdsub` `movtext` `mpl2` `srt` `ssa` `xsub` | MPVKit 基线的字幕解码:CEA-608、DVB/DVD 字幕、mov_text、MPL2、SubRip/SSA、XSUB。渲染仍由外部 libass 负责。 |
+| `txd` | MPVKit 基线的 RenderWare TXD 纹理 decoder;原生实现,用于老游戏/视频纹理封面。 |
 
 ---
 
