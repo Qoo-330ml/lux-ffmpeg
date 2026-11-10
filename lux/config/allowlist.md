@@ -1,4 +1,4 @@
-# F0 白名单 — 每项为什么在名单上
+# lux-ffmpeg 白名单 — 每项为什么在名单上
 
 本文件是 `lux/config/ffmpeg-ios.conf` 里那份白名单的说明书。**改配置必须同时改这里**。
 组件名以 FFmpeg 8.1.3 的 `configure` 为准(`libavcodec/bitstream_filters.c`、
@@ -6,8 +6,8 @@
 
 原则:
 
-1. F0 只回答"能不能出一套 LGPL 的最小 iOS 构建",不追求功能完整;
-2. 只开**播放本地文件 + 本地 remux(mkv → fMP4)**闭环里真正会被调用到的东西;
+1. F0 先回答"能不能出一套 LGPL 的最小 iOS 构建";P1 D4 再按 MPVKit 1.0.0 的能力基线补齐原生 LGPL 组件;
+2. 只开**播放本地文件 + 本地 remux(mkv → fMP4)**以及 P1 播放链实际会调用到的东西;
 3. 任何 `--enable-gpl` / `--enable-nonfree` / 外部 GPL 编码库(x264/x265/fdk-aac/…)一律不开;
 4. `--disable-everything` 之后只按本名单打开,名单之外的东西**一个都不开**。
 
@@ -17,13 +17,17 @@
 默认全部保留**,但本步只加入 FFmpeg 自带、无需新增第三方库的组件。分类口径:
 
 - **a) 原生 LGPL**:当前 FFmpeg 8.1.3 自带,本步加入白名单。
-- **b) 需要外部库**:留到 D4 后续步骤,逐条登记在「D4 后续步骤」。
+- **b) 需要外部库**:留到 D4 后续步骤,逐条登记在本节 b) 表。
 - **c) 有意不要 / 当前版本不可用**:不加,保留理由与替代路径。
+
+最终计数:demuxer 40、protocol 36、bsf 49、parser 66、decoder 197;相对 P1 起点分别新增
+37、31、42、60、180,合计 350 个组件。`ffmpeg-ios.conf` 是唯一真相,本文件的表格是逐项理由。
 
 `mlp` 与 `webp` 不在 MPVKit 的导出符号里,但它们**确实存在**于 FFmpeg 8.1.3:
 `configure:3194` 有 `mlp_decoder_select="mlp_parser"`, `configure:3313` 有
 `webp_decoder_select="vp8_decoder"`;`libavcodec/allcodecs.c` 分别注册 `ff_mlp_decoder` 与 `ff_webp_decoder`。
-两项本来就在 P1 白名单里,因此不是 D4 新增项,也不属于 MPVKit 缺口。
+其中 `mlp` 同时有 decoder 与 parser,`webp` 是 decoder 并会显式带入 `vp8` decoder。两项本来就在
+P1 白名单里,因此不是 D4 新增项,也不属于 MPVKit 缺口。
 
 ### a) 本步新增:demuxer(容器/流)
 
@@ -74,6 +78,13 @@
 | `rtp_parse_set_dynamic` protocol | 当前版本不可用 | 这不是 FFmpeg 8.1.3 的 protocol 名(MPVKit 符号表里的内部/派生名);RTP 由 `rtp` 协议覆盖。 |
 | `init_cabac` `init_range` `vpx_init_range` decoder | 当前版本不可用 | 它们是 MPVKit 符号表里的初始化辅助符号,不是 8.1.3 可启用的 decoder;对应能力由 H.264/VP8/VP9 解码器本身提供。 |
 
+### D4 验证口径(2026-11-10,macOS arm64)
+
+- `verify-license.sh macos-arm64`:0 failures、1 warning;唯一 warning 是未安装 Metal Toolchain
+  (`CONFIG_METAL=0`),因此 4 个 Metal 滤镜未启用,不是许可失败。
+- `config.h`: `CONFIG_GPL 0`、`CONFIG_NONFREE 0`、`CONFIG_VERSION3 0`;并确认 `CONFIG_LGPLV3 0`。
+- `lux/test/run.sh`: `RESULT: PASS`。
+
 ### a) 本步新增:parser
 
 下表每个名字都是一个独立启用的 parser。`dvd_nav` 是唯一未加入的基线 parser(见 c 类)。
@@ -83,7 +94,7 @@
 | `av1` `avs2` `avs3` `cavsvideo` `dirac` `dnxhd` `dnxuc` `evc` `ffv1` `h261` `h263` `hdr` `ipu` `jpeg2000` `jpegxl` `jpegxs` `lcevc` `mjpeg` `mpeg4video` `mpegvideo` `prores` `prores_raw` `rv34` `vc1` `vp3` `vp8` `vp9` `vvc` `webp` | 视频 elementary stream 的帧边界/参数解析,用于 MPV 对 MPEG-4/VC-1/RV/ProRes/AV1/VP8/VP9/VVC/图像序列等格式的探测与解码。 |
 | `apv` `bmp` `gif` `png` `pnm` `qoi` `xbm` `xwd` | 图像/封面类 parser;用于附件和图像 demuxer 的 codecpar 探测。 |
 | `cri` `dpx` `dvaudio` | MPVKit 基线中的专业/广播格式 parser;FFmpeg 原生,保留基线覆盖。 |
-| `aac_latm` `adx` `amr` `cook` `dca` `dolby_e` `flac` `ftr` `g723_1` `g729` `gsm` `mlp` `mpegaudio` `sbc` `sipr` `tak` `xma` | 音频帧边界与 codecpar 解析。`mlp` 由 `truehd` 自动 select,也是 MPVKit 符号表未列出但本仓库确认存在的 parser。 |
+| `aac_latm` `adx` `amr` `cook` `dca` `dolby_e` `flac` `ftr` `g723_1` `g729` `gsm` `mlp` `mpegaudio` `sbc` `sipr` `tak` `xma` | 音频帧边界与 codecpar 解析。`mlp` 原本由 `truehd` 自动 select,D4 已显式启用;它也是 MPVKit 符号表未列出但本仓库确认存在的 parser。 |
 | `dvbsub` `dvdsub` `misc4` | 字幕/辅助流 parser;保留 MPVKit 的 DVB/DVD 字幕能力,但不启用 DVD 导航解析。 |
 
 ### a) 本步新增:decoder
@@ -103,6 +114,9 @@
 | `alac` `amrnb` `amrwb` `ape` `cook` `dolby_e` `tta` `wmalossless` `wmapro` `wmav1` `wmav2` `wmavoice` `xma1` `xma2` | MPVKit 基线的无损/语音/WMA/XMA 音频族,覆盖 ALAC、APE、RealAudio Cook、Dolby E、TTA、WMA 与 Xbox XMA。 |
 | `ccaption` `dvbsub` `dvdsub` `movtext` `mpl2` `srt` `ssa` `xsub` | MPVKit 基线的字幕解码:CEA-608、DVB/DVD 字幕、mov_text、MPL2、SubRip/SSA、XSUB。渲染仍由外部 libass 负责。 |
 | `txd` | MPVKit 基线的 RenderWare TXD 纹理 decoder;原生实现,用于老游戏/视频纹理封面。 |
+
+下面是 F0 立项时的最小集合与逐项理由,保留作历史依据。P1 D4 之后最终名单以上方 D4 表和
+`ffmpeg-ios.conf` 为准(当前计数见本节开头);这些旧小节若与 D4 表冲突,以后两者为准。
 
 ---
 
@@ -177,11 +191,11 @@ hwaccel 有对应的 codec 上下文(configure 里 hwaccel 会 `select` decoder)
 | `null` | 空操作 bsf,用来做链路测试(也给 `run.sh` 这类脚本一个"只过一遍"的选项)。 |
 | ~~`trim`~~ | **8.1.3 里不存在**(见下面「版本差异」),已从白名单移除。 |
 
-## protocol
+## protocol(F0 起点)
 
 | 组件 | 为什么在名单上 |
 | --- | --- |
-| `file` | 只读本地文件。F0 不联网,`--disable-network` 一起关掉了所有 socket 协议。 |
+| `file` | 只读本地文件。F0 起点只有它;P1 F2-1 已加入 `http`/`https`/`tcp`/`tls`,P1 D4 再扩展到上方 protocol 表。 |
 
 ## hwaccel(F0 附加项)
 
@@ -202,14 +216,15 @@ hwaccel 有对应的 codec 上下文(configure 里 hwaccel 会 `select` decoder)
 | --- | --- |
 | `--enable-gpl` / `--enable-nonfree` | 硬约束。 |
 | `--enable-version3` | 会把许可抬到 LGPL-3.0-or-later。D2 决定维持 **LGPL-2.1+**,理由见下面「许可决定」一节。 |
-| libx264 / libx265 / libfdk-aac / libxvid / libvidstab / libmp3lame / libvpx / libdav1d / libass / libfreetype | 外部库 + GPL/额外依赖。F0 不联网、不下载依赖,一个都不要。 |
-| `libavfilter` | `--disable-avfilter`。jellyfin 补丁里的 GPL 滤镜文件正因为关了它才不会被编进去。 |
-| `libswscale` | `--disable-swscale`。F0 不做像素格式转换;硬解输出 CVPixelBuffer,软解交给 mpv 的 GPU 链。 |
+| libx264 / libx265 / libfdk-aac / libxvid / libvidstab / libmp3lame / libvpx / libass / libfreetype | 外部库/额外依赖;当前构建不下载、不引入,需要时单独评估许可与体积。 |
+| `libdav1d` / `libuavs3d` / `tscc` | D4 b 类:分别需要 dav1d、libuavs3d,或 zlib(`tscc` 经 `inflate_wrapper`);留到后续步骤。 |
+| `zlib`(全局) | 当前 `--disable-zlib`;D4 只有 `tscc` 需要它,不为一个 decoder 打开全局依赖。 |
+| `dash` demuxer | 需要 libxml2,留到后续步骤;现有 HLS/`webm_dash_manifest` 不受影响。 |
+| `ffrtmpcrypt` / `rtmpe` / `rtmpte` / `dtls` | 需要 gcrypt/gmp/OpenSSL/mbedTLS 等加密后端;基础 RTMP/RTMPS/RTMPT 仍可用。 |
 | `libavdevice` | `--disable-avdevice`。不做采集。 |
 | `libpostproc` | FFmpeg 8.0 起已从源码树移除,没有这个库,也没有 `--disable-postproc` 选项。 |
-| 网络协议 / TLS | `--disable-network`,F0 只读本地文件。 |
 | `matroska` muxer | F0 的产物方向是 fMP4;写 mkv 用不到,不开。 |
-| av1/vp9/prores 等解码器 | 名单外。以后要支持再加,加之前先看它的 `_select` 拉进来什么。 |
+| `data` demuxer / `dvd_nav` parser | 有意不要:前者是调试数据通道,后者是 DVD 导航;理由见 D4 c 类。 |
 
 ## 许可决定:不加 `--enable-version3`(D2,2026-11-10)
 
@@ -246,17 +261,13 @@ hwaccel 有对应的 codec 上下文(configure 里 hwaccel 会 `select` decoder)
 Metal 三项没有 Metal Toolchain 时会被 configure 关掉,`verify-license.sh` 会打 `[warn]` 而不是
 `[FAIL]`;装上 toolchain 后自动变成硬性检查。
 
-## configure 自动带入的组件(不在白名单里,但不是我们主动开的)
+## configure 自动 select:历史与口径
 
-`verify-license.sh` 会把它们打成 `[warn]`,方便对账:
+P1 D4 之前,`mlp` parser、`vp9_superframe` bsf、`vp8` decoder 会由 `_select` 自动带入,
+`verify-license.sh` 会打 `[warn]` 方便对账。D4 已把这三项显式写入白名单;`av1`/`flac`/`mpegaudio`
+等 parser 也改为显式启用。当前构建不再产生「额外启用(configure 自动 select)」警告。
 
-| 组件 | 谁拉的 |
-| --- | --- |
-| `mlp` parser | `truehd_decoder_select="mlp_parser"`(configure:3286) |
-| `vp9_superframe` bsf | `mov_muxer_select="… vp9_superframe_bsf …"`(configure:3910) |
-| `vp8` decoder | `webp_decoder_select="vp8_decoder"`(configure:3313);webp 封面里的有损部分是 VP8 关键帧 |
-
-三条都是 LGPL,体积极小(加起来 < 300 KB),保留。
+若后续改动再次产生自动 select,必须逐项登记来源;它们也必须是 LGPL 组件,否则回退该组。
 
 ## 版本差异 / 名字不存在(如实记录)
 
