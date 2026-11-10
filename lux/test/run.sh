@@ -11,6 +11,7 @@
 #   6. 补丁集公开 API 探针(patch_probe)
 #   7. 12-bit HEVC:VT 候选 + 硬解失败回退(hevc12_probe)
 #   8. AV1 解码实测:libdav1d vs 原生 av1(av1_probe,dav1d 小节的实测证据)
+#   9. TLS 后端:OpenSSL 对 1.3-only 与 1.2-only 服务端的握手 + HTTP 读取(tls_probe)
 #
 # 产物全部写在 lux/.build/ 内。
 #
@@ -28,6 +29,11 @@ FIXTURE="$FIXDIR/lux-f0-fixture.mkv"
 # libavcodec.a 里的 libdav1d 解码器引用 dav1d_* 符号;dav1d 是静态库(D4),
 # 链接时显式列在 libavcodec.a 之后。所有链接 FFmpeg 静态库的探针都要带上它。
 DAV1D_LIB="$REPO/lux/.build/deps/$TARGET/install/lib/libdav1d.a"
+# D3 起 TLS 后端是 OpenSSL 3.5(静态 libssl.a/libcrypto.a),tscc 用静态 libz.a。
+# 链接约定:所有 FFmpeg 静态库之后、-framework 之前追加 -L<deps>/lib -lssl -lcrypto -lz。
+# libavutil.a 的 random_seed(OpenSSL RAND_bytes)、libavformat.a 的 tls_openssl、
+# libavcodec.a 的 tscc(inflate)都靠这三个库解析。
+DEPS_LIB_DIR="$REPO/lux/.build/deps/$TARGET/install/lib"
 WORK="$BUILD/test"
 
 export TMPDIR="$BUILD_ROOT/tmp"
@@ -101,6 +107,7 @@ if ! xcrun --sdk macosx clang -arch arm64 -mmacosx-version-min=14.0 -isysroot "$
         "$DAV1D_LIB" \
         "$INSTALL/lib/libavfilter.a" "$INSTALL/lib/libswscale.a" \
         "$INSTALL/lib/libswresample.a" "$INSTALL/lib/libavutil.a" \
+        -L"$DEPS_LIB_DIR" -lssl -lcrypto -lz \
         -framework CoreFoundation -framework CoreVideo -framework CoreMedia \
         -framework VideoToolbox -framework AudioToolbox -framework Security \
         -framework CoreImage \
@@ -177,6 +184,7 @@ if ! xcrun --sdk macosx clang -arch arm64 -mmacosx-version-min=14.0 -isysroot "$
         "$DAV1D_LIB" \
         "$INSTALL/lib/libavfilter.a" "$INSTALL/lib/libswscale.a" \
         "$INSTALL/lib/libswresample.a" "$INSTALL/lib/libavutil.a" \
+        -L"$DEPS_LIB_DIR" -lssl -lcrypto -lz \
         -framework CoreFoundation -framework CoreVideo -framework CoreMedia \
         -framework VideoToolbox -framework AudioToolbox -framework Security \
         -framework CoreImage \
@@ -231,6 +239,7 @@ else
             "$DAV1D_LIB" \
             "$INSTALL/lib/libavfilter.a" "$INSTALL/lib/libswscale.a" \
             "$INSTALL/lib/libswresample.a" "$INSTALL/lib/libavutil.a" \
+        -L"$DEPS_LIB_DIR" -lssl -lcrypto -lz \
             -framework CoreFoundation -framework CoreVideo -framework CoreMedia \
             -framework VideoToolbox -framework AudioToolbox -framework Security \
         -framework CoreImage \
@@ -317,6 +326,7 @@ if [ "$AV1_READY" = 1 ]; then
             "$DAV1D_LIB" \
             "$INSTALL/lib/libavfilter.a" "$INSTALL/lib/libswscale.a" \
             "$INSTALL/lib/libswresample.a" "$INSTALL/lib/libavutil.a" \
+        -L"$DEPS_LIB_DIR" -lssl -lcrypto -lz \
             -framework CoreFoundation -framework CoreVideo -framework CoreMedia \
             -framework VideoToolbox -framework AudioToolbox -framework Security \
             -framework CoreImage \
@@ -377,6 +387,127 @@ if [ "$AV1_READY" = 1 ]; then
         else
             fail "原生 av1 状态异常"
         fi
+    fi
+fi
+
+# ---------------------------------------------------------------------------
+# 9. TLS 后端(D3):本构建的 openssl s_server 起 1.3-only 与 1.2-only 两个服务端
+# ---------------------------------------------------------------------------
+# 旧的 Secure Transport 连不上只支持 TLS 1.3 的服务端(-9836,见 lux/docs/tls-13-probe.md)。
+# D3 换成 OpenSSL 后,这里用同一份 s_server(来自 deps 安装的 openssl)分别验证:
+#   - 1.3-only(8443):探针必须握手成功并读到 HTTP 200;
+#   - 1.2-only(8444):同上(证明后端没有把 1.2 服务端排除)。
+# 探针不再"握手后阻塞在 read":它发 HTTP/1.0 GET,读到 EOF,并要求状态行 200;
+# 读超时/EAGAIN 都算失败。外层再用 timeout(没有 coreutils 时用 perl alarm)兜底。
+# 每个服务端都用 -naccept 1,并断言 s_server 日志里的 Protocol 是 TLSv1.3 / TLSv1.2。
+TLS_DIR="$WORK/tls"
+mkdir -p "$TLS_DIR"
+OSSL_BIN="$REPO/lux/.build/deps/$TARGET/install/bin/openssl"
+run_timeout() { # $1 秒;其余为命令
+    local secs=$1; shift
+    if command -v timeout >/dev/null 2>&1; then
+        timeout "$secs" "$@"
+    else
+        perl -e 'alarm shift; exec @ARGV' "$secs" "$@"
+    fi
+}
+
+if [ ! -x "$OSSL_BIN" ]; then
+    fail "找不到本构建的 openssl: $OSSL_BIN(先跑 build-deps.sh $TARGET openssl)"
+else
+    pass "openssl: $("$OSSL_BIN" version)"
+
+    if [ ! -s "$TLS_DIR/cert.pem" ] || [ ! -s "$TLS_DIR/key.pem" ]; then
+        if "$OSSL_BIN" req -x509 -newkey rsa:2048 -sha256 -nodes -days 2 \
+                -subj "/CN=localhost" -keyout "$TLS_DIR/key.pem" \
+                -out "$TLS_DIR/cert.pem" > "$TLS_DIR/certgen.log" 2>&1; then
+            pass "TLS 测试证书已生成(自签,仅本机回环)"
+        else
+            fail "TLS 测试证书生成失败"
+            cat "$TLS_DIR/certgen.log" >&2
+        fi
+    else
+        pass "TLS 测试证书已存在: $TLS_DIR/cert.pem"
+    fi
+
+    TLSPROBE="$WORK/tls_probe"
+    printf '[run] 编译 tls_probe.c\n'
+    if ! xcrun --sdk macosx clang -arch arm64 -mmacosx-version-min=14.0 -isysroot "$SDK" \
+            -Wall -Wextra -Wno-unused-parameter -O1 \
+            -I"$INSTALL/include" \
+            -o "$TLSPROBE" "$LUX/test/tls_probe.c" \
+            "$INSTALL/lib/libavformat.a" "$INSTALL/lib/libavcodec.a" \
+            "$DAV1D_LIB" \
+            "$INSTALL/lib/libavfilter.a" "$INSTALL/lib/libswscale.a" \
+            "$INSTALL/lib/libswresample.a" "$INSTALL/lib/libavutil.a" \
+            -L"$DEPS_LIB_DIR" -lssl -lcrypto -lz \
+            -framework CoreFoundation -framework CoreVideo -framework CoreMedia \
+            -framework VideoToolbox -framework AudioToolbox -framework Security \
+            -framework CoreImage \
+            > "$TLS_DIR/tls_probe-compile.log" 2>&1; then
+        cat "$TLS_DIR/tls_probe-compile.log" >&2
+        fail "tls_probe 编译/链接失败"
+    else
+        pass "tls_probe 编译链接成功: $TLSPROBE"
+
+        tls_case() { # $1 标签 $2 端口 $3 s_server 版本参数 $4 控制组用的"错误版本"参数
+            local label=$1 port=$2 flags=$3 control=$4
+            local log="$TLS_DIR/$label.log" pid i ready=0
+
+            # -naccept 2:第 1 次连接给控制组(错误版本,必须被拒),第 2 次给探针。
+            "$OSSL_BIN" s_server -www -accept "127.0.0.1:$port" \
+                -cert "$TLS_DIR/cert.pem" -key "$TLS_DIR/key.pem" \
+                -naccept 2 $flags > "$log" 2>&1 &
+            pid=$!
+
+            i=0
+            while [ "$i" -lt 100 ]; do
+                grep -q "^ACCEPT" "$log" 2>/dev/null && { ready=1; break; }
+                kill -0 "$pid" 2>/dev/null || break
+                sleep 0.1
+                i=$((i + 1))
+            done
+            if [ "$ready" -ne 1 ]; then
+                fail "$label: s_server 没起来($flags)"
+                sed 's/^/       /' "$log" >&2
+                kill "$pid" 2>/dev/null || true
+                wait "$pid" 2>/dev/null || true
+                return
+            fi
+
+            # 控制组:用被该服务端禁用的版本连接,必须失败。这证明 -tls1_X 真的在生效,
+            # 于是下面探针一旦成功,就只能是用服务端允许的那个版本(1.3-only / 1.2-only)。
+            if run_timeout 15 "$OSSL_BIN" s_client -connect "127.0.0.1:$port" $control \
+                    < /dev/null > "$TLS_DIR/$label.control.out" 2>&1; then
+                fail "$label: 控制组 $control 竟然连上了(服务端版本限制没生效)"
+            else
+                pass "$label: 控制组 $control 被拒绝(服务端版本限制生效)"
+            fi
+            grep -m1 -i "alert protocol version" "$TLS_DIR/$label.control.out" \
+                | sed 's/^/       /' || true
+
+            if run_timeout 20 "$TLSPROBE" "tls://127.0.0.1:$port/" 8000 \
+                    > "$TLS_DIR/$label.probe.out" 2>&1; then
+                pass "$label: 探针握手 + HTTP 200 成功"
+            else
+                fail "$label: 探针失败(超时或响应非法)"
+            fi
+            sed 's/^/       /' "$TLS_DIR/$label.probe.out"
+
+            # s_server 处理完 -naccept 1 会退出;最多再等 5s,然后收尸。
+            i=0
+            while [ "$i" -lt 50 ] && kill -0 "$pid" 2>/dev/null; do
+                sleep 0.1
+                i=$((i + 1))
+            done
+            kill "$pid" 2>/dev/null || true
+            wait "$pid" 2>/dev/null || true
+
+        }
+
+        # 1.3-only 服务端:控制组用 -tls1_2;1.2-only 服务端:控制组用 -tls1_3。
+        tls_case tls13-only 8443 "-tls1_3" "-tls1_2"
+        tls_case tls12-only 8444 "-tls1_2" "-tls1_3"
     fi
 fi
 

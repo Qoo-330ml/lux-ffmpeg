@@ -185,8 +185,10 @@ RESULT: PASS
 - 为什么是 2.1+:D2 决定(2026-11-10,所有者确认)把许可下限降到 LGPL-2.1+,与 MPVKit / mpv /
   libplacebo 一致,也缩小了与 App Store 条款的张力(法务结论仍需确认)。P0-4 探针证明去掉
   `--enable-version3` 后启用的组件集合逐项不变,只有 `CONFIG_VERSION3`/`CONFIG_LGPLV3` 和
-  configure 的许可行变了;当前白名单没有 gmp/mbedtls/libopencore-amr 等 version3 外部库,也没有
-  OpenSSL ≥ 3.0。完整理由与「什么情况会被迫加回来」记在 `lux/config/allowlist.md`「许可决定」。
+  configure 的许可行变了;当前白名单没有 gmp/mbedtls/libopencore-amr 等 version3 外部库。
+  OpenSSL 3.5.9 已作为 TLS 后端(D3)纳入,但本构建无 GPL,configure 的 version3 断言不触发,
+  `CONFIG_VERSION3` 仍为 0(三切片实测)。完整理由与「什么情况会被迫加回来」记在
+  `lux/config/allowlist.md`「许可决定」。
 - 为什么还要额外审计:`CONFIG_GPL 0` 只保证 `#if CONFIG_GPL` 包住的代码不编,**不保证没有 GPL
   源文件被无条件编进去**。F0 就是用第 5 项检查(反查 `.o` 的源文件)抓到了两个这样的文件,
   见下节。GPL 滤镜之所以不会进来,是因为我们根本没编译 avfilter(`--disable-avfilter`),
@@ -695,15 +697,19 @@ done
 - App Store Connect 的 dSYM / 隐私清单上传检查;
 - 首帧延迟、启动耗时(dyld 多 4 个镜像)、真实片源矩阵。
 
-## 13. F2-1 网络与 TLS(2026-11-07)
+## 13. F2-1 网络与 TLS(2026-11-07;D3 于 2026-11-10 改为 OpenSSL)
 
-- 配置:`lux/config/ffmpeg-ios.conf` 打开 `--enable-network`、`--enable-securetransport`,
-  协议表 `file http https tcp tls`。理由与未开启项(zlib、avdevice、dav1d)见 `lux/config/allowlist.md`「F2-1」。
-- 验证:`verify-frameworks.sh` PASS;`verify-license.sh` PASS(LGPL-only;`CONFIG_NETWORK 1`、`CONFIG_SECURETRANSPORT 1`
-  已加入检查)。
+- 配置:`lux/config/ffmpeg-ios.conf` 打开 `--enable-network`、`--enable-openssl`(D3 前是
+  `--enable-securetransport`),协议表 `file http https tcp tls`。Secure Transport 只到 TLS 1.2,
+  连不上 1.3-only 服务端(`-9836`,见 `lux/docs/tls-13-probe.md`);D3 改用 OpenSSL 3.5.9
+  (Apache-2.0,静态 `libssl.a`/`libcrypto.a`),`CONFIG_VERSION3` 仍为 0。
+- 验证:`verify-frameworks.sh` PASS;`verify-license.sh` PASS(LGPL-only;`CONFIG_NETWORK 1`、
+  `CONFIG_OPENSSL 1`、`CONFIG_SECURETRANSPORT 0` 已加入检查)。
 - https 探针:`lux/test/https_probe.c`,在 macOS 静态构建上链接(`clang ... -framework Security -framework CoreFoundation ...`),
   URL 只从环境变量 `LUX_TEST_HTTPS_URL` 读取,不写入仓库。实测:协议表 https/http/tls/tcp/file 均存在;
-  经 SecureTransport 打开一个公开 https 文件并读取 1810 字节,返回 PASS。
+  F2-1 当时经 SecureTransport 打开一个公开 https 文件并读取 1810 字节,返回 PASS。
+- TLS 1.3 回归:`lux/test/tls_probe.c` + `lux/test/run.sh` 第 9 段,用本构建的 `openssl s_server`
+  起 1.3-only(8443)与 1.2-only(8444)服务端,探针发 HTTP/1.0 GET 并读到 200,两者都必须成功。
 
 ## 14. P2-2 / P2-3 libmpv framework 化(macOS + iOS 切片,2026-11-10)
 
