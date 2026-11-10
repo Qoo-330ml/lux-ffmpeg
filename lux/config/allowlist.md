@@ -108,6 +108,7 @@ hwaccel 有对应的 codec 上下文(configure 里 hwaccel 会 `select` decoder)
 | 不开 | 理由 |
 | --- | --- |
 | `--enable-gpl` / `--enable-nonfree` | 硬约束。 |
+| `--enable-version3` | 会把许可抬到 LGPL-3.0-or-later。D2 决定维持 **LGPL-2.1+**,理由见下面「许可决定」一节。 |
 | libx264 / libx265 / libfdk-aac / libxvid / libvidstab / libmp3lame / libvpx / libdav1d / libass / libfreetype | 外部库 + GPL/额外依赖。F0 不联网、不下载依赖,一个都不要。 |
 | `libavfilter` | `--disable-avfilter`。jellyfin 补丁里的 GPL 滤镜文件正因为关了它才不会被编进去。 |
 | `libswscale` | `--disable-swscale`。F0 不做像素格式转换;硬解输出 CVPixelBuffer,软解交给 mpv 的 GPU 链。 |
@@ -116,6 +117,24 @@ hwaccel 有对应的 codec 上下文(configure 里 hwaccel 会 `select` decoder)
 | 网络协议 / TLS | `--disable-network`,F0 只读本地文件。 |
 | `matroska` muxer | F0 的产物方向是 fMP4;写 mkv 用不到,不开。 |
 | av1/vp9/prores 等解码器 | 名单外。以后要支持再加,加之前先看它的 `_select` 拉进来什么。 |
+
+## 许可决定:不加 `--enable-version3`(D2,2026-11-10)
+
+- **决定**:本构建的许可目标是 **LGPL-2.1-or-later**。所有者已确认 D2(计划 §8「能降就降」),
+  与 MPVKit / mpv / libplacebo 的许可下限一致,并缩小与 App Store 条款的张力。`ffmpeg-ios.conf`
+  因此**不写** `--enable-version3`,只保留 `--disable-gpl --disable-nonfree`。
+- **依据**:P0-4 探针(`2026-11-10-p0-4-version3-finding.md`)在同一份白名单上对比了「有/无
+  `--enable-version3`」两次 configure + make:启用的组件集合逐项相同,`config.h` 的 `CONFIG_*`
+  行排序后只有两个许可宏不同(`CONFIG_VERSION3` 1→0、`CONFIG_LGPLV3` 1→0);configure 的许可行
+  从 `License: LGPL version 3 or later` 变成 `License: LGPL version 2.1 or later`。
+- **什么情况会被迫加回来**(届时必须重新评估 D2):启用 `EXTERNAL_LIBRARY_VERSION3_LIST` 里的库
+  (gmp、libaribb24、liblensfun、libopencore-amr、mbedtls、rkmpp 等)、`libsmbclient`、
+  以 OpenSSL ≥ 3.0 作 TLS 后端,或引入任何 GPLv3-only 代码。当前白名单一个都不涉及;TLS 走
+  `--enable-securetransport`,configure 里与 OpenSSL 互斥。
+- **守护**:`verify-license.sh` 硬性要求 `CONFIG_VERSION3 0`、`CONFIG_LGPLV3 0`,且 configure
+  日志的 `License:` 必须是 `LGPL version 2.1 or later`;`build-ffmpeg.sh` 只接受以 `License: LGPL`
+  开头的许可行。把 version3 加回来会让 verify 直接 FAIL。
+- **随包许可文本**是仓库根的 `COPYING.LGPLv2.1`,不是 `COPYING.LGPLv3`。
 
 ## filter(F2 起)
 
