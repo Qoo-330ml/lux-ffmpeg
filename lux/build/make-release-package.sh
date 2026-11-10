@@ -145,8 +145,10 @@ FFMPEG_VERSION=$(cat "$REPO/VERSION")
 FFMPEG_BASELINE=$(sed -n 's/^baseline=//p' "$BUILD/macos-arm64/BUILD-INFO.txt" | head -1)
 [ -n "$FFMPEG_BASELINE" ] || FFMPEG_BASELINE="jellyfin-ffmpeg v${FFMPEG_VERSION}-2 (FFmpeg ${FFMPEG_VERSION})"
 
-XCODE_VERSION=$(xcodebuild -version 2>/dev/null | awk '/^Xcode / { print $2; exit }')
-XCODE_BUILD=$(xcodebuild -version 2>/dev/null | awk '/^Build version/ { print $3; exit }')
+# 先整体捕获输出再解析:awk 提前 exit 会让 xcodebuild 收到 SIGPIPE,pipefail 下整个脚本以 141 退出
+XCODE_INFO=$(xcodebuild -version 2>/dev/null || true)
+XCODE_VERSION=$(printf '%s\n' "$XCODE_INFO" | awk '/^Xcode / { print $2; exit }')
+XCODE_BUILD=$(printf '%s\n' "$XCODE_INFO" | awk '/^Build version/ { print $3; exit }')
 SDK_MACOS=$(xcrun --sdk macosx --show-sdk-version 2>/dev/null || true)
 SDK_MACOS_BUILD=$(xcrun --sdk macosx --show-sdk-build-version 2>/dev/null || true)
 SDK_IOS=$(xcrun --sdk iphoneos --show-sdk-version 2>/dev/null || true)
@@ -255,7 +257,8 @@ collect_dsyms() { # $1=group $2=dsym-root $3=xcf-root $4=frameworks
             [ -f "$dsym_bin" ] || die "缺少 dSYM: $dsym_bin"
             fw_bin="$xcf/$fw.xcframework/$slice/$fw.framework/$fw"
             [ -f "$fw_bin" ] || die "缺少 framework 二进制: $fw_bin"
-            uuid=$(dwarfdump --uuid "$dsym_bin" 2>/dev/null | awk '{ print $2; exit }')
+            dwarf_uuid_out=$(dwarfdump --uuid "$dsym_bin" 2>/dev/null || true)
+            uuid=$(printf '%s\n' "$dwarf_uuid_out" | awk '{ print $2; exit }')
             fw_uuid=$(dwarfdump --uuid "$fw_bin" 2>/dev/null | awk '{ print $2; exit }')
             [ -n "$uuid" ] || die "读不到 dSYM UUID: $dsym_bin"
             [ "$uuid" = "$fw_uuid" ] || die "$group/$fw/$target UUID 不一致: dSYM=$uuid binary=$fw_uuid"
