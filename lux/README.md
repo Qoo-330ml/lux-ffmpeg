@@ -782,10 +782,23 @@ done
   按锁取源码到 `lux/.build/deps/src/`(`LUX_DEPS_SRC` 可改)。**下载/复制先写 `.part`,
   校验通过才 rename 到目标名**;不一致就删掉半成品并 `exit 1`,不会覆盖缓存,更不会改写 deps.lock。
   自存副本若存在但 hash 不对,直接失败并提示,不会悄悄回退到 URL。
-- `lux/build/check-deps-lock.sh [--fresh] [--offline] [--cache DIR] [--log FILE]`:
-  逐项把 URL 的**当前字节**取下来核对,同时核对 `selfstore=` 副本;日志默认写
-  `lux/.build/logs/deps-lock-check-<YYYYmmdd>.log`,退出码 0 = 全一致,1 = 有差异/缺失。
-  下载缓存放在 `lux/.build/verify/deps-lock/`,不碰 `lux/.build/deps/`。
+  `--from-url` **隐含 `--fresh`**:即使缓存里已有 hash 正确的文件也会重新下载,日志里会打出
+  `[get] <name> <- <url>`,不会被 `[cached]` 短路(用于独立核对上游字节)。
+- `lux/build/check-deps-lock.sh [--fresh] [--offline] [--cache DIR] [--log FILE] [--build-src DIR]`:
+  逐项把 URL 的**当前字节**取下来核对,同时核对 `selfstore=` 与构建缓存;日志默认写
+  `lux/.build/logs/deps-lock-check-<YYYYmmdd>.log`。
+  - 退出码:`0` = 每一项都有通过 sha256 的副本;`1` = 有差异、下载失败,或 **`--offline` 下某项
+    本地一份可用副本都没有**;`2` = 用法错误。
+  - `--offline` 只看本地(下载缓存 / `selfstore=` / `--build-src`),**不会**把“没核对”算成通过:
+    三项都没有的条目会打 `offline=NO-LOCAL-COPY`、计入 FAIL,并在末尾列出缺失清单。
+    新 clone(没有 `lux/.build/verify`,也没有 `lux/release/sources/`)跑 `--offline` 必然是 exit 1,
+    这是预期行为;要联网核对请去掉 `--offline` 或加 `--fresh`。
+  - 下载缓存放在 `lux/.build/verify/deps-lock/`,不碰 `lux/.build/deps/`。
+- 关于构建脚本:sha256 校验**只在** `fetch-deps.sh`(取源码、落缓存前)和 `check-deps-lock.sh`
+  (核对)里做;`build-deps.sh` / `build-mpv.sh` / `build-moltenvk.sh` 只解包
+  `lux/.build/deps/src` 中已校验过的归档,**自己不重算 hash**。所以构建前必须先跑
+  `fetch-deps.sh`(缓存缺失或 hash 不符时它会失败),这是本任务明确选择的边界
+  (另一条路是在每个 build 脚本解包前复算,会增加三处重复逻辑且本机无法完整回归)。
 - 下载带重试(`--retry 5 --retry-all-errors`):上游偶发 5xx/断流时重试,不会因为一次网络抖动
   就误报成 hash 不符;真的取不到才算失败。
 - 公共函数在 `lux/build/deps-lock-common.sh`(sha256 计算兼容 `sha256sum` / `shasum`)。
