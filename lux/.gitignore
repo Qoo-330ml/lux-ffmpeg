@@ -1,0 +1,3 @@
+# 自存的依赖源码包(逐字节副本,只在本机保留,不进仓库本体)。
+# 清单见 config/deps.lock 的 selfstore= 字段与 README.md「依赖源码固定」。
+/release/sources/

@@ -54,6 +54,12 @@ lux/docs/patch-triage.md       # 106 个 jellyfin 补丁的分诊结论
 lux/build/build-ffmpeg.sh      # macos-arm64 | ios-arm64 | ios-sim-arm64 | clean
 lux/build/apply-patches.sh     # 补丁集 apply/check/revert/status/digest
 lux/build/verify-license.sh    # 许可 / 符号 / 平台 / 组件对账 / 补丁指纹,失败非零退出
+lux/build/fetch-deps.sh        # 按 deps.lock 取依赖源码,下载后强制校验 sha256(§15)
+lux/build/check-deps-lock.sh   # 全量核对 deps.lock:URL 当前字节 + 自存副本,日志写 lux/.build/logs/
+lux/build/install-glad.sh      # 按 requirements-glad.txt 的 hash 装 glad2 到 pydeps
+lux/config/deps.lock           # 依赖源码锁:版本 + sha256 + selfstore(自存路径)
+lux/config/requirements-glad.txt # glad2 / Jinja2 / MarkupSafe 的 hash 锁
+lux/release/sources/           # 自存的依赖源码包(git 忽略,只在本机;见 §15)
 lux/test/read_mkv.c            # 最小 C 程序:读 mkv,打印流信息/时长/首关键帧偏移
 lux/test/patch_probe.c         # 补丁公开 API 探针(0001/0005/0006)
 lux/test/hevc12_probe.c        # 12-bit HEVC:VT 候选 + 回退(0004)
@@ -717,3 +723,113 @@ done
 - 说明:Libplacebo / Libfribidi 保留 Headers,但没有生成 module map(两者的头文件
   自引用方式不适合 framework 的 `-F` 搜索);Libmpv / Libuchardet 的 module map 已用
   `clang -fmodules` 验证。
+
+## 15. P3 依赖源码固定(2026-11-10)
+
+目标:构建用的每一份第三方源码都能按 `lux/config/deps.lock` 复现,PyPI 依赖也要有 hash。
+
+### 15.1 结论
+
+- 锁里 **22 项** 于 2026-11-10 全部从各自 URL 重新下载核对,sha256 与锁定值**逐字节一致**,
+  一个版本号都没改。日志:`lux/.build/logs/deps-lock-check-20261110.log`(脚本见 15.3)。
+- 上游发布资产核对结果(2026-11-10,逐个项目查 GitHub API / GitLab releases):
+  - **mpv v0.41.0**:release 页除了 GitHub 自动生成的 Source code 归档(与 deps.lock 里的 tag archive
+    是同一类),只有 8 个平台二进制 zip —— **没有任何上传的源码资产**;
+  - **libplacebo v7.360.1**:`code.videolan.org` 的 `videolan/libplacebo` 根本没有 release
+    (`/-/releases.atom` 为空),`downloads.videolan.org/pub/videolan/` 也没有 libplacebo 目录;
+  - **shaderc v2025.5 及其 DEPS**(glslang / SPIRV-Tools / SPIRV-Headers)、**volk**、**cereal**、
+    **Vulkan-Headers**、**SPIRV-Cross**:release 页只有自动生成的 Source code 归档(有的连 release 都没有),
+    没有上传的源码资产;
+  - **MoltenVK v1.4.2**:上传的资产是 `MoltenVK-all.tar` 之类的二进制包,源码也只有自动归档;
+  - **fast_float v8.0.2**:上传的资产只有单头文件 `fast_float.h`,没有完整源码包;
+  - 其余 8 项(freetype / harfbuzz / fribidi / libunibreak / lcms2 / uchardet / libass / dav1d)
+    本来就是官方 release tarball(部分还带上游 `.sha256`),继续只用 URL。
+
+所以:**14 项自存**(逐字节副本放 `lux/release/sources/`,已在 `lux/.gitignore` 里忽略,**不进仓库本体**),
+**8 项只用 URL**。自存文件名是 `<name>-<version>`,路径写在 deps.lock 每行的 `selfstore=` 里;
+取源码时 `fetch-deps.sh` 优先用自存副本(离线可构建),没有时才回退到 URL,两条路都强制校验 sha256。
+
+### 15.2 清单
+
+| 条目 | 版本 | 来源 | 自存 | sha256 |
+| --- | --- | --- | --- | --- |
+| `freetype` | `2.15.0` | 官方 release tarball | - | `93cd47eb719c325107f2d3cf087d06299e944c3b48a40b55537302304dea1dd5` |
+| `harfbuzz` | `15.0.0` | 官方 release tarball | - | `968536e9abd782f07f7954044c0c4020199fcdd39b41d221ec42d2a3be4a44df` |
+| `fribidi` | `1.0.17` | 官方 release tarball | - | `6949dcde27d41cebad1fd741fcafc36d55a1020d2d872d4a6eb3914caabbada2` |
+| `libunibreak` | `8.0` | 官方 release tarball | - | `9c4fad6e517338a098373acc9f35579ae2c325e6446666fb9ac2666ba15ceba4` |
+| `lcms2` | `2.19.1` | 官方 release tarball | - | `bfc54f7bab59fbc921012014a8032e4cba4abd46db47d46b76416a8c0b2815c8` |
+| `uchardet` | `0.0.8` | 官方 release tarball | - | `e97a60cfc00a1c147a674b097bb1422abd9fa78a2d9ce3f3fdcc2e78a34ac5f0` |
+| `libass` | `0.17.5` | 官方 release tarball | - | `2dca25c0e0c837ddf00b52011b3f82cac1e4ddd3ad018227806b0c2288864acc` |
+| `mpv` | `0.41.0` | git archive | `lux/release/sources/mpv-0.41.0.tar.gz` | `ee21092a5ee427353392360929dc64645c54479aefdb5babc5cfbb5fad626209` |
+| `libplacebo` | `7.360.1` | git archive | `lux/release/sources/libplacebo-7.360.1.tar.gz` | `14c0a99f4b01557ec9826ce6b1d52f6de21be274ba03fd5aab7307f18766dc39` |
+| `shaderc` | `2025.5` | git archive | `lux/release/sources/shaderc-2025.5.tar.gz` | `fca5041b1fdea6daba167b63e04e55e5059fab40828342126169336643445447` |
+| `glslang` | `7a47e2531cb334982b2a2dd8513dca0a3de4373d` | git archive | `lux/release/sources/glslang-7a47e2531cb334982b2a2dd8513dca0a3de4373d.tar.gz` | `272d2725b140e09e85b96eecdc59c2e00c1a14cda2301767e1bf3c363a44b931` |
+| `spirv-tools` | `262bdab48146c937467f826699a40da0fdfc0f1a` | git archive | `lux/release/sources/spirv-tools-262bdab48146c937467f826699a40da0fdfc0f1a.tar.gz` | `8f830936b057003be77e90d37068ff6066eb87a1bab0033f8f2f5feaa966ce56` |
+| `spirv-headers` | `b824a462d4256d720bebb40e78b9eb8f78bbb305` | git archive | `lux/release/sources/spirv-headers-b824a462d4256d720bebb40e78b9eb8f78bbb305.tar.gz` | `c693867f10a7760ef1bcf85419d51783586768cc2c601d03841bc6a8b2554b9c` |
+| `moltenvk` | `1.4.2` | git archive | `lux/release/sources/moltenvk-1.4.2.tar.gz` | `6864db532f1dbbdb621a8d0ec13f24edae318fd9269dd3dd0cdff791334bb1cb` |
+| `vulkan-headers` | `e3b1eec08173d6b825cd3ac88c885a63b621504a` | git archive | `lux/release/sources/vulkan-headers-e3b1eec08173d6b825cd3ac88c885a63b621504a.tar.gz` | `f492279345cbc10708b64fcd432b3ff6c8246a5837c4db2b649abba00cf82208` |
+| `spirv-cross` | `6c09849fe88c48eaed08413aa022aaa136a3a057` | git archive | `lux/release/sources/spirv-cross-6c09849fe88c48eaed08413aa022aaa136a3a057.tar.gz` | `b81b9956289950570953738e666a031ca32ff64e4fc925eba89f227c42109518` |
+| `spirv-tools-mvk` | `0d6fd73ca73830ccab5fa1f00ed5ed40124e2c55` | git archive | `lux/release/sources/spirv-tools-mvk-0d6fd73ca73830ccab5fa1f00ed5ed40124e2c55.tar.gz` | `20219c0962dffb0d7644bb3116a5923cfcf0526a569baa0b2a17343dd2fa6e5d` |
+| `spirv-headers-mvk` | `29981f65241605e08b0ede4cfeb999fe3b723c6a` | git archive | `lux/release/sources/spirv-headers-mvk-29981f65241605e08b0ede4cfeb999fe3b723c6a.tar.gz` | `232899f1ad4104fb5bc377b94596c7621575eee62ad9a9e8f929b63a7dd8a7ad` |
+| `volk` | `776893306c5d3b22b6185b5d4a258b81d94572bf` | git archive | `lux/release/sources/volk-776893306c5d3b22b6185b5d4a258b81d94572bf.tar.gz` | `ff5b63e1b7104b34955eb4a993b94882a55f8561e971b92119069e496e3496b5` |
+| `cereal` | `a56bad8bbb770ee266e930c95d37fff2a5be7fea` | git archive | `lux/release/sources/cereal-a56bad8bbb770ee266e930c95d37fff2a5be7fea.tar.gz` | `12e10fb541270632f6683286ce8c7e8c321fe4addb53fa91ed498b95c1758f93` |
+| `fast_float` | `8.0.2` | git archive | `lux/release/sources/fast_float-8.0.2.tar.gz` | `e14a33089712b681d74d94e2a11362643bd7d769ae8f7e7caefe955f57f7eacd` |
+| `dav1d` | `1.5.4` | 官方 release tarball | - | `686616b7c69eb88d44459391ab25cac13b6647a3b288835c5784e71c1514a5c5` |
+
+### 15.3 取源码与校验
+
+- `lux/build/fetch-deps.sh [--fresh] [--from-url] [--offline] [--src DIR] [name ...]`:
+  按锁取源码到 `lux/.build/deps/src/`(`LUX_DEPS_SRC` 可改)。**下载/复制先写 `.part`,
+  校验通过才 rename 到目标名**;不一致就删掉半成品并 `exit 1`,不会覆盖缓存,更不会改写 deps.lock。
+  自存副本若存在但 hash 不对,直接失败并提示,不会悄悄回退到 URL。
+  `--from-url` **隐含 `--fresh`**:即使缓存里已有 hash 正确的文件也会重新下载,日志里会打出
+  `[get] <name> <- <url>`,不会被 `[cached]` 短路(用于独立核对上游字节)。
+- `lux/build/check-deps-lock.sh [--fresh] [--offline] [--cache DIR] [--log FILE] [--build-src DIR]`:
+  逐项把 URL 的**当前字节**取下来核对,同时核对 `selfstore=` 与构建缓存;日志默认写
+  `lux/.build/logs/deps-lock-check-<YYYYmmdd>.log`。
+  - 退出码:`0` = 每一项都有通过 sha256 的副本;`1` = 有差异、下载失败,或 **`--offline` 下某项
+    本地一份可用副本都没有**;`2` = 用法错误。
+  - `--offline` 只看本地(下载缓存 / `selfstore=` / `--build-src`),**不会**把“没核对”算成通过:
+    三项都没有的条目会打 `offline=NO-LOCAL-COPY`、计入 FAIL,并在末尾列出缺失清单。
+    新 clone(没有 `lux/.build/verify`,也没有 `lux/release/sources/`)跑 `--offline` 必然是 exit 1,
+    这是预期行为;要联网核对请去掉 `--offline` 或加 `--fresh`。
+  - 下载缓存放在 `lux/.build/verify/deps-lock/`,不碰 `lux/.build/deps/`。
+- 关于构建脚本:sha256 校验**只在** `fetch-deps.sh`(取源码、落缓存前)和 `check-deps-lock.sh`
+  (核对)里做;`build-deps.sh` / `build-mpv.sh` / `build-moltenvk.sh` 只解包
+  `lux/.build/deps/src` 中已校验过的归档,**自己不重算 hash**。所以构建前必须先跑
+  `fetch-deps.sh`(缓存缺失或 hash 不符时它会失败),这是本任务明确选择的边界
+  (另一条路是在每个 build 脚本解包前复算,会增加三处重复逻辑且本机无法完整回归)。
+- 下载带重试(`--retry 5 --retry-all-errors`):上游偶发 5xx/断流时重试,不会因为一次网络抖动
+  就误报成 hash 不符;真的取不到才算失败。
+- 公共函数在 `lux/build/deps-lock-common.sh`(sha256 计算兼容 `sha256sum` / `shasum`)。
+- 一次完整核对(会联网,约 55 MB):
+
+  ```sh
+  ./lux/build/check-deps-lock.sh --fresh
+  # == 22 项:22 OK,0 FAIL(deps.lock 未被修改)==
+  ```
+
+### 15.4 glad2:PyPI 也要 hash
+
+- `lux/config/requirements-glad.txt` 钉住 `glad2==2.0.8` 及其传递依赖 `Jinja2==3.1.6`、
+  `MarkupSafe==3.0.4`;每个包列 sdist + 纯 Python 通用 wheel + macOS wheel 的 sha256
+  (`pip download` 取到的产物算一遍,再与 PyPI 的 `digests.sha256` 交叉核对)。
+- `lux/build/install-glad.sh [--target DIR] [--force]` 执行
+  `python3 -m pip install --require-hashes --target lux/.build/deps/pydeps -r lux/config/requirements-glad.txt`,
+  装完自检三个包的版本并 `import glad`。实测:正常安装通过;把任一 hash 改错后 pip 以
+  `THESE PACKAGES DO NOT MATCH THE HASHES FROM THE REQUIREMENTS FILE` 失败。
+- `lux/vendor/glad-2.0.8/generate.sh` 缺 glad2 时会先调 `install-glad.sh`;顺手修了它算错仓库根的
+  老 bug(原来 `REPO` 少退一层,落到 `lux/`,导致 `lux/lux/.build/...` 路径不存在)。重新生成的头文件
+  与仓库里的逐字节一致(gl.h `74854594…`、egl.h `d8961e43…`)。
+
+### 15.5 边界与已知限制
+
+- 自存包**不在 git 里**。换一台机器/新 clone 只能走 URL 兜底(同样的 sha256 校验);
+  正式发布时应把 `lux/release/sources/` 一起放进发布资产或合规源码包(LGPL 的源码提供义务),
+  并保留 15.2 的清单与 hash。
+- 上游 archive 链接的字节仍可能变(标签移动、归档重新生成)。届时校验会**失败并报错**,
+  而不是静默换掉内容;要更新就人工确认上游后同时改 `deps.lock` 的 sha256 与自存副本。
+- 上游不提供源码签名(GitHub/GitLab archive、PyPI 之外的渠道也没有 GPG 清单),当前是
+  “首次下载即锁定 + 每次重新下载复核”的 TOFU 模型,不是上游签名验证。
+- `requirements-glad.txt` 的 wheel hash 只覆盖 macOS;换平台或换 CPython 版本需要补对应 wheel。
+- 本次没有新增任何依赖,也没有重建/改写 `lux/.build/deps/`(只读它做 `build-src=ok` 对照)。
