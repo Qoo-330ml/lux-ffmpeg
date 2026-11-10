@@ -69,6 +69,20 @@ export PKG_CONFIG_PATH=""
 
 ff_configure_opts "$target" "$INSTALL" || die "cannot resolve configure opts for '$target'"
 
+# P2 出口:静态库也要带 -g,否则 dSYM 只有 UUID 没有 DWARF。
+# 只往 --extra-cflags 追加调试信息开关;优化(-O2)、--disable-debug 与其它 configure
+# 参数保持唯一来自 lux/config/ffmpeg-ios.conf(与 ff_framework_configure_opts 给
+# 动态库加 LUX_FRAMEWORK_CFLAGS=-g 的做法一致)。
+LUX_DEBUG_CFLAGS="${LUX_DEBUG_CFLAGS:--g}"
+_ff_opts=()
+for _opt in "${FF_OPTS[@]}"; do
+    case "$_opt" in
+        --extra-cflags=*) _ff_opts+=("--extra-cflags=${_opt#--extra-cflags=} $LUX_DEBUG_CFLAGS") ;;
+        *)                _ff_opts+=("$_opt") ;;
+    esac
+done
+FF_OPTS=("${_ff_opts[@]}")
+
 log "target      : $target ($FF_HOST_OS_LABEL)"
 log "sdk         : $FF_SDK_NAME $FF_SDK_VERSION -> $FF_SDK_PATH"
 log "build dir   : $BUILD"

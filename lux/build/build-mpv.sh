@@ -89,6 +89,11 @@ export PKG_CONFIG_LIBDIR="$PREFIX/lib/pkgconfig:$PCDIR"
 export PKG_CONFIG_PATH=""
 
 # 2. meson 配置(选项名取自 mpv 0.41 的 meson.options)
+# P2 出口:分发的 Libmpv.framework 要有带 DWARF 的 dSYM,所以在 c_args 里加 -g。
+# buildtype 仍是 release(-O2 / -DNDEBUG),只多出调试信息,不改变代码生成。
+# meson 不读 CFLAGS 环境变量,命令行 -Dc_args 会整体替换交叉文件里的默认值,
+# 因此这里必须带上 DEPS_CFLAGS 全量再追加 -g。
+MPV_CFLAGS="$DEPS_CFLAGS -g"
 # shaderc 在 mpv 0.41 里只为 win32-desktop 需要;SPIR-V 编译由 libplacebo 完成,这里关闭
 # RemoteIO 子类型只存在于 iOS 的 AudioToolbox;macOS 切片关闭 audiounit(AVFoundation AO 仍可用)
 # coreaudio(ao_coreaudio)只在 macOS 有 AudioDevice API,这里全部关闭;播放走 avfoundation / audiounit
@@ -100,7 +105,7 @@ rm -rf "$WORK/build"
 # 在 WORK 里执行,让 --cross-file=meson-cross.ini 保持相对路径(见上)。
 ( cd "$WORK" && meson setup "$WORK/build" "$WORK" --prefix="$INSTALL_PREFIX" --buildtype=release \
   --default-library=shared $DEPS_MESON_CROSS \
-  -Dc_args="$DEPS_CFLAGS" -Dc_link_args="$DEPS_LDFLAGS" \
+  -Dc_args="$MPV_CFLAGS" -Dc_link_args="$DEPS_LDFLAGS" \
   -Dlibmpv=true -Dcplayer=false -Dgpl=false \
   -Dlua=disabled -Djavascript=disabled -Dlibbluray=disabled -Dlibarchive=disabled \
   -Dvapoursynth=disabled -Dzimg=disabled -Drubberband=disabled -Dlibavdevice=disabled \

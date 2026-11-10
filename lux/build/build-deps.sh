@@ -19,7 +19,13 @@ export CC="$DEPS_CC" CXX="$DEPS_CXX" AR="$DEPS_AR" RANLIB="$DEPS_RANLIB"
 # libplacebo 的 glad 生成器(glad2 2.0.8,PyPI),装在项目内的 pydeps 目录。
 # 安装方式见 lux/build/install-glad.sh:--require-hashes + lux/config/requirements-glad.txt。
 export PYTHONPATH="$REPO/lux/.build/deps/pydeps${PYTHONPATH:+:$PYTHONPATH}"
-export CFLAGS="$DEPS_CFLAGS" CXXFLAGS="$DEPS_CFLAGS" LDFLAGS="$DEPS_LDFLAGS"
+# P2 出口:分发的 framework 要有带 DWARF 的 dSYM,所以所有依赖都以 -g 构建。
+# buildtype 仍是 release、优化仍是 -O2:只多出调试信息,不改变代码生成。
+# 注意 meson 不读 CFLAGS/CXXFLAGS 环境变量——交叉文件里的 [built-in options] 只是默认值,
+# 命令行的 -Dc_args/-Dcpp_args 会整体替换它,因此给 meson 传参时要带上 DEPS_CFLAGS
+# 全量再追加 -g(见 meson_build、fribidi 与 libplacebo)。
+DEPS_DEBUG_CFLAGS="$DEPS_CFLAGS -g"
+export CFLAGS="$DEPS_DEBUG_CFLAGS" CXXFLAGS="$DEPS_DEBUG_CFLAGS" LDFLAGS="$DEPS_LDFLAGS"
 JOBS=$(sysctl -n hw.ncpu)
 extract() { # $1 archive basename
   rm -rf "$WORK/$2"; mkdir -p "$WORK"
@@ -31,7 +37,8 @@ meson_build() { # $1 name $2 srcdir [extra meson args...]
   local name=$1 dir=$2; shift 2
   rm -rf "$dir/build-$TARGET"
   meson setup "$dir/build-$TARGET" "$dir" --prefix="$PREFIX" --buildtype=release \
-    --default-library=static $DEPS_MESON_CROSS "$@" > "$WORK/$name.log" 2>&1 || { tail -40 "$WORK/$name.log"; return 1; }
+    --default-library=static $DEPS_MESON_CROSS \
+    -Dc_args="$DEPS_DEBUG_CFLAGS" -Dcpp_args="$DEPS_DEBUG_CFLAGS" "$@" > "$WORK/$name.log" 2>&1 || { tail -40 "$WORK/$name.log"; return 1; }
   ninja -C "$dir/build-$TARGET" -j"$JOBS" >> "$WORK/$name.log" 2>&1 && ninja -C "$dir/build-$TARGET" install >> "$WORK/$name.log" 2>&1
 }
 want() { [ $# -eq 0 ] || { for w in "$WANT"; do :; done; }; }
@@ -50,7 +57,9 @@ build_one() {
       extract fribidi-1.0.17.tar.xz fribidi
       rm -rf "$WORK/fribidi/build-$TARGET"
       meson setup "$WORK/fribidi/build-$TARGET" "$WORK/fribidi" --prefix="$PREFIX" --buildtype=release \
-        --default-library=shared $DEPS_MESON_CROSS -Ddocs=false -Dtests=false -Dbin=false > "$WORK/fribidi.log" 2>&1
+        --default-library=shared $DEPS_MESON_CROSS \
+        -Dc_args="$DEPS_DEBUG_CFLAGS" -Dcpp_args="$DEPS_DEBUG_CFLAGS" \
+        -Ddocs=false -Dtests=false -Dbin=false > "$WORK/fribidi.log" 2>&1
       ninja -C "$WORK/fribidi/build-$TARGET" -j"$JOBS" >> "$WORK/fribidi.log" 2>&1
       ninja -C "$WORK/fribidi/build-$TARGET" install >> "$WORK/fribidi.log" 2>&1 ;;
     libunibreak)
@@ -83,6 +92,7 @@ build_one() {
       rm -rf "$WORK/shaderc/build-$TARGET"
       cmake -S "$WORK/shaderc" -B "$WORK/shaderc/build-$TARGET" -DCMAKE_INSTALL_PREFIX="$PREFIX" \
         -DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=OFF \
+        -DCMAKE_C_FLAGS="-g" -DCMAKE_CXX_FLAGS="-g" \
         -DSHADERC_SKIP_TESTS=ON -DSHADERC_SKIP_EXAMPLES=ON -DENABLE_GLSLANG_BINARIES=OFF \
         -DCMAKE_OSX_ARCHITECTURES=arm64 -DCMAKE_OSX_SYSROOT="$DEPS_SDK" $DEPS_CMAKE_SYSTEM \
         -DCMAKE_OSX_DEPLOYMENT_TARGET="${DEPS_MIN_VERSION:-14.0}" -DCMAKE_POLICY_VERSION_MINIMUM=3.5 \
@@ -129,7 +139,8 @@ PC
       case "$TARGET" in ios-*) python3 -I -c "import sys,pathlib; p=pathlib.Path(sys.argv[1]); s=p.read_text(); p.write_text(s.replace(\"if not cc.links(atomic_test)\", \"if false\"))" "$WORK/libplacebo/src/meson.build" ;; esac
       meson setup "$WORK/libplacebo/build-$TARGET" "$WORK/libplacebo" --prefix="$PREFIX" --buildtype=release \
         --default-library=shared $DEPS_MESON_CROSS \
-        -Dcpp_args="$DEPS_CFLAGS -I$WORK/fast_float/include" \
+        -Dc_args="$DEPS_DEBUG_CFLAGS" \
+        -Dcpp_args="$DEPS_DEBUG_CFLAGS -I$WORK/fast_float/include" \
         -Dc_link_args="$DEPS_LDFLAGS $LINK_VULKAN" -Dcpp_link_args="$DEPS_LDFLAGS $LINK_VULKAN" \
         -Dvulkan=enabled -Dvk-proc-addr=disabled -Dopengl=enabled -Dgl-proc-addr=disabled -Dvulkan-registry="$VK_XML" -Dshaderc=enabled -Dglslang=disabled \
         -Dlcms=enabled -Ddovi=disabled -Dlibdovi=disabled -Dunwind=disabled -Dd3d11=disabled \
@@ -184,6 +195,7 @@ PC
       rm -rf "$WORK/uchardet/build-$TARGET"
       cmake -S "$WORK/uchardet" -B "$WORK/uchardet/build-$TARGET" -DCMAKE_INSTALL_PREFIX="$PREFIX" \
         -DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=ON -DBUILD_STATIC=OFF \
+        -DCMAKE_C_FLAGS="-g" \
         -DCMAKE_OSX_ARCHITECTURES=arm64 -DCMAKE_OSX_SYSROOT="$DEPS_SDK" $DEPS_CMAKE_SYSTEM \
         -DCMAKE_OSX_DEPLOYMENT_TARGET="${DEPS_MIN_VERSION:-14.0}" -DCMAKE_POLICY_VERSION_MINIMUM=3.5 > "$WORK/uchardet.log" 2>&1
       cmake --build "$WORK/uchardet/build-$TARGET" -j"$JOBS" >> "$WORK/uchardet.log" 2>&1
