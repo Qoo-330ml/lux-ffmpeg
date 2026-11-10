@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
-# 构建 libmpv 依赖(F2-2)。源码来自 lux/.build/deps/src(先跑 fetch-deps.sh 校验)。
+# 构建 libmpv / FFmpeg 的第三方依赖(F2-2、P1 D4)。源码来自 lux/.build/deps/src(先跑 fetch-deps.sh 校验)。
 # 用法: ./lux/build/build-deps.sh <macos-arm64|ios-arm64|ios-sim-arm64> [库名 ...]
 # 产物:lux/.build/deps/<target>/install(静态库 .a 与动态库 .dylib 分开装,不混用)。
 # 许可:动态的只有 fribidi(LGPL-2.1+)与 uchardet(LGPL-2.1+ 选择);其余为静态并入 libmpv/libplacebo。
+# dav1d(BSD-2-Clause)是 FFmpeg 的 libdav1d 解码器依赖,静态并入 libavcodec.a,不单独出 framework。
 set -euo pipefail
 REPO="$(cd "$(dirname "$0")/../.." && pwd)"
 SRC="$REPO/lux/.build/deps/src"
@@ -134,6 +135,13 @@ PC
         -Ddemos=false -Dtests=false > "$WORK/libplacebo.log" 2>&1 || { tail -40 "$WORK/libplacebo.log" >&2; return 1; }
       ninja -C "$WORK/libplacebo/build-$TARGET" -j"$JOBS" >> "$WORK/libplacebo.log" 2>&1 \
         && ninja -C "$WORK/libplacebo/build-$TARGET" install >> "$WORK/libplacebo.log" 2>&1 || { tail -40 "$WORK/libplacebo.log" >&2; return 1; } ;;
+    dav1d)
+      # AV1 软解(BSD-2-Clause)。FFmpeg 的 libdav1d 解码器在 configure 期用 pkg-config 找它,
+      # 链接期静态并入 libavcodec.a。tools/tests/examples 一律不构建;xxhash 只是工具的
+      # 校验和依赖,显式关掉,避免探测到 Homebrew 的 libxxhash 而把外部库带进来。
+      extract dav1d-1.5.4.tar.xz dav1d
+      meson_build dav1d "$WORK/dav1d" -Denable_tools=false -Denable_tests=false \
+        -Denable_examples=false -Denable_docs=false -Dxxhash_muxer=disabled ;;
     uchardet)
       # 动态库(LGPL-2.1+,选 LGPL 许可),独立 framework 的候选;这里只构建 dylib 版本
       extract uchardet-0.0.8.tar.xz uchardet
@@ -148,5 +156,5 @@ PC
   esac
   echo "[built] $name ($TARGET)"
 }
-if [ $# -eq 0 ]; then set -- freetype harfbuzz fribidi libunibreak lcms2 libass uchardet shaderc libplacebo; fi
+if [ $# -eq 0 ]; then set -- freetype harfbuzz fribidi libunibreak lcms2 libass uchardet shaderc libplacebo dav1d; fi
 for n in "$@"; do build_one "$n"; done

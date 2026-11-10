@@ -96,6 +96,13 @@ build_target() {
     ff_framework_configure_opts "$target" "$install" || die "cannot resolve configure opts for '$target'"
     ff_target_setup "$target" || die "unknown target '$target'"
 
+    # libdav1d 与 build-ffmpeg.sh 同口径:只指向该目标的 deps 前缀,清空 PKG_CONFIG_PATH。
+    local dav1d_prefix="$REPO/lux/.build/deps/$target/install"
+    [ -f "$dav1d_prefix/lib/pkgconfig/dav1d.pc" ] \
+        || die "缺少 $dav1d_prefix/lib/pkgconfig/dav1d.pc — 先跑 ./lux/build/build-deps.sh $target dav1d"
+    export PKG_CONFIG_LIBDIR="$dav1d_prefix/lib/pkgconfig:$dav1d_prefix/share/pkgconfig"
+    export PKG_CONFIG_PATH=""
+
     # 与 build-ffmpeg.sh 相同的许可自检:参数里不能夹带 GPL/nonfree。
     local opt
     for opt in "${FF_OPTS[@]}"; do

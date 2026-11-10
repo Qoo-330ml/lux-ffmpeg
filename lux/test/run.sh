@@ -20,6 +20,9 @@ BUILD="$BUILD_ROOT/$TARGET"
 INSTALL="$BUILD/install"
 FIXDIR="$BUILD_ROOT/fixtures"
 FIXTURE="$FIXDIR/lux-f0-fixture.mkv"
+# libavcodec.a 里的 libdav1d 解码器引用 dav1d_* 符号;dav1d 是静态库(D4),
+# 链接时显式列在 libavcodec.a 之后。所有链接 FFmpeg 静态库的探针都要带上它。
+DAV1D_LIB="$REPO/lux/.build/deps/$TARGET/install/lib/libdav1d.a"
 WORK="$BUILD/test"
 
 export TMPDIR="$BUILD_ROOT/tmp"
@@ -90,6 +93,7 @@ if ! xcrun --sdk macosx clang -arch arm64 -mmacosx-version-min=14.0 -isysroot "$
         -I"$INSTALL/include" \
         -o "$BIN" "$LUX/test/read_mkv.c" \
         "$INSTALL/lib/libavformat.a" "$INSTALL/lib/libavcodec.a" \
+        "$DAV1D_LIB" \
         "$INSTALL/lib/libavfilter.a" "$INSTALL/lib/libswscale.a" \
         "$INSTALL/lib/libswresample.a" "$INSTALL/lib/libavutil.a" \
         -framework CoreFoundation -framework CoreVideo -framework CoreMedia \
@@ -165,6 +169,7 @@ if ! xcrun --sdk macosx clang -arch arm64 -mmacosx-version-min=14.0 -isysroot "$
         -I"$INSTALL/include" \
         -o "$PROBE" "$LUX/test/patch_probe.c" \
         "$INSTALL/lib/libavformat.a" "$INSTALL/lib/libavcodec.a" \
+        "$DAV1D_LIB" \
         "$INSTALL/lib/libavfilter.a" "$INSTALL/lib/libswscale.a" \
         "$INSTALL/lib/libswresample.a" "$INSTALL/lib/libavutil.a" \
         -framework CoreFoundation -framework CoreVideo -framework CoreMedia \
@@ -218,6 +223,7 @@ else
             -I"$INSTALL/include" \
             -o "$P12" "$LUX/test/hevc12_probe.c" \
             "$INSTALL/lib/libavformat.a" "$INSTALL/lib/libavcodec.a" \
+            "$DAV1D_LIB" \
             "$INSTALL/lib/libavfilter.a" "$INSTALL/lib/libswscale.a" \
             "$INSTALL/lib/libswresample.a" "$INSTALL/lib/libavutil.a" \
             -framework CoreFoundation -framework CoreVideo -framework CoreMedia \

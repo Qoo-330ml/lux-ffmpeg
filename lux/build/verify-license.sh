@@ -34,7 +34,11 @@ hdr()  { printf '\n== %s\n' "$*"; }
 # 符号表里绝对不允许出现的东西(外部库 / GPL 组件 / 我们没构建的库)。
 # theora/xvid 也只匹配外部库的 API。FFmpeg 自带的 ogg_codec 描述符
 # `_ff_theora_codec` 与内建 IDCT `_ff_xvid_idct` 不是外部库(ogg/idctdsp 会参与构建)。
-FORBIDDEN_SYMBOL_RE='x264|x265|fdk|fdkaac|(^|_)xvid_(global|encore|decore|image|plugin|version)|vidstab|xavs|postproc|mp3lame|libmp3lame|(^|_)(th_(decode|encode|comment|info|packet|version|granule|setup|clear|merge)|theora_(decode|encode|version|comment|info|packet))|dav1d|svt_|svtav1|libvpx|vpx_codec_|vpx_img_|faac|vo_aacenc|opencore|libass|fribidi|fontconfig|freetype|gnutls|openssl|libvorbis|libopus|zimg|placebo|shaderc|chromaprint|vid\.stab'
+# 豁免:dav1d(AV1 软解)已纳入 LGPL-2.1+ 构建(2026-11-10 所有者决定)。dav1d 是
+# BSD-2-Clause,与 LGPL-2.1+ 兼容,以静态库并入 libavcodec,所以 `dav1d_*` 与
+# `libdav1d` 相关符号(引用或定义)不再算禁用符号;许可依据见 lux/config/allowlist.md。
+# 其它外部库/GPL 的规则保持原样,不受此豁免影响。
+FORBIDDEN_SYMBOL_RE='x264|x265|fdk|fdkaac|(^|_)xvid_(global|encore|decore|image|plugin|version)|vidstab|xavs|postproc|mp3lame|libmp3lame|(^|_)(th_(decode|encode|comment|info|packet|version|granule|setup|clear|merge)|theora_(decode|encode|version|comment|info|packet))|svt_|svtav1|libvpx|vpx_codec_|vpx_img_|faac|vo_aacenc|opencore|libass|fribidi|fontconfig|freetype|gnutls|openssl|libvorbis|libopus|zimg|placebo|shaderc|chromaprint|vid\.stab'
 # 符号先落到文件再 grep:直接 `nm ... | grep -q` 会让 grep 提前关闭管道,
 # 在 pipefail 下把 nm 的 SIGPIPE 当失败。
 dump_symbols() { # $1 = archive, $2 = 输出文件
@@ -239,7 +243,7 @@ EOF
             symbols_ok=0
         fi
     done
-    [ "$symbols_ok" = 1 ] && pass "符号表干净: 无 x264/x265/fdk/xvid/vidstab/postproc/外部解码库符号"
+    [ "$symbols_ok" = 1 ] && pass "符号表干净: 无 x264/x265/fdk/xvid/vidstab/postproc/外部解码库符号(dav1d 例外,BSD-2-Clause)"
 
     # 正向确认:确实是我们构建的库(不是空归档/占位文件)
     for lib in libavformat.a libavcodec.a libavutil.a libswresample.a; do
