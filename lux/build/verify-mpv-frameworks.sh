@@ -6,6 +6,7 @@
 #   ./lux/build/verify-mpv-frameworks.sh macos-arm64      # 只查一个切片
 #   LUX_MPV_FRAMEWORK_ROOT=<dir> ./lux/build/verify-mpv-frameworks.sh macos-arm64
 #                                                         # 用一份副本做阴性对照(见 P2-7 日志)
+#   LUX_MPV_XCFRAMEWORK_ROOT=<dir> ./lux/build/verify-mpv-frameworks.sh  # mpv xcframework 的另一位置
 #
 # 检查内容(对应计划 §4.2 与 §6 P2 第 7 条):
 #   A. 依赖闭包:Libmpv 的非系统依赖只能是 §4.2 的 9 个 framework
@@ -21,6 +22,8 @@
 #   C. 三切片:macos-arm64 / ios-arm64 / ios-sim-arm64 各跑一遍;
 #      对应 xcframework 切片目录必须存在(只读,本脚本不生成;mpv 自己的 xcframework
 #      尚未打包时记 warning,可用 LUX_VERIFY_STRICT_XCFRAMEWORK=1 提前当 FAIL)。
+#      mpv 栈的 xcframework 由 build-mpv-frameworks.sh xcframework 产出到
+#      lux/.build/mpv-xcframeworks/(与 FFmpeg 的 lux/.build/xcframeworks/ 分开),两处都查、优先前者。
 #
 # 只读约定:lux/.build/mpv-frameworks 与 lux/.build/xcframeworks 允许是指向主检出的
 # 符号链接(worktree 场景),脚本绝不写入;证据只打在 lux/.build/verify/mpv/。
@@ -33,6 +36,9 @@ LUX=$(cd "$HERE/.." && pwd)
 BUILD_ROOT="$LUX/.build"
 MPV_ROOT="${LUX_MPV_FRAMEWORK_ROOT:-$BUILD_ROOT/mpv-frameworks}"
 DIST_ROOT="$BUILD_ROOT/xcframeworks"
+# mpv 栈的 xcframework 有独立输出目录(build-mpv-frameworks.sh xcframework);
+# 先查这里,再回退到 xcframeworks/(旧布局),两种位置都接受。
+MPV_XCF_ROOT="${LUX_MPV_XCFRAMEWORK_ROOT:-$BUILD_ROOT/mpv-xcframeworks}"
 EVIDENCE="$BUILD_ROOT/verify/mpv"
 
 # shellcheck source=../config/ffmpeg-ios.conf
@@ -78,6 +84,14 @@ is_allowed_dep() { # $1 = 依赖路径 -> 0 表示在 §4.2 白名单内
     esac
 }
 
+mpv_xcf_path() { # $1 = framework -> mpv xcframework 路径(可能不存在)
+    if [ -d "$MPV_XCF_ROOT/$1.xcframework" ]; then
+        printf '%s\n' "$MPV_XCF_ROOT/$1.xcframework"
+    else
+        printf '%s\n' "$DIST_ROOT/$1.xcframework"
+    fi
+}
+
 verify_target() {
     local target=$1
     local slice="$MPV_ROOT/$target"
@@ -113,7 +127,7 @@ verify_target() {
     # 已存在的按切片严格检查;整体缺失记 warning(P3 发布门之前必须补上)。
     local missing_mpv="" mpv_xcf=0
     for fw in $MPV_FRAMEWORKS; do
-        xcf="$DIST_ROOT/$fw.xcframework"
+        xcf=$(mpv_xcf_path "$fw")
         if [ ! -d "$xcf" ]; then
             missing_mpv="$missing_mpv $fw"
             continue

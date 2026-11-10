@@ -6,8 +6,9 @@
 #   ./lux/build/build-mpv-frameworks.sh macos-arm64     # 打包 + 自检
 #   ./lux/build/build-mpv-frameworks.sh ios-arm64       # 同上(iOS device 切片)
 #   ./lux/build/build-mpv-frameworks.sh ios-sim-arm64   # 同上(iOS simulator 切片)
+#   ./lux/build/build-mpv-frameworks.sh xcframework     # 三切片 -> lux/.build/mpv-xcframeworks/
 #   ./lux/build/build-mpv-frameworks.sh verify [target] # 只复检已有产物(不改文件);target=all 时逐个查
-#   ./lux/build/build-mpv-frameworks.sh clean           # 删掉 lux/.build/mpv-frameworks
+#   ./lux/build/build-mpv-frameworks.sh clean           # 删掉 lux/.build/mpv-frameworks 与 mpv-xcframeworks
 #
 # 输入(已有产物,不重建;缺失时才调用 build-mpv.sh <target>):
 #   lux/.build/deps/<target>/install/lib/libmpv.<ver>.dylib
@@ -23,15 +24,19 @@
 #   lux/.build/mpv-frameworks/<target>/dSYMs/<Name>.framework.dSYM(每个 framework 一个)
 #   lux/.build/mpv-frameworks/<target>/dSYMs.zip              (上面整目录的压缩包)
 #   lux/.build/mpv-frameworks/<target>/P2-4-INFO.txt          (隐私扫描与 dSYM UUID 记录)
+#   lux/.build/mpv-xcframeworks/<Name>.xcframework            (xcframework 子命令,三切片)
+#   lux/.build/mpv-xcframeworks/<Name>.xcframework.zip
+#   lux/.build/mpv-xcframeworks/checksums.txt                 (swift package compute-checksum)
+#   lux/.build/mpv-xcframeworks/dSYMs/<target>/... + dSYMs.zip
 #
 # 隐私清单(P2-4,方法沿用 lux-client docs/PRIVACY.md):对每个 framework 的二进制跑
 # `nm -u`,只把扫描命中的 required-reason API 类别写进该 framework 的 PrivacyInfo.xcprivacy;
 # 扫不到的类别不声明(空的 NSPrivacyAccessedAPITypes 数组也算合法清单)。
 #
-# dSYM(P2-4):dsymutil 只能搬运二进制里已有的调试信息。当前 libmpv 与三个依赖都是
-# `meson --buildtype=release` 且没加 -g,所以 dSYM 里只有 UUID、没有 DWARF;脚本会打
-# [warn] 并记进 P2-4-INFO.txt(dwarf=no)。等 build-mpv.sh / build-deps.sh 补上 -g 之后,
-# 同一段代码就会产出带行号信息的 dSYM,可用 LUX_MPV_DSYM_REQUIRE_DWARF=1 把缺失变成硬失败。
+# dSYM(P2-4):dsymutil 只能搬运二进制里已有的调试信息。P2 出口起 build-deps.sh 与
+# build-mpv.sh 都以 -g 构建(release 优化不变),所以下面四个 dSYM 都应带 DWARF。
+# 若输入又退回无 -g 的构建,dSYM 里就只剩 UUID:脚本会打 [warn] 并记进 P2-4-INFO.txt
+# (dwarf=no);设置 LUX_MPV_DSYM_REQUIRE_DWARF=1 可把这种退化变成硬失败。
 #
 # 规则:
 #   * 四个 framework 的 LC_ID_DYLIB 都是 @rpath/<Name>.framework/<Name>;
@@ -50,6 +55,7 @@ HERE=$(cd "$(dirname "$0")" && pwd)
 LUX=$(cd "$HERE/.." && pwd)
 BUILD_ROOT="$LUX/.build"
 OUT_ROOT="$BUILD_ROOT/mpv-frameworks"
+XCF_ROOT="$BUILD_ROOT/mpv-xcframeworks"
 LOGDIR="$BUILD_ROOT/logs"
 
 TARGETS="macos-arm64 ios-arm64 ios-sim-arm64"
@@ -103,7 +109,7 @@ fail() { printf '  [FAIL] %s\n' "$*"; FAILS=$((FAILS + 1)); }
 warn() { printf '  [warn] %s\n' "$*"; }
 
 usage() {
-    die "usage: $0 <macos-arm64|ios-arm64|ios-sim-arm64|verify [target|all]|clean>"
+    die "usage: $0 <macos-arm64|ios-arm64|ios-sim-arm64|xcframework|verify [target|all]|clean>"
 }
 
 fw_stem() { # framework -> dylib 名字前缀(不含版本与 .dylib)
@@ -375,12 +381,15 @@ archive_dsym() { # $1 = framework, $2 = 二进制
     fi
 
     # dSYM 里有没有真正的 DWARF,取决于输入二进制是否带调试信息(dsymutil 只能搬运,不能凭空生成)。
-    if dwarfdump --debug-info "$out" 2>/dev/null | grep -q 'DW_TAG'; then
+    # 用 grep -c 而不是 grep -q:dwarfdump 的输出很长,grep -q 命中就退出会让上游吃 SIGPIPE,
+    # 在 set -o pipefail 下整条管道返回 141,DWARF 明明存在也会被判成 no。
+    dwarf_tags=$(dwarfdump --debug-info "$out" 2>/dev/null | { grep -c 'DW_TAG' || true; })
+    if [ "${dwarf_tags:-0}" -gt 0 ]; then
         dwarf=yes
     else
         dwarf=no
     fi
-    printf '%s %s dwarf=%s\n' "$fw" "$uuid_dsym" "$dwarf" >> "$log"
+    printf '%s %s dwarf=%s tags=%s\n' "$fw" "$uuid_dsym" "$dwarf" "${dwarf_tags:-0}" >> "$log"
     printf 'dsym.%s=uuid=%s dwarf=%s\n' "$fw" "$uuid_dsym" "$dwarf" >> "$SLICE/P2-4-INFO.txt"
 
     if [ "$dwarf" = no ]; then
@@ -678,22 +687,107 @@ verify_slice() {
     return 1
 }
 
+# ---------------------------------------------------------------------------
+# xcframework:四个 framework 的三切片 -> lux/.build/mpv-xcframeworks/
+# ---------------------------------------------------------------------------
+# 与 build-frameworks.sh 的 create_xcframeworks 同一套做法(xcodebuild -create-xcframework
+# + ditto 保留 symlink + swift package compute-checksum),只是输入换成 mpv 栈的四个
+# framework,输出落在独立目录,避免和 FFmpeg 的 xcframework 混在一起。
+# dSYM 不是 xcframework 的组成部分(binaryTarget 只用 framework 本体),按切片单独归档。
+create_xcframeworks() {
+    local fw target args out zip checksum missing="" count total
+
+    # 三个切片缺一不可:少一个切片的 xcframework 就是残的,不做「有几个算几个」。
+    for target in $TARGETS; do
+        [ -d "$OUT_ROOT/$target" ] || missing="$missing $target"
+    done
+    [ -z "$missing" ] || die "缺少切片:$missing — 先运行 $0 <target> 打包"
+
+    rm -rf "$XCF_ROOT"
+    mkdir -p "$XCF_ROOT/dSYMs"
+
+    for fw in $MPV_FRAMEWORKS; do
+        args=()
+        for target in $TARGETS; do
+            [ -d "$OUT_ROOT/$target/$fw.framework" ] || die "缺少 $OUT_ROOT/$target/$fw.framework"
+            [ -d "$OUT_ROOT/$target/dSYMs/$fw.framework.dSYM" ] \
+                || die "缺少 dSYM: $OUT_ROOT/$target/dSYMs/$fw.framework.dSYM"
+            args+=(-framework "$OUT_ROOT/$target/$fw.framework")
+            mkdir -p "$XCF_ROOT/dSYMs/$target"
+            cp -R "$OUT_ROOT/$target/dSYMs/$fw.framework.dSYM" "$XCF_ROOT/dSYMs/$target/"
+        done
+        out="$XCF_ROOT/$fw.xcframework"
+        log "xcodebuild -create-xcframework $fw"
+        if ! xcodebuild -create-xcframework "${args[@]}" -output "$out" \
+                > "$LOGDIR/p2-xcframework-$fw.log" 2>&1; then
+            tail -30 "$LOGDIR/p2-xcframework-$fw.log" >&2
+            die "xcodebuild -create-xcframework failed for $fw"
+        fi
+        # 立刻对账:切片数必须是 3,且每个切片里都有二进制与 Info.plist。
+        count=$(python3 -c 'import plistlib,sys; print(len(plistlib.load(open(sys.argv[1],"rb")).get("AvailableLibraries",[])))' "$out/Info.plist" 2>/dev/null || echo 0)
+        [ "${count:-0}" -eq 3 ] || die "$fw: xcframework 切片数 ${count:-0}(期望 3)"
+        for target in "$out"/*/; do
+            [ -d "$target" ] || continue
+            [ -f "$target/$fw.framework/$fw" ] || die "$fw: 切片 $(basename "$target") 里没有 $fw.framework/$fw"
+            [ -f "$target/$fw.framework/Info.plist" ] || die "$fw: 切片 $(basename "$target") 里没有 Info.plist"
+        done
+    done
+
+    # zip(保留 symlink)+ checksum,格式与 FFmpeg 侧 checksums.txt 一致。
+    : > "$XCF_ROOT/checksums.txt"
+    for fw in $MPV_FRAMEWORKS; do
+        zip="$XCF_ROOT/$fw.xcframework.zip"
+        rm -f "$zip"
+        ditto -c -k --sequesterRsrc --keepParent "$XCF_ROOT/$fw.xcframework" "$zip" \
+            || die "ditto 打包失败: $fw"
+        checksum=$(swift package compute-checksum "$zip") || die "compute-checksum 失败: $fw"
+        printf '%s  %s\n' "$checksum" "$fw.xcframework.zip" >> "$XCF_ROOT/checksums.txt"
+    done
+    ( cd "$XCF_ROOT" && ditto -c -k --sequesterRsrc --keepParent dSYMs dSYMs.zip ) \
+        || die "dSYMs.zip 打包失败"
+
+    # 产物记录:切片、二进制体积、checksum,便于离线复核。
+    {
+        printf 'built_at=%s\n' "$(date -u '+%Y-%m-%dT%H:%M:%SZ')"
+        printf 'targets=%s\n' "$TARGETS"
+        printf 'source=%s\n' "$OUT_ROOT"
+        total=0
+        for fw in $MPV_FRAMEWORKS; do
+            printf 'xcframework.%s=slices=%s\n' "$fw" "$(printf '%s' "$TARGETS" | wc -w | tr -d ' ')"
+            for target in $TARGETS; do
+                printf 'size.%s.%s=%s\n' "$fw" "$target" "$(stat -f %z "$OUT_ROOT/$target/$fw.framework/$fw")"
+                total=$((total + $(stat -f %z "$OUT_ROOT/$target/$fw.framework/$fw")))
+            done
+        done
+        printf 'size.total=%s\n' "$total"
+        printf 'dSYMs.zip.bytes=%s\n' "$(stat -f %z "$XCF_ROOT/dSYMs.zip")"
+    } > "$XCF_ROOT/MPV-XCFRAMEWORK-INFO.txt"
+
+    log "xcframeworks in $XCF_ROOT"
+    cat "$XCF_ROOT/checksums.txt"
+}
+
 main() {
     # 外层为了取 PIPESTATUS 用了 set +e;这里必须恢复,否则 cp/install_name_tool
     # 的失败会被 tee 吞掉,脚本会带着半成品“通过”。
     set -euo pipefail
     local mode=${1:-macos-arm64} verify_target=${2:-macos-arm64} fw before after rc t
     case "$mode" in
-        macos-arm64|ios-arm64|ios-sim-arm64|verify|clean) ;;
+        macos-arm64|ios-arm64|ios-sim-arm64|xcframework|verify|clean) ;;
         *) usage ;;
     esac
 
     mkdir -p "$LOGDIR"
 
     if [ "$mode" = clean ]; then
-        rm -rf "$OUT_ROOT"
-        log "removed $OUT_ROOT"
+        rm -rf "$OUT_ROOT" "$XCF_ROOT"
+        log "removed $OUT_ROOT and $XCF_ROOT"
         return 0
+    fi
+
+    if [ "$mode" = xcframework ]; then
+        create_xcframeworks
+        return $?
     fi
 
     if [ "$mode" = verify ]; then
@@ -741,9 +835,10 @@ main() {
 # 所有输出同时进日志;main 在管道里跑,所以显式取 PIPESTATUS[0] 作为退出码。
 stamp=$(date '+%Y%m%d-%H%M%S')
 case "${1:-macos-arm64}" in
-    verify) logfile="$LOGDIR/p2-2-verify-${2:-macos-arm64}-$stamp.log" ;;
-    clean)  logfile="$LOGDIR/p2-2-clean-$stamp.log" ;;
-    *)      logfile="$LOGDIR/p2-2-package-${1:-macos-arm64}-$stamp.log" ;;
+    verify)      logfile="$LOGDIR/p2-2-verify-${2:-macos-arm64}-$stamp.log" ;;
+    clean)       logfile="$LOGDIR/p2-2-clean-$stamp.log" ;;
+    xcframework) logfile="$LOGDIR/p2-xcframework-all-$stamp.log" ;;
+    *)           logfile="$LOGDIR/p2-2-package-${1:-macos-arm64}-$stamp.log" ;;
 esac
 mkdir -p "$LOGDIR"
 

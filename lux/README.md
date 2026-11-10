@@ -54,12 +54,12 @@ lux/docs/patch-triage.md       # 106 个 jellyfin 补丁的分诊结论
 lux/build/build-ffmpeg.sh      # macos-arm64 | ios-arm64 | ios-sim-arm64 | clean
 lux/build/apply-patches.sh     # 补丁集 apply/check/revert/status/digest
 lux/build/verify-license.sh    # 许可 / 符号 / 平台 / 组件对账 / 补丁指纹,失败非零退出
-lux/build/fetch-deps.sh        # 按 deps.lock 取依赖源码,下载后强制校验 sha256(§15)
+lux/build/fetch-deps.sh        # 按 deps.lock 取依赖源码,下载后强制校验 sha256(§16)
 lux/build/check-deps-lock.sh   # 全量核对 deps.lock:URL 当前字节 + 自存副本,日志写 lux/.build/logs/
 lux/build/install-glad.sh      # 按 requirements-glad.txt 的 hash 装 glad2 到 pydeps
 lux/config/deps.lock           # 依赖源码锁:版本 + sha256 + selfstore(自存路径)
 lux/config/requirements-glad.txt # glad2 / Jinja2 / MarkupSafe 的 hash 锁
-lux/release/sources/           # 自存的依赖源码包(git 忽略,只在本机;见 §15)
+lux/release/sources/           # 自存的依赖源码包(git 忽略,只在本机;见 §16)
 lux/test/read_mkv.c            # 最小 C 程序:读 mkv,打印流信息/时长/首关键帧偏移
 lux/test/patch_probe.c         # 补丁公开 API 探针(0001/0005/0006)
 lux/test/hevc12_probe.c        # 12-bit HEVC:VT 候选 + 回退(0004)
@@ -730,14 +730,42 @@ done
   自引用方式不适合 framework 的 `-F` 搜索);Libmpv / Libuchardet 的 module map 已用
   `clang -fmodules` 验证。
 
-## 15. P3 依赖源码固定(2026-11-10)
+## 15. P2 出口:调试符号、重建与 mpv xcframework(2026-11-10)
+
+- **为什么要改**:P2 之前的 dSYM 只有 UUID,没有 DWARF。`dsymutil` 只能搬运二进制里
+  已有的调试信息,所以 libmpv 与 deps 必须在编译期带 `-g`。FFmpeg 的动态构建本来就有
+  `LUX_FRAMEWORK_CFLAGS=-g`(见 `lux/config/ffmpeg-ios.conf`),这一轮把静态 F0 构建也补齐。
+- **`-g` 改动(只改构建脚本,不改 buildtype / 优化等级)**:
+  - `lux/build/build-deps.sh`:autotools 与 CMake 走 `CFLAGS`/`CXXFLAGS`;
+    meson 不读这两个环境变量,而且命令行 `-Dc_args`/`-Dcpp_args` 会整体替换交叉文件里的
+    `[built-in options]`,所以每个 meson 调用(freetype/harfbuzz/dav1d/fribidi/libplacebo)
+    都传 `DEPS_DEBUG_CFLAGS`(`DEPS_CFLAGS` + `-g`)。
+  - `lux/build/build-mpv.sh`:`-Dc_args="$DEPS_CFLAGS -g"`。
+  - `lux/build/build-ffmpeg.sh`:给 `--extra-cflags` 追加 `-g`(其余 configure 参数仍唯一
+    来自 `lux/config/ffmpeg-ios.conf`)。
+- **重建顺序**:`build-deps.sh <target>`(三切片)→ `build-ffmpeg.sh <target>`(F0 静态,
+  `verify-license.sh` 的输入)→ `build-frameworks.sh all`(F1 三切片 + 6 个 xcframework)
+  → `build-mpv.sh <target>` → `build-mpv-frameworks.sh <target>`。
+  先重建 deps 再编 FFmpeg,dav1d 的 DWARF 才会一起进 libavcodec 的 dSYM。
+- **mpv 栈 xcframework**:`./lux/build/build-mpv-frameworks.sh xcframework` 把三个切片的
+  Libmpv / Libplacebo / Libfribidi / Libuchardet 打成 4 个 xcframework,输出
+  `lux/.build/mpv-xcframeworks/`(与 FFmpeg 的 `lux/.build/xcframeworks/` 分开):
+  `<Name>.xcframework`、`<Name>.xcframework.zip`、`checksums.txt`
+  (`swift package compute-checksum`)、`dSYMs/<target>/` 与 `dSYMs.zip`、
+  `MPV-XCFRAMEWORK-INFO.txt`。切片不全时脚本直接失败,不会产出残缺的 xcframework。
+- **校验路径**:`verify-mpv-frameworks.sh` 现在两处都查 mpv 的 xcframework
+  (优先 `mpv-xcframeworks/`,回退 `xcframeworks/`),`LUX_MPV_XCFRAMEWORK_ROOT` 可覆盖。
+- **修掉一个误报**:`archive_dsym` 原来用 `dwarfdump | grep -q 'DW_TAG'`,在
+  `set -o pipefail` 下 `grep -q` 提前退出会让 dwarfdump 吃 SIGPIPE(141),DWARF 明明
+  存在也会被判成 `dwarf=no`。改成 `grep -c` 并把条目数写进 `P2-4-INFO.txt` / 日志。
+## 16. P3 依赖源码固定(2026-11-10)
 
 目标:构建用的每一份第三方源码都能按 `lux/config/deps.lock` 复现,PyPI 依赖也要有 hash。
 
-### 15.1 结论
+### 16.1 结论
 
 - 锁里 **22 项** 于 2026-11-10 全部从各自 URL 重新下载核对,sha256 与锁定值**逐字节一致**,
-  一个版本号都没改。日志:`lux/.build/logs/deps-lock-check-20261110.log`(脚本见 15.3)。
+  一个版本号都没改。日志:`lux/.build/logs/deps-lock-check-20261110.log`(脚本见 16.3)。
 - 上游发布资产核对结果(2026-11-10,逐个项目查 GitHub API / GitLab releases):
   - **mpv v0.41.0**:release 页除了 GitHub 自动生成的 Source code 归档(与 deps.lock 里的 tag archive
     是同一类),只有 8 个平台二进制 zip —— **没有任何上传的源码资产**;
@@ -755,7 +783,7 @@ done
 **8 项只用 URL**。自存文件名是 `<name>-<version>`,路径写在 deps.lock 每行的 `selfstore=` 里;
 取源码时 `fetch-deps.sh` 优先用自存副本(离线可构建),没有时才回退到 URL,两条路都强制校验 sha256。
 
-### 15.2 清单
+### 16.2 清单
 
 | 条目 | 版本 | 来源 | 自存 | sha256 |
 | --- | --- | --- | --- | --- |
@@ -782,7 +810,7 @@ done
 | `fast_float` | `8.0.2` | git archive | `lux/release/sources/fast_float-8.0.2.tar.gz` | `e14a33089712b681d74d94e2a11362643bd7d769ae8f7e7caefe955f57f7eacd` |
 | `dav1d` | `1.5.4` | 官方 release tarball | - | `686616b7c69eb88d44459391ab25cac13b6647a3b288835c5784e71c1514a5c5` |
 
-### 15.3 取源码与校验
+### 16.3 取源码与校验
 
 - `lux/build/fetch-deps.sh [--fresh] [--from-url] [--offline] [--src DIR] [name ...]`:
   按锁取源码到 `lux/.build/deps/src/`(`LUX_DEPS_SRC` 可改)。**下载/复制先写 `.part`,
@@ -815,7 +843,7 @@ done
   # == 22 项:22 OK,0 FAIL(deps.lock 未被修改)==
   ```
 
-### 15.4 glad2:PyPI 也要 hash
+### 16.4 glad2:PyPI 也要 hash
 
 - `lux/config/requirements-glad.txt` 钉住 `glad2==2.0.8` 及其传递依赖 `Jinja2==3.1.6`、
   `MarkupSafe==3.0.4`;每个包列 sdist + 纯 Python 通用 wheel + macOS wheel 的 sha256
@@ -828,11 +856,11 @@ done
   老 bug(原来 `REPO` 少退一层,落到 `lux/`,导致 `lux/lux/.build/...` 路径不存在)。重新生成的头文件
   与仓库里的逐字节一致(gl.h `74854594…`、egl.h `d8961e43…`)。
 
-### 15.5 边界与已知限制
+### 16.5 边界与已知限制
 
 - 自存包**不在 git 里**。换一台机器/新 clone 只能走 URL 兜底(同样的 sha256 校验);
   正式发布时应把 `lux/release/sources/` 一起放进发布资产或合规源码包(LGPL 的源码提供义务),
-  并保留 15.2 的清单与 hash。
+  并保留 16.2 的清单与 hash。
 - 上游 archive 链接的字节仍可能变(标签移动、归档重新生成)。届时校验会**失败并报错**,
   而不是静默换掉内容;要更新就人工确认上游后同时改 `deps.lock` 的 sha256 与自存副本。
 - 上游不提供源码签名(GitHub/GitLab archive、PyPI 之外的渠道也没有 GPG 清单),当前是
