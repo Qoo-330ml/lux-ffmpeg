@@ -21,7 +21,8 @@
 - **c) 有意不要 / 当前版本不可用**:不加,保留理由与替代路径。
 
 最终计数:demuxer 40、protocol 36、bsf 49、parser 66、decoder 197;相对 P1 起点分别新增
-37、31、42、60、180,合计 350 个组件。`ffmpeg-ios.conf` 是唯一真相,本文件的表格是逐项理由。
+37、31、42、60、180,合计 350 个组件。P1 第 5 步再加入 38 个原生滤镜,`LUX_FILTERS`
+到 45 项(见「滤镜(P1 第5步)」)。`ffmpeg-ios.conf` 是唯一真相,本文件的表格是逐项理由。
 
 `mlp` 与 `webp` 不在 MPVKit 的导出符号里,但它们**确实存在**于 FFmpeg 8.1.3:
 `configure:3194` 有 `mlp_decoder_select="mlp_parser"`, `configure:3313` 有
@@ -260,6 +261,104 @@ hwaccel 有对应的 codec 上下文(configure 里 hwaccel 会 `select` decoder)
 
 Metal 三项没有 Metal Toolchain 时会被 configure 关掉,`verify-license.sh` 会打 `[warn]` 而不是
 `[FAIL]`;装上 toolchain 后自动变成硬性检查。
+
+## 滤镜(P1 第5步,2026-11-10)
+
+P1 D4 只补了 demuxer/protocol/decoder/parser/bsf,没有动 filter。本步以 `capabilities-mpvkit.json`
+的 59 项 filters 与 P1 起点名单做差集:已在名单里的 5 项(`format` `hwdownload` `hwupload` `null`
+`scale`)与 4 个核心内建端点不重复处理,剩余 50 项分成三类:
+
+- **a) 原生、无外部依赖(38 项)**:本步加入 `LUX_FILTERS`。
+- **b) 需要外部库或 GPU 工具链(12 项)**:本步不加,逐条登记。
+- **c) 核心内建端点(4 项)**:不属于 configure 白名单,只做说明。
+
+`LUX_FILTERS` 最终为 7(原有)+ 38 = **45 项**;`LUX_FILTERS_METAL` 与补丁集未改动。
+下表「类别」一列取 **必须** / **可选** / **有意不要** 三档;本步 A 类都是必须或可选,
+没有「有意不要」的项(A 类既然要补,就不存在主动放弃的条目)。
+
+### a) 本步新增:音频 af(13)
+
+| 组件 | 类别 | 理由 |
+| --- | --- | --- |
+| `aformat` | 必须 | 统一采样格式/声道布局/采样率,是 af 链与 AO 之间的协商点;mpv 的 `--af=format` 与内部重配都走它。 |
+| `amix` | 可选 | 多路音频混音(双音轨同时出声、评论轨、karaoke),MPVKit 基线能力。 |
+| `anull` | 可选 | 空音频滤镜,直通与基准对照(与 vf `null` 对应)。 |
+| `aresample` | 必须 | 重采样、声道布局转换与时间基重整;输出设备采样率不匹配、变速与 seek 后的音频都靠它。 |
+| `areverse` | 可选 | 片段倒放,短视频/鬼畜类片源。 |
+| `asetrate` | 可选 | 直接改采样率实现变速/变调,与 `atempo` 互补。 |
+| `atempo` | 必须 | 变速不变调,mpv `speed` 控制的音频侧实现。 |
+| `atrim` | 可选 | 按时间裁剪音频,配合 `trim`/`setpts` 做片段处理。 |
+| `equalizer` | 可选 | 参量均衡(多段 IIR),音乐播放的 EQ 能力。 |
+| `firequalizer` | 可选 | FIR 线性相位均衡,需要陡峭滤波曲线时使用。 |
+| `pan` | 必须 | 声道映射/下混(5.1→stereo)与单声道化,mpv `--audio-channels` 的底层。 |
+| `superequalizer` | 可选 | 18 段图示均衡,MPVKit 基线里的另一套 EQ。 |
+| `volume` | 必须 | 增益/静音,mpv 音量控制的基础。 |
+
+### a) 本步新增:视频 vf(25)
+
+| 组件 | 类别 | 理由 |
+| --- | --- | --- |
+| `bwdif` | 可选 | 另一种去隔行算法(BWDIF),画质优于 yadif 的可选路径。 |
+| `estdif` | 可选 | 边缘导向去隔行,低角度边缘锯齿更少。 |
+| `fps` | 可选 | 帧率转换/CFR 化,用于需要固定输出帧率的片源。 |
+| `hflip` | 可选 | 水平翻转(镜像),与 `transpose` 的镜像模式互补。 |
+| `hwmap` | 可选 | 在硬件帧上下文之间映射(VT ↔ 其它 hwframes),避免下载到 CPU 再上传。 |
+| `idet` | 可选 | 隔行/场序探测,诊断并辅助决定是否去隔行。 |
+| `lenscorrection` | 可选 | 镜头畸变校正(桶形/枕形),运动相机片源。 |
+| `lut` | 可选 | 通用逐像素 LUT(表达式),颜色映射的底座。 |
+| `lut1d` | 可选 | 一维 LUT,按通道做 gamma/曲线调整。 |
+| `lut2` | 可选 | 双输入 LUT,两路画面的逐像素组合。 |
+| `lut3d` | 可选 | 3D LUT(`.cube`),校色/风格化的标准路径。 |
+| `lutrgb` | 可选 | 按 RGB 通道的 LUT,表达式形式。 |
+| `lutyuv` | 可选 | 按 YUV 通道的 LUT,表达式形式。 |
+| `negate` | 可选 | 反色/负片,依赖 `lut`(已同组启用)。 |
+| `overlay` | 必须 | 字幕/水印/画中画叠加;mpv 的 `--vf=overlay` 与 OSD 合成路径。 |
+| `palettegen` | 可选 | GIF/索引色输出的调色板生成,与 `paletteuse` 配对。 |
+| `paletteuse` | 可选 | 用 `palettegen` 的调色板做索引色输出。 |
+| `rotate` | 可选 | 任意角度旋转(表达式),补充 `transpose` 的 90° 整数倍。 |
+| `scale2ref` | 可选 | 以第二路为参照缩放,画中画/水印对齐。 |
+| `setpts` | 必须 | 重写 PTS;变速、`trim`、`fps` 之后的时基修正都依赖它。 |
+| `transpose` | 必须 | 90° 旋转/翻转,mpv `--video-rotate` 的软件实现。 |
+| `trim` | 可选 | 按时间裁剪视频,配合 `setpts` 做片段处理。 |
+| `vflip` | 可选 | 垂直翻转(上下镜像)。 |
+| `w3fdif` | 可选 | W3C 去隔行算法,另一种画质取向。 |
+| `yadif` | 必须 | mpv 默认去隔行器(`--deinterlace` 的 yadif 路径)。 |
+
+### b) 需要外部库 / GPU 工具链,本步不加(12)
+
+| 组件 | 外部依赖 / 原因 | 后续处理 |
+| --- | --- | --- |
+| `ass` | `configure:4089` 要求 `libass` | 字幕渲染;播放器侧已由 libass 负责,是否内置到 FFmpeg 单独评估。 |
+| `subtitles` | `configure:4220` 要求 `avformat avcodec` + `libass` | 把字幕烧进视频帧;同上,依赖 libass。 |
+| `libplacebo` | `configure:4155` 要求 `libplacebo` + `vulkan` | GPU 色调映射/缩放,与现有 Metal/VideoToolbox 路径重叠,后续评估。 |
+| `blend_vulkan` | `configure:4095` 要求 `vulkan` + `spirv_library`(shaderc) | Vulkan 计算滤镜;当前 `--disable-vulkan`,GPU 路径由 Metal/VT 承担。 |
+| `chromaber_vulkan` | `configure:4103` 同上 | 色差模拟;Vulkan 工具链。 |
+| `flip_vulkan` | `configure:4133` 同上 | Vulkan 翻转。 |
+| `gblur_vulkan` | `configure:4142` 同上 | Vulkan 高斯模糊。 |
+| `hflip_vulkan` | `configure:4143` 同上 | Vulkan 水平翻转。 |
+| `nlmeans_vulkan` | `configure:4167` 同上 | Vulkan 非局部均值降噪。 |
+| `overlay_vulkan` | `configure:4182` 同上 | Vulkan 叠加。 |
+| `vflip_vulkan` | `configure:4236` 同上 | Vulkan 垂直翻转。 |
+| `xfade_vulkan` | `configure:4250` 同上 | Vulkan 转场。 |
+
+### c) 核心内建端点(4,不加)
+
+| 端点 | 说明 |
+| --- | --- |
+| `asrc:abuffer` / `asink:abuffer` | 音频滤镜图的输入/输出端点,由 libavfilter 核心无条件注册(见 `configure` 的 `print_enabled_components`,filter_list 固定追加 4 个 buffer 端点),没有 `CONFIG_*_FILTER` 开关。 |
+| `vsrc:buffer` / `vsink:buffer` | 视频滤镜图的输入/输出端点,同上。 |
+
+它们不是 `--enable-filter=` 能打开的名字,因此不写入 `LUX_FILTERS`,也不参与 45 项的计数。
+
+### 本步验证口径(2026-11-10)
+
+- `configure --list-filters` 中 A 类 38 项全部存在(另 5 项原有滤镜也在);`verify-license.sh` 的
+  filter 对账为 45 项全部生效,且没有「额外启用(configure 自动 select)」警告。
+- `macos-arm64`、`ios-arm64`、`ios-sim-arm64` 三切片:`verify-license.sh` = 0 failures、1 warning
+  (仅 Metal Toolchain 未安装,`CONFIG_METAL=0`)。
+- 体积:`libavfilter.a` 相对 76944df 的基线(315208 / 312136 / 315296 字节)增至
+  925800 / 907072 / 925816 字节(macos-arm64 / ios-arm64 / ios-sim-arm64),即 +193.7% / +190.6% / +193.6%;
+  增量远超 +10%,是本步新增 38 个滤镜代码与静态表的预期代价,不是阻塞项。
 
 ## configure 自动 select:历史与口径
 
