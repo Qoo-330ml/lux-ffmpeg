@@ -6,7 +6,7 @@
 # 每一项优先用 deps.lock 里 selfstore= 指明的自存副本(逐字节副本,离线可用),缺失时回退到 URL。
 # 用法: ./lux/build/fetch-deps.sh [--fresh] [--from-url] [--offline] [--src DIR] [name ...]
 #   --fresh     忽略已有缓存,重新取一次(仍然强制校验)
-#   --from-url  忽略自存副本,强制从 URL 取(用于核对上游字节)
+#   --from-url  忽略自存副本与缓存,强制从 URL 下载(隐含 --fresh;用于核对上游字节)
 #   --offline   只用缓存/自存副本,不联网
 #   --src DIR   缓存目录(默认 $LUX_DEPS_SRC 或 lux/.build/deps/src)
 set -euo pipefail
@@ -31,6 +31,7 @@ while [ $# -gt 0 ]; do
   esac
   shift
 done
+if [ "$FROM_URL" -eq 1 ]; then FRESH=1; fi   # 强制走 URL 时缓存必须失效,否则会被 [cached] 短路
 mkdir -p "$SRC"
 
 fetch_one() { # $1 name $2 version $3 sha256 $4 url $5 rest(可能含 selfstore= 与行尾注释)
@@ -70,6 +71,7 @@ fetch_one() { # $1 name $2 version $3 sha256 $4 url $5 rest(可能含 selfstore=
     echo "[FAIL] $name $version:离线模式,缓存缺失或校验失败,且没有可用的自存副本" >&2
     return 1
   fi
+  echo "[get]    $name $version  <- $url"
   if ! deps_lock_curl "$url" "$tmp"; then
     echo "[FAIL] $name $version:下载失败 $url" >&2
     return 1
