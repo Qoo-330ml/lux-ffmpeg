@@ -336,6 +336,8 @@ static int probe_decoder(const char *path, const char *decoder_name, int max_fra
             r->stop = "error";
             goto done;
         }
+        if (r->frames >= max_frames && strcmp(r->stop, "eof") == 0)
+            r->stop = "limit";   /* flush 阶段恰好打满上限:不是 EOF 截断,按 limit 记 */
     }
 
 done:
@@ -371,7 +373,8 @@ int main(int argc, char **argv)
     }
 
     av_log_set_level(AV_LOG_ERROR);
-    test_stuck_eagain = getenv("LUX_AV1_TEST_STUCK_EAGAIN") != NULL;
+    { const char *hook = getenv("LUX_AV1_TEST_STUCK_EAGAIN");
+      test_stuck_eagain = hook && strcmp(hook, "1") == 0; }
 
     printf("av1_probe: input=%s max_frames=%d\n", argv[1], max_frames);
     if (test_stuck_eagain)

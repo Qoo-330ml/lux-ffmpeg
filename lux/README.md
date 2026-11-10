@@ -334,7 +334,7 @@ framework,F0 根本没构建它们,所以**总包体积不可直接相加对比*
   持续保证。
 - 产物许可:FFmpeg 部分为 **LGPL-2.1-or-later**(`COPYING.LGPLv2.1`),对上游文件的两个改动
   以 `lux:` 提交记录在本仓库(见 `git log`)。
-- 夹具(`lux/.build/fixtures/*.mkv`)是本机 `ffmpeg` 用 `lavfi` 测试图 + 正弦波现场合成的,
+- 夹具(`lux/.build/fixtures/*.mkv`)是本机 `ffmpeg` 用 `lavfi` 测试图 + 正弦波现场合成的(**例外**:AV1 样片 `lux/test/fixtures/lux-av1-fixture.mkv` 为入库的测试资产,sha256 见 `lux/test/fixtures/SHA256SUMS`,由 `run.sh` 复制到工作目录并校验),
   不含任何第三方素材。
 
 ---

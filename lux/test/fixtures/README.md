@@ -27,10 +27,15 @@ ffmpeg -hide_banner -loglevel error -y \
     -f lavfi -i "testsrc2=size=320x240:rate=25:duration=4" \
     -c:v libsvtav1 -preset 8 -crf 40 -pix_fmt yuv420p -g 25 \
     -f matroska lux-av1-fixture.mkv.part
+# 先校验 .part,全部通过后才 mv;任一步失败都不会覆盖已入库的夹具
 ffprobe -hide_banner -loglevel error -count_frames \
     -show_entries stream=codec_name,width,height,pix_fmt,nb_read_frames \
-    -of default=nw=1 lux-av1-fixture.mkv.part   # 期望:av1 / 320x240 / yuv420p / 100
-mv lux-av1-fixture.mkv.part lux-av1-fixture.mkv
+    -of default=nw=1 lux-av1-fixture.mkv.part > lux-av1-fixture.probe \
+  && grep -q 'codec_name=av1' lux-av1-fixture.probe \
+  && grep -q 'width=320' lux-av1-fixture.probe && grep -q 'height=240' lux-av1-fixture.probe \
+  && grep -q 'pix_fmt=yuv420p' lux-av1-fixture.probe && grep -q 'nb_read_frames=100' lux-av1-fixture.probe \
+  && mv lux-av1-fixture.mkv.part lux-av1-fixture.mkv \
+  || { echo "夹具校验失败,已保留原夹具"; rm -f lux-av1-fixture.mkv.part; exit 1; }
 shasum -a 256 lux-av1-fixture.mkv            # 把新值写回 SHA256SUMS 和本文件
 ```
 
