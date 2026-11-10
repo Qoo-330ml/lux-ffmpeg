@@ -2,7 +2,10 @@
 #   selfstore=<相对仓库根的路径>   本地自存源码包(逐字节副本,不入 git,见 lux/.gitignore)
 # 全部条目于 2026-11-10 从 URL 重新下载核对,sha256 与锁定值逐字节一致;
 # 校验脚本 lux/build/check-deps-lock.sh,日志写 lux/.build/logs/deps-lock-check-<日期>.log。
-# 取源码的脚本(fetch-deps.sh 与 build-*.sh)一律先校验 sha256,不一致即失败,绝不改写本文件的锁定值。
+# sha256 校验只发生在两个地方:lux/build/fetch-deps.sh(取源码、落缓存之前)和
+# lux/build/check-deps-lock.sh(全量核对);build-deps.sh / build-mpv.sh / build-moltenvk.sh
+# 只解包 lux/.build/deps/src 里已经校验过的归档,自己不重算 hash —— 所以构建前必须先跑
+# fetch-deps.sh(缓存缺失或 hash 不符时它会直接失败)。两个脚本都不会改写本文件的锁定值。
 # 上游没有源码发布资产的条目(GitHub/GitLab 的 archive 链接:标签可能移动、归档可能重新生成)
 # 都在 selfstore= 留了一份逐字节副本;有官方 release 资产的条目(freetype / harfbuzz / fribidi /
 # libunibreak / lcms2 / uchardet / libass / dav1d)只用 URL + 锁定 sha256。
