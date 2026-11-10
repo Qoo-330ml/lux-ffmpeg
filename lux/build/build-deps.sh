@@ -143,6 +143,18 @@ PC
       extract dav1d-1.5.4.tar.xz dav1d
       meson_build dav1d "$WORK/dav1d" -Denable_tools=false -Denable_tests=false \
         -Denable_examples=false -Denable_docs=false -Dxxhash_muxer=disabled ;;
+    zlib)
+      # zlib(zlib 许可,非 copyleft)。只出静态 libz.a:FFmpeg 的 tscc 解码器经
+      # inflate_wrapper 需要它(zlib 1.3.2,见 lux/config/deps.lock)。minizip / 示例 /
+      # 测试一律不构建。
+      extract zlib-1.3.2.tar.gz zlib
+      ( cd "$WORK/zlib" && \
+        CC="$DEPS_CC" CFLAGS="$DEPS_CFLAGS" LDFLAGS="$DEPS_LDFLAGS" \
+        AR="$DEPS_AR" RANLIB="$DEPS_RANLIB" \
+        ./configure --prefix="$PREFIX" --static > "$WORK/zlib.log" 2>&1 \
+        && make -j"$JOBS" >> "$WORK/zlib.log" 2>&1 \
+        && make install >> "$WORK/zlib.log" 2>&1 ) \
+        || { tail -30 "$WORK/zlib.log" >&2; return 1; } ;;
     uchardet)
       # 动态库(LGPL-2.1+,选 LGPL 许可),独立 framework 的候选;这里只构建 dylib 版本
       extract uchardet-0.0.8.tar.xz uchardet
@@ -157,5 +169,5 @@ PC
   esac
   echo "[built] $name ($TARGET)"
 }
-if [ $# -eq 0 ]; then set -- freetype harfbuzz fribidi libunibreak lcms2 libass uchardet shaderc libplacebo dav1d; fi
+if [ $# -eq 0 ]; then set -- freetype harfbuzz fribidi libunibreak lcms2 libass uchardet shaderc libplacebo dav1d zlib; fi
 for n in "$@"; do build_one "$n"; done
