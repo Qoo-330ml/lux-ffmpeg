@@ -16,7 +16,8 @@ mkdir -p "$WORK" "$PREFIX"
 export PKG_CONFIG_LIBDIR="$PREFIX/lib/pkgconfig:$PREFIX/share/pkgconfig"
 export PKG_CONFIG_PATH=""
 export CC="$DEPS_CC" CXX="$DEPS_CXX" AR="$DEPS_AR" RANLIB="$DEPS_RANLIB"
-# libplacebo 的 glad 生成器(glad2 2.0.8,PyPI),装在项目内的 pydeps 目录
+# libplacebo 的 glad 生成器(glad2 2.0.8,PyPI),装在项目内的 pydeps 目录。
+# 安装方式见 lux/build/install-glad.sh:--require-hashes + lux/config/requirements-glad.txt。
 export PYTHONPATH="$REPO/lux/.build/deps/pydeps${PYTHONPATH:+:$PYTHONPATH}"
 export CFLAGS="$DEPS_CFLAGS" CXXFLAGS="$DEPS_CFLAGS" LDFLAGS="$DEPS_LDFLAGS"
 JOBS=$(sysctl -n hw.ncpu)
