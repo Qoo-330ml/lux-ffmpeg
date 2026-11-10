@@ -1,0 +1,3435 @@
+{
+  "schema_version": 1,
+  "draft": true,
+  "draft_notice": "草稿 — 待法务确认",
+  "scope": "FFmpeg 六库 + libmpv 栈(Libmpv/Libplacebo/Libfribidi/Libuchardet)及其非系统依赖",
+  "generated_by": "lux/build/make-license-bundle.sh",
+  "repository": {
+    "name": "lux-ffmpeg",
+    "head_commit": "2d1eba83168faef22dc37d86293f954aaf7a5666",
+    "head_commit_date": "2026-11-10T15:02:22+08:00",
+    "head_commit_subject": "lux: package iOS libmpv slices as frameworks",
+    "head_commit_scope": "最近一次触及源码的提交(排除 lux/release 与本脚本)",
+    "branch": "tspace/p3-b-license-bundle"
+  },
+  "ffmpeg": {
+    "name": "ffmpeg",
+    "kind": "ffmpeg-source-tree",
+    "version": "jellyfin-ffmpeg v8.1.3-2 (FFmpeg 8.1.3)",
+    "license": "按切片不同:macos-arm64=LGPL-2.1-or-later;ios-arm64=LGPL-3.0-or-later;ios-sim-arm64=LGPL-3.0-or-later(待法务确认)",
+    "license_status": "needs-legal-review",
+    "license_files": [
+      "licenses/ffmpeg/COPYING.LGPLv2.1",
+      "licenses/ffmpeg/COPYING.LGPLv3",
+      "licenses/ffmpeg/COPYING.GPLv2",
+      "licenses/ffmpeg/COPYING.GPLv3",
+      "licenses/ffmpeg/LICENSE.md"
+    ],
+    "gpl_or_nonfree_terms": true,
+    "source": {
+      "repository": "lux-ffmpeg",
+      "head_commit": "2d1eba83168faef22dc37d86293f954aaf7a5666",
+      "head_commit_date": "2026-11-10T15:02:22+08:00",
+      "head_commit_subject": "lux: package iOS libmpv slices as frameworks",
+      "branch": "tspace/p3-b-license-bundle",
+      "patches_txt": "lux/config/patches.txt",
+      "patches_txt_sha256": "9f532c1b8144fb212e5bc3bb6c3bfe5f193ca97ada07c64a951bc84de28a056e",
+      "patches_digest": "45aeb1df8deddd7abd5d011e32379428536dffb61fb9d63702ed26a224839c52",
+      "patches_count": 13,
+      "configure_file": "lux/config/ffmpeg-ios.conf",
+      "configure_sha256": "8a563b8b79d4b70c0dc541b3cee863b2211dac4365c786ca36d552633a8f4c2e",
+      "patches": [
+        {
+          "name": "0001-videotoolbox-hwaccel-low-priority.patch",
+          "sha256": "5ecaef118350cd9f0f8c8f22b00f90289fa2135d766f47444c663cfe3b131f4a"
+        },
+        {
+          "name": "0002-videotoolbox-device-derive.patch",
+          "sha256": "9cc9ddea3590da73649b1985eabf4473d475fe0fef1ded0930ab9237d4787ba0"
+        },
+        {
+          "name": "0003-videotoolbox-allow-software-fallback.patch",
+          "sha256": "94fb5947cba78c16fdad2204beba547ad04d520b4fcbe8810b253f8e21bb7308"
+        },
+        {
+          "name": "0004-hevc-videotoolbox-12bit.patch",
+          "sha256": "c6224b6ec6eb26a7ba9955f4c30616c1c89a4857c181b2bcd18fd9beb6369a19"
+        },
+        {
+          "name": "0005-codec-par-use-sw-pix-fmt.patch",
+          "sha256": "d4faa9b06959aac29e7f391b048e3d801d7e77dcca77ec2ab0cee620a7abbfbd"
+        },
+        {
+          "name": "0006-audiotoolbox-encoder-layouts-and-rates.patch",
+          "sha256": "34d33039ab9d3ce4c3c71408c6f3d74b6814a5a3f6a2847fdbf629fa71857ad9"
+        },
+        {
+          "name": "0007-matroskadec-webp-cover.patch",
+          "sha256": "07108f57e05f72a645cef40223920aff949e214c5c4354cd5df191b4b48ab61b"
+        },
+        {
+          "name": "0008-dca-dtsx-profile.patch",
+          "sha256": "1fefd31d558669ab2549e4c5ae9eabf42ac79e9bb422351ec64d26a4cd3fa695"
+        },
+        {
+          "name": "0009-movenc-dovi-side-data.patch",
+          "sha256": "c9be50d8b6d3635269be78917cce5b0b1c14d5f9bb8a0e17a39549581ec39223"
+        },
+        {
+          "name": "0010-scale-vt-output-format.patch",
+          "sha256": "43d6a99fe62a76fa2e38ac1f654db1438730c7a50e3f5332cfe3c178aeb3cdd6"
+        },
+        {
+          "name": "0011-transpose-vt-coreimage.patch",
+          "sha256": "ad4a8c1e262c201654c2205ddb836d4807e70d40f292ea4cac735c3b6c5133fe"
+        },
+        {
+          "name": "0012-vf-overlay-videotoolbox.patch",
+          "sha256": "278ee6da3b71e1f319afe59dd3ce9dc9a6d7bed9be701aacee1236473edec886"
+        },
+        {
+          "name": "0014-vf-bwdif-videotoolbox.patch",
+          "sha256": "7df88c80e3df2f20fd12d5900d47d2f312747b59993b7e6a892be73fd8f1fadd"
+        }
+      ]
+    },
+    "targets": {
+      "macos-arm64": {
+        "target": "macos-arm64",
+        "build_info": "$BUILD/macos-arm64/BUILD-INFO.txt",
+        "configure_opts": "$BUILD/macos-arm64/configure.opts.txt",
+        "license_recorded": "LGPL version 2.1 or later",
+        "license": "LGPL-2.1-or-later",
+        "license_status": "identified",
+        "version3": false,
+        "config_macros": {
+          "GPL": 0,
+          "NONFREE": 0,
+          "VERSION3": 0,
+          "LGPLV3": 0
+        },
+        "configure_has_disable_gpl": true,
+        "configure_has_disable_nonfree": true,
+        "configure_has_enable_version3": false,
+        "libraries": [
+          {
+            "name": "libavcodec",
+            "license": "LGPL-2.1-or-later",
+            "license_status": "identified",
+            "static_library": "$BUILD/macos-arm64/install/lib/libavcodec.a",
+            "static_library_size": 5178448,
+            "framework_binary": "$BUILD/xcframeworks/Libavcodec.xcframework/macos-arm64/Libavcodec.framework/Libavcodec",
+            "framework_binary_size": 4123584
+          },
+          {
+            "name": "libavformat",
+            "license": "LGPL-2.1-or-later",
+            "license_status": "identified",
+            "static_library": "$BUILD/macos-arm64/install/lib/libavformat.a",
+            "static_library_size": 1272712,
+            "framework_binary": "$BUILD/xcframeworks/Libavformat.xcframework/macos-arm64/Libavformat.framework/Libavformat",
+            "framework_binary_size": 896224
+          },
+          {
+            "name": "libavfilter",
+            "license": "LGPL-2.1-or-later",
+            "license_status": "identified",
+            "static_library": "$BUILD/macos-arm64/install/lib/libavfilter.a",
+            "static_library_size": 306400,
+            "framework_binary": "$BUILD/xcframeworks/Libavfilter.xcframework/macos-arm64/Libavfilter.framework/Libavfilter",
+            "framework_binary_size": 257408
+          },
+          {
+            "name": "libswscale",
+            "license": "LGPL-2.1-or-later",
+            "license_status": "identified",
+            "static_library": "$BUILD/macos-arm64/install/lib/libswscale.a",
+            "static_library_size": 1418000,
+            "framework_binary": "$BUILD/xcframeworks/Libswscale.xcframework/macos-arm64/Libswscale.framework/Libswscale",
+            "framework_binary_size": 1235600
+          },
+          {
+            "name": "libswresample",
+            "license": "LGPL-2.1-or-later",
+            "license_status": "identified",
+            "static_library": "$BUILD/macos-arm64/install/lib/libswresample.a",
+            "static_library_size": 136344,
+            "framework_binary": "$BUILD/xcframeworks/Libswresample.xcframework/macos-arm64/Libswresample.framework/Libswresample",
+            "framework_binary_size": 127744
+          },
+          {
+            "name": "libavutil",
+            "license": "LGPL-2.1-or-later",
+            "license_status": "identified",
+            "static_library": "$BUILD/macos-arm64/install/lib/libavutil.a",
+            "static_library_size": 1025048,
+            "framework_binary": "$BUILD/xcframeworks/Libavutil.xcframework/macos-arm64/Libavutil.framework/Libavutil",
+            "framework_binary_size": 777024
+          }
+        ],
+        "notes": []
+      },
+      "ios-arm64": {
+        "target": "ios-arm64",
+        "build_info": "$BUILD/ios-arm64/BUILD-INFO.txt",
+        "configure_opts": "$BUILD/ios-arm64/configure.opts.txt",
+        "license_recorded": "LGPL version 3 or later",
+        "license": "LGPL-3.0-or-later",
+        "license_status": "needs-legal-review",
+        "version3": true,
+        "config_macros": {
+          "GPL": 0,
+          "NONFREE": 0,
+          "VERSION3": 1,
+          "LGPLV3": 1
+        },
+        "configure_has_disable_gpl": true,
+        "configure_has_disable_nonfree": true,
+        "configure_has_enable_version3": true,
+        "libraries": [
+          {
+            "name": "libavcodec",
+            "license": "LGPL-3.0-or-later",
+            "license_status": "needs-legal-review",
+            "static_library": "$BUILD/ios-arm64/install/lib/libavcodec.a",
+            "static_library_size": 5043736,
+            "framework_binary": "$BUILD/xcframeworks/Libavcodec.xcframework/ios-arm64/Libavcodec.framework/Libavcodec",
+            "framework_binary_size": 3991888
+          },
+          {
+            "name": "libavformat",
+            "license": "LGPL-3.0-or-later",
+            "license_status": "needs-legal-review",
+            "static_library": "$BUILD/ios-arm64/install/lib/libavformat.a",
+            "static_library_size": 1256168,
+            "framework_binary": "$BUILD/xcframeworks/Libavformat.xcframework/ios-arm64/Libavformat.framework/Libavformat",
+            "framework_binary_size": 879040
+          },
+          {
+            "name": "libavfilter",
+            "license": "LGPL-3.0-or-later",
+            "license_status": "needs-legal-review",
+            "static_library": "$BUILD/ios-arm64/install/lib/libavfilter.a",
+            "static_library_size": 303344,
+            "framework_binary": "$BUILD/xcframeworks/Libavfilter.xcframework/ios-arm64/Libavfilter.framework/Libavfilter",
+            "framework_binary_size": 257424
+          },
+          {
+            "name": "libswscale",
+            "license": "LGPL-3.0-or-later",
+            "license_status": "needs-legal-review",
+            "static_library": "$BUILD/ios-arm64/install/lib/libswscale.a",
+            "static_library_size": 1433256,
+            "framework_binary": "$BUILD/xcframeworks/Libswscale.xcframework/ios-arm64/Libswscale.framework/Libswscale",
+            "framework_binary_size": 1235520
+          },
+          {
+            "name": "libswresample",
+            "license": "LGPL-3.0-or-later",
+            "license_status": "needs-legal-review",
+            "static_library": "$BUILD/ios-arm64/install/lib/libswresample.a",
+            "static_library_size": 133136,
+            "framework_binary": "$BUILD/xcframeworks/Libswresample.xcframework/ios-arm64/Libswresample.framework/Libswresample",
+            "framework_binary_size": 127744
+          },
+          {
+            "name": "libavutil",
+            "license": "LGPL-3.0-or-later",
+            "license_status": "needs-legal-review",
+            "static_library": "$BUILD/ios-arm64/install/lib/libavutil.a",
+            "static_library_size": 1019992,
+            "framework_binary": "$BUILD/xcframeworks/Libavutil.xcframework/ios-arm64/Libavutil.framework/Libavutil",
+            "framework_binary_size": 760592
+          }
+        ],
+        "notes": [
+          "configure.opts.txt 含 --enable-version3 或 config.h 的 CONFIG_VERSION3=1;BUILD-INFO 记录许可为“LGPL version 3 or later”",
+          "当前 lux/config/ffmpeg-ios.conf 没有生效的 --enable-version3 行,但该切片产物启用了 version3;产物可能早于当前配置,待法务确认"
+        ]
+      },
+      "ios-sim-arm64": {
+        "target": "ios-sim-arm64",
+        "build_info": "$BUILD/ios-sim-arm64/BUILD-INFO.txt",
+        "configure_opts": "$BUILD/ios-sim-arm64/configure.opts.txt",
+        "license_recorded": "LGPL version 3 or later",
+        "license": "LGPL-3.0-or-later",
+        "license_status": "needs-legal-review",
+        "version3": true,
+        "config_macros": {
+          "GPL": 0,
+          "NONFREE": 0,
+          "VERSION3": 1,
+          "LGPLV3": 1
+        },
+        "configure_has_disable_gpl": true,
+        "configure_has_disable_nonfree": true,
+        "configure_has_enable_version3": true,
+        "libraries": [
+          {
+            "name": "libavcodec",
+            "license": "LGPL-3.0-or-later",
+            "license_status": "needs-legal-review",
+            "static_library": "$BUILD/ios-sim-arm64/install/lib/libavcodec.a",
+            "static_library_size": 5173672,
+            "framework_binary": "$BUILD/xcframeworks/Libavcodec.xcframework/ios-arm64-simulator/Libavcodec.framework/Libavcodec",
+            "framework_binary_size": 4123184
+          },
+          {
+            "name": "libavformat",
+            "license": "LGPL-3.0-or-later",
+            "license_status": "needs-legal-review",
+            "static_library": "$BUILD/ios-sim-arm64/install/lib/libavformat.a",
+            "static_library_size": 1270504,
+            "framework_binary": "$BUILD/xcframeworks/Libavformat.xcframework/ios-arm64-simulator/Libavformat.framework/Libavformat",
+            "framework_binary_size": 895392
+          },
+          {
+            "name": "libavfilter",
+            "license": "LGPL-3.0-or-later",
+            "license_status": "needs-legal-review",
+            "static_library": "$BUILD/ios-sim-arm64/install/lib/libavfilter.a",
+            "static_library_size": 306496,
+            "framework_binary": "$BUILD/xcframeworks/Libavfilter.xcframework/ios-arm64-simulator/Libavfilter.framework/Libavfilter",
+            "framework_binary_size": 257408
+          },
+          {
+            "name": "libswscale",
+            "license": "LGPL-3.0-or-later",
+            "license_status": "needs-legal-review",
+            "static_library": "$BUILD/ios-sim-arm64/install/lib/libswscale.a",
+            "static_library_size": 1418032,
+            "framework_binary": "$BUILD/xcframeworks/Libswscale.xcframework/ios-arm64-simulator/Libswscale.framework/Libswscale",
+            "framework_binary_size": 1235552
+          },
+          {
+            "name": "libswresample",
+            "license": "LGPL-3.0-or-later",
+            "license_status": "needs-legal-review",
+            "static_library": "$BUILD/ios-sim-arm64/install/lib/libswresample.a",
+            "static_library_size": 136448,
+            "framework_binary": "$BUILD/xcframeworks/Libswresample.xcframework/ios-arm64-simulator/Libswresample.framework/Libswresample",
+            "framework_binary_size": 127744
+          },
+          {
+            "name": "libavutil",
+            "license": "LGPL-3.0-or-later",
+            "license_status": "needs-legal-review",
+            "static_library": "$BUILD/ios-sim-arm64/install/lib/libavutil.a",
+            "static_library_size": 1024936,
+            "framework_binary": "$BUILD/xcframeworks/Libavutil.xcframework/ios-arm64-simulator/Libavutil.framework/Libavutil",
+            "framework_binary_size": 776960
+          }
+        ],
+        "notes": [
+          "configure.opts.txt 含 --enable-version3 或 config.h 的 CONFIG_VERSION3=1;BUILD-INFO 记录许可为“LGPL version 3 or later”",
+          "当前 lux/config/ffmpeg-ios.conf 没有生效的 --enable-version3 行,但该切片产物启用了 version3;产物可能早于当前配置,待法务确认"
+        ]
+      }
+    }
+  },
+  "libmpv_stack": {
+    "targets": {
+      "macos-arm64": {
+        "frameworks": {
+          "Libmpv": {
+            "binary": "lux/.build/mpv-frameworks/macos-arm64/Libmpv.framework/Libmpv",
+            "binary_kind": "framework",
+            "otool_command": "otool -L lux/.build/mpv-frameworks/macos-arm64/Libmpv.framework/Libmpv",
+            "dynamic_dependencies": [
+              "@rpath/Libfribidi.framework/Libfribidi",
+              "@rpath/Libavcodec.framework/Libavcodec",
+              "@rpath/Libavfilter.framework/Libavfilter",
+              "@rpath/Libavformat.framework/Libavformat",
+              "@rpath/Libavutil.framework/Libavutil",
+              "@rpath/Libplacebo.framework/Libplacebo",
+              "@rpath/Libswresample.framework/Libswresample",
+              "@rpath/Libswscale.framework/Libswscale",
+              "@rpath/Libuchardet.framework/Libuchardet"
+            ],
+            "system_dependencies": [
+              "/System/Library/Frameworks/CoreFoundation.framework/Versions/A/CoreFoundation",
+              "/usr/lib/libSystem.B.dylib",
+              "/usr/lib/libiconv.2.dylib",
+              "/usr/lib/libhvf.dylib",
+              "/System/Library/Frameworks/CoreMedia.framework/Versions/A/CoreMedia",
+              "/System/Library/Frameworks/AVFoundation.framework/Versions/A/AVFoundation",
+              "/System/Library/Frameworks/Metal.framework/Versions/A/Metal",
+              "/System/Library/Frameworks/CoreGraphics.framework/Versions/A/CoreGraphics",
+              "/System/Library/Frameworks/Foundation.framework/Versions/C/Foundation",
+              "/System/Library/Frameworks/CoreVideo.framework/Versions/A/CoreVideo",
+              "/System/Library/Frameworks/CoreText.framework/Versions/A/CoreText",
+              "/usr/lib/libobjc.A.dylib"
+            ],
+            "non_system_dependencies": [
+              {
+                "raw": "@rpath/Libfribidi.framework/Libfribidi",
+                "deps_lock_name": "fribidi",
+                "framework": "Libfribidi",
+                "license": "LGPL-2.1-or-later"
+              },
+              {
+                "raw": "@rpath/Libavcodec.framework/Libavcodec",
+                "deps_lock_name": "ffmpeg",
+                "framework": "Libavcodec",
+                "license": "待法务确认"
+              },
+              {
+                "raw": "@rpath/Libavfilter.framework/Libavfilter",
+                "deps_lock_name": "ffmpeg",
+                "framework": "Libavfilter",
+                "license": "待法务确认"
+              },
+              {
+                "raw": "@rpath/Libavformat.framework/Libavformat",
+                "deps_lock_name": "ffmpeg",
+                "framework": "Libavformat",
+                "license": "待法务确认"
+              },
+              {
+                "raw": "@rpath/Libavutil.framework/Libavutil",
+                "deps_lock_name": "ffmpeg",
+                "framework": "Libavutil",
+                "license": "待法务确认"
+              },
+              {
+                "raw": "@rpath/Libplacebo.framework/Libplacebo",
+                "deps_lock_name": "libplacebo",
+                "framework": "Libplacebo",
+                "license": "LGPL-2.1-or-later"
+              },
+              {
+                "raw": "@rpath/Libswresample.framework/Libswresample",
+                "deps_lock_name": "ffmpeg",
+                "framework": "Libswresample",
+                "license": "待法务确认"
+              },
+              {
+                "raw": "@rpath/Libswscale.framework/Libswscale",
+                "deps_lock_name": "ffmpeg",
+                "framework": "Libswscale",
+                "license": "待法务确认"
+              },
+              {
+                "raw": "@rpath/Libuchardet.framework/Libuchardet",
+                "deps_lock_name": "uchardet",
+                "framework": "Libuchardet",
+                "license": "MPL-1.1 或 GPL-2.0-or-later 或 LGPL-2.1-or-later(待法务确认)"
+              }
+            ],
+            "source_dependency": "mpv",
+            "license": "待法务确认",
+            "license_status": "needs-legal-review"
+          },
+          "Libplacebo": {
+            "binary": "lux/.build/mpv-frameworks/macos-arm64/Libplacebo.framework/Libplacebo",
+            "binary_kind": "framework",
+            "otool_command": "otool -L lux/.build/mpv-frameworks/macos-arm64/Libplacebo.framework/Libplacebo",
+            "dynamic_dependencies": [],
+            "system_dependencies": [
+              "/System/Library/Frameworks/Metal.framework/Versions/A/Metal",
+              "/System/Library/Frameworks/IOSurface.framework/Versions/A/IOSurface",
+              "/System/Library/Frameworks/QuartzCore.framework/Versions/A/QuartzCore",
+              "/System/Library/Frameworks/IOKit.framework/Versions/A/IOKit",
+              "/System/Library/Frameworks/CoreGraphics.framework/Versions/A/CoreGraphics",
+              "/System/Library/Frameworks/Foundation.framework/Versions/C/Foundation",
+              "/System/Library/Frameworks/AppKit.framework/Versions/C/AppKit",
+              "/usr/lib/libSystem.B.dylib",
+              "/usr/lib/libc++.1.dylib",
+              "/System/Library/Frameworks/CoreFoundation.framework/Versions/A/CoreFoundation",
+              "/usr/lib/libobjc.A.dylib"
+            ],
+            "non_system_dependencies": [],
+            "source_dependency": "libplacebo",
+            "license": "LGPL-2.1-or-later",
+            "license_status": "identified"
+          },
+          "Libfribidi": {
+            "binary": "lux/.build/mpv-frameworks/macos-arm64/Libfribidi.framework/Libfribidi",
+            "binary_kind": "framework",
+            "otool_command": "otool -L lux/.build/mpv-frameworks/macos-arm64/Libfribidi.framework/Libfribidi",
+            "dynamic_dependencies": [],
+            "system_dependencies": [
+              "/usr/lib/libSystem.B.dylib"
+            ],
+            "non_system_dependencies": [],
+            "source_dependency": "fribidi",
+            "license": "LGPL-2.1-or-later",
+            "license_status": "identified"
+          },
+          "Libuchardet": {
+            "binary": "lux/.build/mpv-frameworks/macos-arm64/Libuchardet.framework/Libuchardet",
+            "binary_kind": "framework",
+            "otool_command": "otool -L lux/.build/mpv-frameworks/macos-arm64/Libuchardet.framework/Libuchardet",
+            "dynamic_dependencies": [],
+            "system_dependencies": [
+              "/usr/lib/libc++.1.dylib",
+              "/usr/lib/libSystem.B.dylib"
+            ],
+            "non_system_dependencies": [],
+            "source_dependency": "uchardet",
+            "license": "MPL-1.1 或 GPL-2.0-or-later 或 LGPL-2.1-or-later(待法务确认)",
+            "license_status": "needs-legal-review"
+          }
+        }
+      },
+      "ios-arm64": {
+        "frameworks": {
+          "Libmpv": {
+            "binary": "lux/.build/mpv-frameworks/ios-arm64/Libmpv.framework/Libmpv",
+            "binary_kind": "framework",
+            "otool_command": "otool -L lux/.build/mpv-frameworks/ios-arm64/Libmpv.framework/Libmpv",
+            "dynamic_dependencies": [
+              "@rpath/Libfribidi.framework/Libfribidi",
+              "@rpath/Libavcodec.framework/Libavcodec",
+              "@rpath/Libavfilter.framework/Libavfilter",
+              "@rpath/Libavformat.framework/Libavformat",
+              "@rpath/Libavutil.framework/Libavutil",
+              "@rpath/Libplacebo.framework/Libplacebo",
+              "@rpath/Libswresample.framework/Libswresample",
+              "@rpath/Libswscale.framework/Libswscale",
+              "@rpath/Libuchardet.framework/Libuchardet"
+            ],
+            "system_dependencies": [
+              "/System/Library/Frameworks/CoreText.framework/CoreText",
+              "/System/Library/Frameworks/CoreFoundation.framework/CoreFoundation",
+              "/usr/lib/libSystem.B.dylib",
+              "/System/Library/Frameworks/CoreGraphics.framework/CoreGraphics",
+              "/usr/lib/libiconv.2.dylib",
+              "/System/Library/Frameworks/AudioToolbox.framework/AudioToolbox",
+              "/System/Library/Frameworks/Metal.framework/Metal",
+              "/System/Library/Frameworks/CoreVideo.framework/CoreVideo",
+              "/usr/lib/libobjc.A.dylib"
+            ],
+            "non_system_dependencies": [
+              {
+                "raw": "@rpath/Libfribidi.framework/Libfribidi",
+                "deps_lock_name": "fribidi",
+                "framework": "Libfribidi",
+                "license": "LGPL-2.1-or-later"
+              },
+              {
+                "raw": "@rpath/Libavcodec.framework/Libavcodec",
+                "deps_lock_name": "ffmpeg",
+                "framework": "Libavcodec",
+                "license": "待法务确认"
+              },
+              {
+                "raw": "@rpath/Libavfilter.framework/Libavfilter",
+                "deps_lock_name": "ffmpeg",
+                "framework": "Libavfilter",
+                "license": "待法务确认"
+              },
+              {
+                "raw": "@rpath/Libavformat.framework/Libavformat",
+                "deps_lock_name": "ffmpeg",
+                "framework": "Libavformat",
+                "license": "待法务确认"
+              },
+              {
+                "raw": "@rpath/Libavutil.framework/Libavutil",
+                "deps_lock_name": "ffmpeg",
+                "framework": "Libavutil",
+                "license": "待法务确认"
+              },
+              {
+                "raw": "@rpath/Libplacebo.framework/Libplacebo",
+                "deps_lock_name": "libplacebo",
+                "framework": "Libplacebo",
+                "license": "LGPL-2.1-or-later"
+              },
+              {
+                "raw": "@rpath/Libswresample.framework/Libswresample",
+                "deps_lock_name": "ffmpeg",
+                "framework": "Libswresample",
+                "license": "待法务确认"
+              },
+              {
+                "raw": "@rpath/Libswscale.framework/Libswscale",
+                "deps_lock_name": "ffmpeg",
+                "framework": "Libswscale",
+                "license": "待法务确认"
+              },
+              {
+                "raw": "@rpath/Libuchardet.framework/Libuchardet",
+                "deps_lock_name": "uchardet",
+                "framework": "Libuchardet",
+                "license": "MPL-1.1 或 GPL-2.0-or-later 或 LGPL-2.1-or-later(待法务确认)"
+              }
+            ],
+            "source_dependency": "mpv",
+            "license": "待法务确认",
+            "license_status": "needs-legal-review"
+          },
+          "Libplacebo": {
+            "binary": "lux/.build/mpv-frameworks/ios-arm64/Libplacebo.framework/Libplacebo",
+            "binary_kind": "framework",
+            "otool_command": "otool -L lux/.build/mpv-frameworks/ios-arm64/Libplacebo.framework/Libplacebo",
+            "dynamic_dependencies": [],
+            "system_dependencies": [
+              "/System/Library/Frameworks/Metal.framework/Metal",
+              "/System/Library/Frameworks/IOSurface.framework/IOSurface",
+              "/System/Library/Frameworks/QuartzCore.framework/QuartzCore",
+              "/System/Library/Frameworks/CoreGraphics.framework/CoreGraphics",
+              "/System/Library/Frameworks/Foundation.framework/Foundation",
+              "/System/Library/Frameworks/UIKit.framework/UIKit",
+              "/usr/lib/libSystem.B.dylib",
+              "/usr/lib/libc++.1.dylib",
+              "/System/Library/Frameworks/CoreFoundation.framework/CoreFoundation",
+              "/usr/lib/libobjc.A.dylib"
+            ],
+            "non_system_dependencies": [],
+            "source_dependency": "libplacebo",
+            "license": "LGPL-2.1-or-later",
+            "license_status": "identified"
+          },
+          "Libfribidi": {
+            "binary": "lux/.build/mpv-frameworks/ios-arm64/Libfribidi.framework/Libfribidi",
+            "binary_kind": "framework",
+            "otool_command": "otool -L lux/.build/mpv-frameworks/ios-arm64/Libfribidi.framework/Libfribidi",
+            "dynamic_dependencies": [],
+            "system_dependencies": [
+              "/usr/lib/libSystem.B.dylib"
+            ],
+            "non_system_dependencies": [],
+            "source_dependency": "fribidi",
+            "license": "LGPL-2.1-or-later",
+            "license_status": "identified"
+          },
+          "Libuchardet": {
+            "binary": "lux/.build/mpv-frameworks/ios-arm64/Libuchardet.framework/Libuchardet",
+            "binary_kind": "framework",
+            "otool_command": "otool -L lux/.build/mpv-frameworks/ios-arm64/Libuchardet.framework/Libuchardet",
+            "dynamic_dependencies": [],
+            "system_dependencies": [
+              "/usr/lib/libc++.1.dylib",
+              "/usr/lib/libSystem.B.dylib"
+            ],
+            "non_system_dependencies": [],
+            "source_dependency": "uchardet",
+            "license": "MPL-1.1 或 GPL-2.0-or-later 或 LGPL-2.1-or-later(待法务确认)",
+            "license_status": "needs-legal-review"
+          }
+        }
+      },
+      "ios-sim-arm64": {
+        "frameworks": {
+          "Libmpv": {
+            "binary": "lux/.build/mpv-frameworks/ios-sim-arm64/Libmpv.framework/Libmpv",
+            "binary_kind": "framework",
+            "otool_command": "otool -L lux/.build/mpv-frameworks/ios-sim-arm64/Libmpv.framework/Libmpv",
+            "dynamic_dependencies": [
+              "@rpath/Libfribidi.framework/Libfribidi",
+              "@rpath/Libavcodec.framework/Libavcodec",
+              "@rpath/Libavfilter.framework/Libavfilter",
+              "@rpath/Libavformat.framework/Libavformat",
+              "@rpath/Libavutil.framework/Libavutil",
+              "@rpath/Libplacebo.framework/Libplacebo",
+              "@rpath/Libswresample.framework/Libswresample",
+              "@rpath/Libswscale.framework/Libswscale",
+              "@rpath/Libuchardet.framework/Libuchardet"
+            ],
+            "system_dependencies": [
+              "/System/Library/Frameworks/CoreText.framework/CoreText",
+              "/System/Library/Frameworks/CoreFoundation.framework/CoreFoundation",
+              "/usr/lib/libSystem.B.dylib",
+              "/System/Library/Frameworks/CoreGraphics.framework/CoreGraphics",
+              "/usr/lib/libiconv.2.dylib",
+              "/System/Library/Frameworks/AudioToolbox.framework/AudioToolbox",
+              "/System/Library/Frameworks/Metal.framework/Metal",
+              "/System/Library/Frameworks/CoreVideo.framework/CoreVideo",
+              "/usr/lib/libobjc.A.dylib"
+            ],
+            "non_system_dependencies": [
+              {
+                "raw": "@rpath/Libfribidi.framework/Libfribidi",
+                "deps_lock_name": "fribidi",
+                "framework": "Libfribidi",
+                "license": "LGPL-2.1-or-later"
+              },
+              {
+                "raw": "@rpath/Libavcodec.framework/Libavcodec",
+                "deps_lock_name": "ffmpeg",
+                "framework": "Libavcodec",
+                "license": "待法务确认"
+              },
+              {
+                "raw": "@rpath/Libavfilter.framework/Libavfilter",
+                "deps_lock_name": "ffmpeg",
+                "framework": "Libavfilter",
+                "license": "待法务确认"
+              },
+              {
+                "raw": "@rpath/Libavformat.framework/Libavformat",
+                "deps_lock_name": "ffmpeg",
+                "framework": "Libavformat",
+                "license": "待法务确认"
+              },
+              {
+                "raw": "@rpath/Libavutil.framework/Libavutil",
+                "deps_lock_name": "ffmpeg",
+                "framework": "Libavutil",
+                "license": "待法务确认"
+              },
+              {
+                "raw": "@rpath/Libplacebo.framework/Libplacebo",
+                "deps_lock_name": "libplacebo",
+                "framework": "Libplacebo",
+                "license": "LGPL-2.1-or-later"
+              },
+              {
+                "raw": "@rpath/Libswresample.framework/Libswresample",
+                "deps_lock_name": "ffmpeg",
+                "framework": "Libswresample",
+                "license": "待法务确认"
+              },
+              {
+                "raw": "@rpath/Libswscale.framework/Libswscale",
+                "deps_lock_name": "ffmpeg",
+                "framework": "Libswscale",
+                "license": "待法务确认"
+              },
+              {
+                "raw": "@rpath/Libuchardet.framework/Libuchardet",
+                "deps_lock_name": "uchardet",
+                "framework": "Libuchardet",
+                "license": "MPL-1.1 或 GPL-2.0-or-later 或 LGPL-2.1-or-later(待法务确认)"
+              }
+            ],
+            "source_dependency": "mpv",
+            "license": "待法务确认",
+            "license_status": "needs-legal-review"
+          },
+          "Libplacebo": {
+            "binary": "lux/.build/mpv-frameworks/ios-sim-arm64/Libplacebo.framework/Libplacebo",
+            "binary_kind": "framework",
+            "otool_command": "otool -L lux/.build/mpv-frameworks/ios-sim-arm64/Libplacebo.framework/Libplacebo",
+            "dynamic_dependencies": [],
+            "system_dependencies": [
+              "/System/Library/Frameworks/Metal.framework/Metal",
+              "/System/Library/Frameworks/IOSurface.framework/IOSurface",
+              "/System/Library/Frameworks/QuartzCore.framework/QuartzCore",
+              "/System/Library/Frameworks/CoreGraphics.framework/CoreGraphics",
+              "/System/Library/Frameworks/Foundation.framework/Foundation",
+              "/System/Library/Frameworks/UIKit.framework/UIKit",
+              "/usr/lib/libSystem.B.dylib",
+              "/usr/lib/libc++.1.dylib",
+              "/System/Library/Frameworks/CoreFoundation.framework/CoreFoundation",
+              "/usr/lib/libobjc.A.dylib"
+            ],
+            "non_system_dependencies": [],
+            "source_dependency": "libplacebo",
+            "license": "LGPL-2.1-or-later",
+            "license_status": "identified"
+          },
+          "Libfribidi": {
+            "binary": "lux/.build/mpv-frameworks/ios-sim-arm64/Libfribidi.framework/Libfribidi",
+            "binary_kind": "framework",
+            "otool_command": "otool -L lux/.build/mpv-frameworks/ios-sim-arm64/Libfribidi.framework/Libfribidi",
+            "dynamic_dependencies": [],
+            "system_dependencies": [
+              "/usr/lib/libSystem.B.dylib"
+            ],
+            "non_system_dependencies": [],
+            "source_dependency": "fribidi",
+            "license": "LGPL-2.1-or-later",
+            "license_status": "identified"
+          },
+          "Libuchardet": {
+            "binary": "lux/.build/mpv-frameworks/ios-sim-arm64/Libuchardet.framework/Libuchardet",
+            "binary_kind": "framework",
+            "otool_command": "otool -L lux/.build/mpv-frameworks/ios-sim-arm64/Libuchardet.framework/Libuchardet",
+            "dynamic_dependencies": [],
+            "system_dependencies": [
+              "/usr/lib/libc++.1.dylib",
+              "/usr/lib/libSystem.B.dylib"
+            ],
+            "non_system_dependencies": [],
+            "source_dependency": "uchardet",
+            "license": "MPL-1.1 或 GPL-2.0-or-later 或 LGPL-2.1-or-later(待法务确认)",
+            "license_status": "needs-legal-review"
+          }
+        }
+      }
+    },
+    "components": [
+      {
+        "name": "Libmpv",
+        "kind": "libmpv-stack-framework",
+        "source_dependency": "mpv",
+        "license": "待法务确认",
+        "license_status": "needs-legal-review",
+        "license_notes": "Copyright 明示默认 GPL-2.0+;构建使用 -Dgpl=false;同一文件说明该开关本身不构成 LGPL 授权。",
+        "bundled_gpl_review": [
+          "freetype"
+        ],
+        "license_files": [
+          "licenses/mpv/Copyright",
+          "licenses/mpv/LICENSE.GPL",
+          "licenses/mpv/LICENSE.LGPL"
+        ],
+        "targets": {
+          "macos-arm64": {
+            "binary": "lux/.build/mpv-frameworks/macos-arm64/Libmpv.framework/Libmpv",
+            "binary_kind": "framework",
+            "otool_command": "otool -L lux/.build/mpv-frameworks/macos-arm64/Libmpv.framework/Libmpv",
+            "dynamic_dependencies": [
+              "@rpath/Libfribidi.framework/Libfribidi",
+              "@rpath/Libavcodec.framework/Libavcodec",
+              "@rpath/Libavfilter.framework/Libavfilter",
+              "@rpath/Libavformat.framework/Libavformat",
+              "@rpath/Libavutil.framework/Libavutil",
+              "@rpath/Libplacebo.framework/Libplacebo",
+              "@rpath/Libswresample.framework/Libswresample",
+              "@rpath/Libswscale.framework/Libswscale",
+              "@rpath/Libuchardet.framework/Libuchardet"
+            ],
+            "system_dependencies": [
+              "/System/Library/Frameworks/CoreFoundation.framework/Versions/A/CoreFoundation",
+              "/usr/lib/libSystem.B.dylib",
+              "/usr/lib/libiconv.2.dylib",
+              "/usr/lib/libhvf.dylib",
+              "/System/Library/Frameworks/CoreMedia.framework/Versions/A/CoreMedia",
+              "/System/Library/Frameworks/AVFoundation.framework/Versions/A/AVFoundation",
+              "/System/Library/Frameworks/Metal.framework/Versions/A/Metal",
+              "/System/Library/Frameworks/CoreGraphics.framework/Versions/A/CoreGraphics",
+              "/System/Library/Frameworks/Foundation.framework/Versions/C/Foundation",
+              "/System/Library/Frameworks/CoreVideo.framework/Versions/A/CoreVideo",
+              "/System/Library/Frameworks/CoreText.framework/Versions/A/CoreText",
+              "/usr/lib/libobjc.A.dylib"
+            ],
+            "non_system_dependencies": [
+              {
+                "raw": "@rpath/Libfribidi.framework/Libfribidi",
+                "deps_lock_name": "fribidi",
+                "framework": "Libfribidi",
+                "license": "LGPL-2.1-or-later"
+              },
+              {
+                "raw": "@rpath/Libavcodec.framework/Libavcodec",
+                "deps_lock_name": "ffmpeg",
+                "framework": "Libavcodec",
+                "license": "待法务确认"
+              },
+              {
+                "raw": "@rpath/Libavfilter.framework/Libavfilter",
+                "deps_lock_name": "ffmpeg",
+                "framework": "Libavfilter",
+                "license": "待法务确认"
+              },
+              {
+                "raw": "@rpath/Libavformat.framework/Libavformat",
+                "deps_lock_name": "ffmpeg",
+                "framework": "Libavformat",
+                "license": "待法务确认"
+              },
+              {
+                "raw": "@rpath/Libavutil.framework/Libavutil",
+                "deps_lock_name": "ffmpeg",
+                "framework": "Libavutil",
+                "license": "待法务确认"
+              },
+              {
+                "raw": "@rpath/Libplacebo.framework/Libplacebo",
+                "deps_lock_name": "libplacebo",
+                "framework": "Libplacebo",
+                "license": "LGPL-2.1-or-later"
+              },
+              {
+                "raw": "@rpath/Libswresample.framework/Libswresample",
+                "deps_lock_name": "ffmpeg",
+                "framework": "Libswresample",
+                "license": "待法务确认"
+              },
+              {
+                "raw": "@rpath/Libswscale.framework/Libswscale",
+                "deps_lock_name": "ffmpeg",
+                "framework": "Libswscale",
+                "license": "待法务确认"
+              },
+              {
+                "raw": "@rpath/Libuchardet.framework/Libuchardet",
+                "deps_lock_name": "uchardet",
+                "framework": "Libuchardet",
+                "license": "MPL-1.1 或 GPL-2.0-or-later 或 LGPL-2.1-or-later(待法务确认)"
+              }
+            ],
+            "source_dependency": "mpv",
+            "license": "待法务确认",
+            "license_status": "needs-legal-review"
+          },
+          "ios-arm64": {
+            "binary": "lux/.build/mpv-frameworks/ios-arm64/Libmpv.framework/Libmpv",
+            "binary_kind": "framework",
+            "otool_command": "otool -L lux/.build/mpv-frameworks/ios-arm64/Libmpv.framework/Libmpv",
+            "dynamic_dependencies": [
+              "@rpath/Libfribidi.framework/Libfribidi",
+              "@rpath/Libavcodec.framework/Libavcodec",
+              "@rpath/Libavfilter.framework/Libavfilter",
+              "@rpath/Libavformat.framework/Libavformat",
+              "@rpath/Libavutil.framework/Libavutil",
+              "@rpath/Libplacebo.framework/Libplacebo",
+              "@rpath/Libswresample.framework/Libswresample",
+              "@rpath/Libswscale.framework/Libswscale",
+              "@rpath/Libuchardet.framework/Libuchardet"
+            ],
+            "system_dependencies": [
+              "/System/Library/Frameworks/CoreText.framework/CoreText",
+              "/System/Library/Frameworks/CoreFoundation.framework/CoreFoundation",
+              "/usr/lib/libSystem.B.dylib",
+              "/System/Library/Frameworks/CoreGraphics.framework/CoreGraphics",
+              "/usr/lib/libiconv.2.dylib",
+              "/System/Library/Frameworks/AudioToolbox.framework/AudioToolbox",
+              "/System/Library/Frameworks/Metal.framework/Metal",
+              "/System/Library/Frameworks/CoreVideo.framework/CoreVideo",
+              "/usr/lib/libobjc.A.dylib"
+            ],
+            "non_system_dependencies": [
+              {
+                "raw": "@rpath/Libfribidi.framework/Libfribidi",
+                "deps_lock_name": "fribidi",
+                "framework": "Libfribidi",
+                "license": "LGPL-2.1-or-later"
+              },
+              {
+                "raw": "@rpath/Libavcodec.framework/Libavcodec",
+                "deps_lock_name": "ffmpeg",
+                "framework": "Libavcodec",
+                "license": "待法务确认"
+              },
+              {
+                "raw": "@rpath/Libavfilter.framework/Libavfilter",
+                "deps_lock_name": "ffmpeg",
+                "framework": "Libavfilter",
+                "license": "待法务确认"
+              },
+              {
+                "raw": "@rpath/Libavformat.framework/Libavformat",
+                "deps_lock_name": "ffmpeg",
+                "framework": "Libavformat",
+                "license": "待法务确认"
+              },
+              {
+                "raw": "@rpath/Libavutil.framework/Libavutil",
+                "deps_lock_name": "ffmpeg",
+                "framework": "Libavutil",
+                "license": "待法务确认"
+              },
+              {
+                "raw": "@rpath/Libplacebo.framework/Libplacebo",
+                "deps_lock_name": "libplacebo",
+                "framework": "Libplacebo",
+                "license": "LGPL-2.1-or-later"
+              },
+              {
+                "raw": "@rpath/Libswresample.framework/Libswresample",
+                "deps_lock_name": "ffmpeg",
+                "framework": "Libswresample",
+                "license": "待法务确认"
+              },
+              {
+                "raw": "@rpath/Libswscale.framework/Libswscale",
+                "deps_lock_name": "ffmpeg",
+                "framework": "Libswscale",
+                "license": "待法务确认"
+              },
+              {
+                "raw": "@rpath/Libuchardet.framework/Libuchardet",
+                "deps_lock_name": "uchardet",
+                "framework": "Libuchardet",
+                "license": "MPL-1.1 或 GPL-2.0-or-later 或 LGPL-2.1-or-later(待法务确认)"
+              }
+            ],
+            "source_dependency": "mpv",
+            "license": "待法务确认",
+            "license_status": "needs-legal-review"
+          },
+          "ios-sim-arm64": {
+            "binary": "lux/.build/mpv-frameworks/ios-sim-arm64/Libmpv.framework/Libmpv",
+            "binary_kind": "framework",
+            "otool_command": "otool -L lux/.build/mpv-frameworks/ios-sim-arm64/Libmpv.framework/Libmpv",
+            "dynamic_dependencies": [
+              "@rpath/Libfribidi.framework/Libfribidi",
+              "@rpath/Libavcodec.framework/Libavcodec",
+              "@rpath/Libavfilter.framework/Libavfilter",
+              "@rpath/Libavformat.framework/Libavformat",
+              "@rpath/Libavutil.framework/Libavutil",
+              "@rpath/Libplacebo.framework/Libplacebo",
+              "@rpath/Libswresample.framework/Libswresample",
+              "@rpath/Libswscale.framework/Libswscale",
+              "@rpath/Libuchardet.framework/Libuchardet"
+            ],
+            "system_dependencies": [
+              "/System/Library/Frameworks/CoreText.framework/CoreText",
+              "/System/Library/Frameworks/CoreFoundation.framework/CoreFoundation",
+              "/usr/lib/libSystem.B.dylib",
+              "/System/Library/Frameworks/CoreGraphics.framework/CoreGraphics",
+              "/usr/lib/libiconv.2.dylib",
+              "/System/Library/Frameworks/AudioToolbox.framework/AudioToolbox",
+              "/System/Library/Frameworks/Metal.framework/Metal",
+              "/System/Library/Frameworks/CoreVideo.framework/CoreVideo",
+              "/usr/lib/libobjc.A.dylib"
+            ],
+            "non_system_dependencies": [
+              {
+                "raw": "@rpath/Libfribidi.framework/Libfribidi",
+                "deps_lock_name": "fribidi",
+                "framework": "Libfribidi",
+                "license": "LGPL-2.1-or-later"
+              },
+              {
+                "raw": "@rpath/Libavcodec.framework/Libavcodec",
+                "deps_lock_name": "ffmpeg",
+                "framework": "Libavcodec",
+                "license": "待法务确认"
+              },
+              {
+                "raw": "@rpath/Libavfilter.framework/Libavfilter",
+                "deps_lock_name": "ffmpeg",
+                "framework": "Libavfilter",
+                "license": "待法务确认"
+              },
+              {
+                "raw": "@rpath/Libavformat.framework/Libavformat",
+                "deps_lock_name": "ffmpeg",
+                "framework": "Libavformat",
+                "license": "待法务确认"
+              },
+              {
+                "raw": "@rpath/Libavutil.framework/Libavutil",
+                "deps_lock_name": "ffmpeg",
+                "framework": "Libavutil",
+                "license": "待法务确认"
+              },
+              {
+                "raw": "@rpath/Libplacebo.framework/Libplacebo",
+                "deps_lock_name": "libplacebo",
+                "framework": "Libplacebo",
+                "license": "LGPL-2.1-or-later"
+              },
+              {
+                "raw": "@rpath/Libswresample.framework/Libswresample",
+                "deps_lock_name": "ffmpeg",
+                "framework": "Libswresample",
+                "license": "待法务确认"
+              },
+              {
+                "raw": "@rpath/Libswscale.framework/Libswscale",
+                "deps_lock_name": "ffmpeg",
+                "framework": "Libswscale",
+                "license": "待法务确认"
+              },
+              {
+                "raw": "@rpath/Libuchardet.framework/Libuchardet",
+                "deps_lock_name": "uchardet",
+                "framework": "Libuchardet",
+                "license": "MPL-1.1 或 GPL-2.0-or-later 或 LGPL-2.1-or-later(待法务确认)"
+              }
+            ],
+            "source_dependency": "mpv",
+            "license": "待法务确认",
+            "license_status": "needs-legal-review"
+          }
+        },
+        "statically_linked": [
+          {
+            "name": "libass",
+            "kind": "static",
+            "evidence": "libass.a 静态链接;nm -gU 可查到 _ass_* 符号",
+            "symbol_evidence": {
+              "macos-arm64": [
+                "Libmpv:_ass_library_init",
+                "Libmpv:_ass_renderer_init"
+              ],
+              "ios-arm64": [
+                "Libmpv:_ass_library_init",
+                "Libmpv:_ass_renderer_init"
+              ],
+              "ios-sim-arm64": [
+                "Libmpv:_ass_library_init",
+                "Libmpv:_ass_renderer_init"
+              ]
+            }
+          },
+          {
+            "name": "freetype",
+            "kind": "static",
+            "evidence": "freetype.a 静态链接;nm -gU 可查到 _FT_* 符号",
+            "symbol_evidence": {
+              "macos-arm64": [
+                "Libmpv:_FT_Init_FreeType"
+              ],
+              "ios-arm64": [
+                "Libmpv:_FT_Init_FreeType"
+              ],
+              "ios-sim-arm64": [
+                "Libmpv:_FT_Init_FreeType"
+              ]
+            }
+          },
+          {
+            "name": "harfbuzz",
+            "kind": "static",
+            "evidence": "harfbuzz.a 静态链接;nm -gU 可查到 _hb_* 符号",
+            "symbol_evidence": {
+              "macos-arm64": [
+                "Libmpv:_hb_buffer_create"
+              ],
+              "ios-arm64": [
+                "Libmpv:_hb_buffer_create"
+              ],
+              "ios-sim-arm64": [
+                "Libmpv:_hb_buffer_create"
+              ]
+            }
+          },
+          {
+            "name": "libunibreak",
+            "kind": "static",
+            "evidence": "libunibreak.a 静态链接;nm -gU 可查到 _init_linebreak 等符号",
+            "symbol_evidence": {
+              "macos-arm64": [
+                "Libmpv:_init_linebreak",
+                "Libmpv:_set_linebreaks_utf8"
+              ],
+              "ios-arm64": [
+                "Libmpv:_init_linebreak",
+                "Libmpv:_set_linebreaks_utf8"
+              ],
+              "ios-sim-arm64": [
+                "Libmpv:_init_linebreak",
+                "Libmpv:_set_linebreaks_utf8"
+              ]
+            }
+          }
+        ]
+      },
+      {
+        "name": "Libplacebo",
+        "kind": "libmpv-stack-framework",
+        "source_dependency": "libplacebo",
+        "license": "LGPL-2.1-or-later",
+        "license_status": "needs-legal-review",
+        "license_notes": "LICENSE 为 LGPL-2.1。",
+        "bundled_gpl_review": [
+          "glslang"
+        ],
+        "license_files": [
+          "licenses/libplacebo/LICENSE"
+        ],
+        "targets": {
+          "macos-arm64": {
+            "binary": "lux/.build/mpv-frameworks/macos-arm64/Libplacebo.framework/Libplacebo",
+            "binary_kind": "framework",
+            "otool_command": "otool -L lux/.build/mpv-frameworks/macos-arm64/Libplacebo.framework/Libplacebo",
+            "dynamic_dependencies": [],
+            "system_dependencies": [
+              "/System/Library/Frameworks/Metal.framework/Versions/A/Metal",
+              "/System/Library/Frameworks/IOSurface.framework/Versions/A/IOSurface",
+              "/System/Library/Frameworks/QuartzCore.framework/Versions/A/QuartzCore",
+              "/System/Library/Frameworks/IOKit.framework/Versions/A/IOKit",
+              "/System/Library/Frameworks/CoreGraphics.framework/Versions/A/CoreGraphics",
+              "/System/Library/Frameworks/Foundation.framework/Versions/C/Foundation",
+              "/System/Library/Frameworks/AppKit.framework/Versions/C/AppKit",
+              "/usr/lib/libSystem.B.dylib",
+              "/usr/lib/libc++.1.dylib",
+              "/System/Library/Frameworks/CoreFoundation.framework/Versions/A/CoreFoundation",
+              "/usr/lib/libobjc.A.dylib"
+            ],
+            "non_system_dependencies": [],
+            "source_dependency": "libplacebo",
+            "license": "LGPL-2.1-or-later",
+            "license_status": "identified"
+          },
+          "ios-arm64": {
+            "binary": "lux/.build/mpv-frameworks/ios-arm64/Libplacebo.framework/Libplacebo",
+            "binary_kind": "framework",
+            "otool_command": "otool -L lux/.build/mpv-frameworks/ios-arm64/Libplacebo.framework/Libplacebo",
+            "dynamic_dependencies": [],
+            "system_dependencies": [
+              "/System/Library/Frameworks/Metal.framework/Metal",
+              "/System/Library/Frameworks/IOSurface.framework/IOSurface",
+              "/System/Library/Frameworks/QuartzCore.framework/QuartzCore",
+              "/System/Library/Frameworks/CoreGraphics.framework/CoreGraphics",
+              "/System/Library/Frameworks/Foundation.framework/Foundation",
+              "/System/Library/Frameworks/UIKit.framework/UIKit",
+              "/usr/lib/libSystem.B.dylib",
+              "/usr/lib/libc++.1.dylib",
+              "/System/Library/Frameworks/CoreFoundation.framework/CoreFoundation",
+              "/usr/lib/libobjc.A.dylib"
+            ],
+            "non_system_dependencies": [],
+            "source_dependency": "libplacebo",
+            "license": "LGPL-2.1-or-later",
+            "license_status": "identified"
+          },
+          "ios-sim-arm64": {
+            "binary": "lux/.build/mpv-frameworks/ios-sim-arm64/Libplacebo.framework/Libplacebo",
+            "binary_kind": "framework",
+            "otool_command": "otool -L lux/.build/mpv-frameworks/ios-sim-arm64/Libplacebo.framework/Libplacebo",
+            "dynamic_dependencies": [],
+            "system_dependencies": [
+              "/System/Library/Frameworks/Metal.framework/Metal",
+              "/System/Library/Frameworks/IOSurface.framework/IOSurface",
+              "/System/Library/Frameworks/QuartzCore.framework/QuartzCore",
+              "/System/Library/Frameworks/CoreGraphics.framework/CoreGraphics",
+              "/System/Library/Frameworks/Foundation.framework/Foundation",
+              "/System/Library/Frameworks/UIKit.framework/UIKit",
+              "/usr/lib/libSystem.B.dylib",
+              "/usr/lib/libc++.1.dylib",
+              "/System/Library/Frameworks/CoreFoundation.framework/CoreFoundation",
+              "/usr/lib/libobjc.A.dylib"
+            ],
+            "non_system_dependencies": [],
+            "source_dependency": "libplacebo",
+            "license": "LGPL-2.1-or-later",
+            "license_status": "identified"
+          }
+        },
+        "statically_linked": [
+          {
+            "name": "lcms2",
+            "kind": "static",
+            "evidence": "lcms2.a 静态链接;nm -gU 可查到 _cms* 符号",
+            "symbol_evidence": {
+              "macos-arm64": [
+                "Libplacebo:_cmsCreateTransform",
+                "Libplacebo:_cmsOpenProfileFromMem"
+              ],
+              "ios-arm64": [
+                "Libplacebo:_cmsCreateTransform",
+                "Libplacebo:_cmsOpenProfileFromMem"
+              ],
+              "ios-sim-arm64": [
+                "Libplacebo:_cmsCreateTransform",
+                "Libplacebo:_cmsOpenProfileFromMem"
+              ]
+            }
+          },
+          {
+            "name": "moltenvk",
+            "kind": "static",
+            "evidence": "vulkan.pc 提供 -lMoltenVK;nm -gU 可查到 _vk* 符号",
+            "symbol_evidence": {
+              "macos-arm64": [
+                "Libplacebo:_vkCreateInstance"
+              ],
+              "ios-arm64": [
+                "Libplacebo:_vkCreateInstance"
+              ],
+              "ios-sim-arm64": [
+                "Libplacebo:_vkCreateInstance"
+              ]
+            }
+          },
+          {
+            "name": "shaderc",
+            "kind": "static",
+            "evidence": "shaderc.pc 提供 -lshaderc_combined;二进制内有 shaderc_util 符号"
+          },
+          {
+            "name": "spirv-cross",
+            "kind": "static-transitive",
+            "evidence": "MoltenVK ExternalDependencies 的 libSPIRVCross.a"
+          },
+          {
+            "name": "spirv-tools",
+            "kind": "static-transitive",
+            "evidence": "shaderc_combined 的 SPIRV-Tools 部分"
+          },
+          {
+            "name": "spirv-tools-mvk",
+            "kind": "static-transitive",
+            "evidence": "MoltenVK ExternalDependencies 的 libSPIRVTools.a"
+          },
+          {
+            "name": "glslang",
+            "kind": "static-transitive",
+            "evidence": "shaderc_combined 的 glslang 部分"
+          },
+          {
+            "name": "spirv-headers",
+            "kind": "build-time",
+            "evidence": "shaderc 构建期头文件"
+          },
+          {
+            "name": "spirv-headers-mvk",
+            "kind": "build-time",
+            "evidence": "MoltenVK/SPIRV-Tools 构建期头文件"
+          },
+          {
+            "name": "vulkan-headers",
+            "kind": "build-time",
+            "evidence": "libplacebo/MoltenVK 构建期头文件"
+          },
+          {
+            "name": "volk",
+            "kind": "build-time",
+            "evidence": "MoltenVK 构建期 Vulkan 加载器源码/头文件"
+          },
+          {
+            "name": "cereal",
+            "kind": "build-time",
+            "evidence": "MoltenVK 构建期头文件"
+          },
+          {
+            "name": "fast_float",
+            "kind": "header-only",
+            "evidence": "libplacebo 构建期头文件"
+          }
+        ]
+      },
+      {
+        "name": "Libfribidi",
+        "kind": "libmpv-stack-framework",
+        "source_dependency": "fribidi",
+        "license": "LGPL-2.1-or-later",
+        "license_status": "identified",
+        "license_notes": "COPYING 为 LGPL-2.1;源码头声明 2.1 或更高版本。",
+        "bundled_gpl_review": [],
+        "license_files": [
+          "licenses/fribidi/COPYING"
+        ],
+        "targets": {
+          "macos-arm64": {
+            "binary": "lux/.build/mpv-frameworks/macos-arm64/Libfribidi.framework/Libfribidi",
+            "binary_kind": "framework",
+            "otool_command": "otool -L lux/.build/mpv-frameworks/macos-arm64/Libfribidi.framework/Libfribidi",
+            "dynamic_dependencies": [],
+            "system_dependencies": [
+              "/usr/lib/libSystem.B.dylib"
+            ],
+            "non_system_dependencies": [],
+            "source_dependency": "fribidi",
+            "license": "LGPL-2.1-or-later",
+            "license_status": "identified"
+          },
+          "ios-arm64": {
+            "binary": "lux/.build/mpv-frameworks/ios-arm64/Libfribidi.framework/Libfribidi",
+            "binary_kind": "framework",
+            "otool_command": "otool -L lux/.build/mpv-frameworks/ios-arm64/Libfribidi.framework/Libfribidi",
+            "dynamic_dependencies": [],
+            "system_dependencies": [
+              "/usr/lib/libSystem.B.dylib"
+            ],
+            "non_system_dependencies": [],
+            "source_dependency": "fribidi",
+            "license": "LGPL-2.1-or-later",
+            "license_status": "identified"
+          },
+          "ios-sim-arm64": {
+            "binary": "lux/.build/mpv-frameworks/ios-sim-arm64/Libfribidi.framework/Libfribidi",
+            "binary_kind": "framework",
+            "otool_command": "otool -L lux/.build/mpv-frameworks/ios-sim-arm64/Libfribidi.framework/Libfribidi",
+            "dynamic_dependencies": [],
+            "system_dependencies": [
+              "/usr/lib/libSystem.B.dylib"
+            ],
+            "non_system_dependencies": [],
+            "source_dependency": "fribidi",
+            "license": "LGPL-2.1-or-later",
+            "license_status": "identified"
+          }
+        },
+        "statically_linked": []
+      },
+      {
+        "name": "Libuchardet",
+        "kind": "libmpv-stack-framework",
+        "source_dependency": "uchardet",
+        "license": "MPL-1.1 或 GPL-2.0-or-later 或 LGPL-2.1-or-later(待法务确认)",
+        "license_status": "needs-legal-review",
+        "license_notes": "COPYING 同时含 MPL-1.1、GPL-2.0、LGPL-2.1 文本;README 明示三选一;lux/build/build-deps.sh 注释写作 LGPL-2.1+,与源码表述不一致。",
+        "bundled_gpl_review": [],
+        "license_files": [
+          "licenses/uchardet/COPYING"
+        ],
+        "targets": {
+          "macos-arm64": {
+            "binary": "lux/.build/mpv-frameworks/macos-arm64/Libuchardet.framework/Libuchardet",
+            "binary_kind": "framework",
+            "otool_command": "otool -L lux/.build/mpv-frameworks/macos-arm64/Libuchardet.framework/Libuchardet",
+            "dynamic_dependencies": [],
+            "system_dependencies": [
+              "/usr/lib/libc++.1.dylib",
+              "/usr/lib/libSystem.B.dylib"
+            ],
+            "non_system_dependencies": [],
+            "source_dependency": "uchardet",
+            "license": "MPL-1.1 或 GPL-2.0-or-later 或 LGPL-2.1-or-later(待法务确认)",
+            "license_status": "needs-legal-review"
+          },
+          "ios-arm64": {
+            "binary": "lux/.build/mpv-frameworks/ios-arm64/Libuchardet.framework/Libuchardet",
+            "binary_kind": "framework",
+            "otool_command": "otool -L lux/.build/mpv-frameworks/ios-arm64/Libuchardet.framework/Libuchardet",
+            "dynamic_dependencies": [],
+            "system_dependencies": [
+              "/usr/lib/libc++.1.dylib",
+              "/usr/lib/libSystem.B.dylib"
+            ],
+            "non_system_dependencies": [],
+            "source_dependency": "uchardet",
+            "license": "MPL-1.1 或 GPL-2.0-or-later 或 LGPL-2.1-or-later(待法务确认)",
+            "license_status": "needs-legal-review"
+          },
+          "ios-sim-arm64": {
+            "binary": "lux/.build/mpv-frameworks/ios-sim-arm64/Libuchardet.framework/Libuchardet",
+            "binary_kind": "framework",
+            "otool_command": "otool -L lux/.build/mpv-frameworks/ios-sim-arm64/Libuchardet.framework/Libuchardet",
+            "dynamic_dependencies": [],
+            "system_dependencies": [
+              "/usr/lib/libc++.1.dylib",
+              "/usr/lib/libSystem.B.dylib"
+            ],
+            "non_system_dependencies": [],
+            "source_dependency": "uchardet",
+            "license": "MPL-1.1 或 GPL-2.0-or-later 或 LGPL-2.1-or-later(待法务确认)",
+            "license_status": "needs-legal-review"
+          }
+        },
+        "statically_linked": []
+      }
+    ],
+    "non_system_dependencies": [
+      {
+        "target": "macos-arm64",
+        "framework": "Libmpv",
+        "raw": "@rpath/Libfribidi.framework/Libfribidi",
+        "deps_lock_name": "fribidi",
+        "framework_dependency": "Libfribidi",
+        "license": "LGPL-2.1-or-later"
+      },
+      {
+        "target": "macos-arm64",
+        "framework": "Libmpv",
+        "raw": "@rpath/Libavcodec.framework/Libavcodec",
+        "deps_lock_name": "ffmpeg",
+        "framework_dependency": "Libavcodec",
+        "license": "待法务确认"
+      },
+      {
+        "target": "macos-arm64",
+        "framework": "Libmpv",
+        "raw": "@rpath/Libavfilter.framework/Libavfilter",
+        "deps_lock_name": "ffmpeg",
+        "framework_dependency": "Libavfilter",
+        "license": "待法务确认"
+      },
+      {
+        "target": "macos-arm64",
+        "framework": "Libmpv",
+        "raw": "@rpath/Libavformat.framework/Libavformat",
+        "deps_lock_name": "ffmpeg",
+        "framework_dependency": "Libavformat",
+        "license": "待法务确认"
+      },
+      {
+        "target": "macos-arm64",
+        "framework": "Libmpv",
+        "raw": "@rpath/Libavutil.framework/Libavutil",
+        "deps_lock_name": "ffmpeg",
+        "framework_dependency": "Libavutil",
+        "license": "待法务确认"
+      },
+      {
+        "target": "macos-arm64",
+        "framework": "Libmpv",
+        "raw": "@rpath/Libplacebo.framework/Libplacebo",
+        "deps_lock_name": "libplacebo",
+        "framework_dependency": "Libplacebo",
+        "license": "LGPL-2.1-or-later"
+      },
+      {
+        "target": "macos-arm64",
+        "framework": "Libmpv",
+        "raw": "@rpath/Libswresample.framework/Libswresample",
+        "deps_lock_name": "ffmpeg",
+        "framework_dependency": "Libswresample",
+        "license": "待法务确认"
+      },
+      {
+        "target": "macos-arm64",
+        "framework": "Libmpv",
+        "raw": "@rpath/Libswscale.framework/Libswscale",
+        "deps_lock_name": "ffmpeg",
+        "framework_dependency": "Libswscale",
+        "license": "待法务确认"
+      },
+      {
+        "target": "macos-arm64",
+        "framework": "Libmpv",
+        "raw": "@rpath/Libuchardet.framework/Libuchardet",
+        "deps_lock_name": "uchardet",
+        "framework_dependency": "Libuchardet",
+        "license": "MPL-1.1 或 GPL-2.0-or-later 或 LGPL-2.1-or-later(待法务确认)"
+      },
+      {
+        "target": "ios-arm64",
+        "framework": "Libmpv",
+        "raw": "@rpath/Libfribidi.framework/Libfribidi",
+        "deps_lock_name": "fribidi",
+        "framework_dependency": "Libfribidi",
+        "license": "LGPL-2.1-or-later"
+      },
+      {
+        "target": "ios-arm64",
+        "framework": "Libmpv",
+        "raw": "@rpath/Libavcodec.framework/Libavcodec",
+        "deps_lock_name": "ffmpeg",
+        "framework_dependency": "Libavcodec",
+        "license": "待法务确认"
+      },
+      {
+        "target": "ios-arm64",
+        "framework": "Libmpv",
+        "raw": "@rpath/Libavfilter.framework/Libavfilter",
+        "deps_lock_name": "ffmpeg",
+        "framework_dependency": "Libavfilter",
+        "license": "待法务确认"
+      },
+      {
+        "target": "ios-arm64",
+        "framework": "Libmpv",
+        "raw": "@rpath/Libavformat.framework/Libavformat",
+        "deps_lock_name": "ffmpeg",
+        "framework_dependency": "Libavformat",
+        "license": "待法务确认"
+      },
+      {
+        "target": "ios-arm64",
+        "framework": "Libmpv",
+        "raw": "@rpath/Libavutil.framework/Libavutil",
+        "deps_lock_name": "ffmpeg",
+        "framework_dependency": "Libavutil",
+        "license": "待法务确认"
+      },
+      {
+        "target": "ios-arm64",
+        "framework": "Libmpv",
+        "raw": "@rpath/Libplacebo.framework/Libplacebo",
+        "deps_lock_name": "libplacebo",
+        "framework_dependency": "Libplacebo",
+        "license": "LGPL-2.1-or-later"
+      },
+      {
+        "target": "ios-arm64",
+        "framework": "Libmpv",
+        "raw": "@rpath/Libswresample.framework/Libswresample",
+        "deps_lock_name": "ffmpeg",
+        "framework_dependency": "Libswresample",
+        "license": "待法务确认"
+      },
+      {
+        "target": "ios-arm64",
+        "framework": "Libmpv",
+        "raw": "@rpath/Libswscale.framework/Libswscale",
+        "deps_lock_name": "ffmpeg",
+        "framework_dependency": "Libswscale",
+        "license": "待法务确认"
+      },
+      {
+        "target": "ios-arm64",
+        "framework": "Libmpv",
+        "raw": "@rpath/Libuchardet.framework/Libuchardet",
+        "deps_lock_name": "uchardet",
+        "framework_dependency": "Libuchardet",
+        "license": "MPL-1.1 或 GPL-2.0-or-later 或 LGPL-2.1-or-later(待法务确认)"
+      },
+      {
+        "target": "ios-sim-arm64",
+        "framework": "Libmpv",
+        "raw": "@rpath/Libfribidi.framework/Libfribidi",
+        "deps_lock_name": "fribidi",
+        "framework_dependency": "Libfribidi",
+        "license": "LGPL-2.1-or-later"
+      },
+      {
+        "target": "ios-sim-arm64",
+        "framework": "Libmpv",
+        "raw": "@rpath/Libavcodec.framework/Libavcodec",
+        "deps_lock_name": "ffmpeg",
+        "framework_dependency": "Libavcodec",
+        "license": "待法务确认"
+      },
+      {
+        "target": "ios-sim-arm64",
+        "framework": "Libmpv",
+        "raw": "@rpath/Libavfilter.framework/Libavfilter",
+        "deps_lock_name": "ffmpeg",
+        "framework_dependency": "Libavfilter",
+        "license": "待法务确认"
+      },
+      {
+        "target": "ios-sim-arm64",
+        "framework": "Libmpv",
+        "raw": "@rpath/Libavformat.framework/Libavformat",
+        "deps_lock_name": "ffmpeg",
+        "framework_dependency": "Libavformat",
+        "license": "待法务确认"
+      },
+      {
+        "target": "ios-sim-arm64",
+        "framework": "Libmpv",
+        "raw": "@rpath/Libavutil.framework/Libavutil",
+        "deps_lock_name": "ffmpeg",
+        "framework_dependency": "Libavutil",
+        "license": "待法务确认"
+      },
+      {
+        "target": "ios-sim-arm64",
+        "framework": "Libmpv",
+        "raw": "@rpath/Libplacebo.framework/Libplacebo",
+        "deps_lock_name": "libplacebo",
+        "framework_dependency": "Libplacebo",
+        "license": "LGPL-2.1-or-later"
+      },
+      {
+        "target": "ios-sim-arm64",
+        "framework": "Libmpv",
+        "raw": "@rpath/Libswresample.framework/Libswresample",
+        "deps_lock_name": "ffmpeg",
+        "framework_dependency": "Libswresample",
+        "license": "待法务确认"
+      },
+      {
+        "target": "ios-sim-arm64",
+        "framework": "Libmpv",
+        "raw": "@rpath/Libswscale.framework/Libswscale",
+        "deps_lock_name": "ffmpeg",
+        "framework_dependency": "Libswscale",
+        "license": "待法务确认"
+      },
+      {
+        "target": "ios-sim-arm64",
+        "framework": "Libmpv",
+        "raw": "@rpath/Libuchardet.framework/Libuchardet",
+        "deps_lock_name": "uchardet",
+        "framework_dependency": "Libuchardet",
+        "license": "MPL-1.1 或 GPL-2.0-or-later 或 LGPL-2.1-or-later(待法务确认)"
+      }
+    ]
+  },
+  "components": [
+    {
+      "name": "Libavcodec",
+      "kind": "ffmpeg-library",
+      "source_dependency": "ffmpeg",
+      "license": "按切片不同:macos-arm64=LGPL-2.1-or-later;ios-arm64=LGPL-3.0-or-later;ios-sim-arm64=LGPL-3.0-or-later(待法务确认)",
+      "license_status": "needs-legal-review",
+      "license_files": [
+        "licenses/ffmpeg/COPYING.LGPLv2.1",
+        "licenses/ffmpeg/COPYING.LGPLv3",
+        "licenses/ffmpeg/COPYING.GPLv2",
+        "licenses/ffmpeg/COPYING.GPLv3",
+        "licenses/ffmpeg/LICENSE.md"
+      ],
+      "targets": {
+        "macos-arm64": {
+          "license": "LGPL-2.1-or-later",
+          "license_status": "identified",
+          "version3": false,
+          "static_library": "$BUILD/macos-arm64/install/lib/libavcodec.a",
+          "framework_binary": "$BUILD/xcframeworks/Libavcodec.xcframework/macos-arm64/Libavcodec.framework/Libavcodec"
+        },
+        "ios-arm64": {
+          "license": "LGPL-3.0-or-later",
+          "license_status": "needs-legal-review",
+          "version3": true,
+          "static_library": "$BUILD/ios-arm64/install/lib/libavcodec.a",
+          "framework_binary": "$BUILD/xcframeworks/Libavcodec.xcframework/ios-arm64/Libavcodec.framework/Libavcodec"
+        },
+        "ios-sim-arm64": {
+          "license": "LGPL-3.0-or-later",
+          "license_status": "needs-legal-review",
+          "version3": true,
+          "static_library": "$BUILD/ios-sim-arm64/install/lib/libavcodec.a",
+          "framework_binary": "$BUILD/xcframeworks/Libavcodec.xcframework/ios-arm64-simulator/Libavcodec.framework/Libavcodec"
+        }
+      },
+      "internal_dependencies": [
+        "libavutil",
+        "libswresample"
+      ]
+    },
+    {
+      "name": "Libavformat",
+      "kind": "ffmpeg-library",
+      "source_dependency": "ffmpeg",
+      "license": "按切片不同:macos-arm64=LGPL-2.1-or-later;ios-arm64=LGPL-3.0-or-later;ios-sim-arm64=LGPL-3.0-or-later(待法务确认)",
+      "license_status": "needs-legal-review",
+      "license_files": [
+        "licenses/ffmpeg/COPYING.LGPLv2.1",
+        "licenses/ffmpeg/COPYING.LGPLv3",
+        "licenses/ffmpeg/COPYING.GPLv2",
+        "licenses/ffmpeg/COPYING.GPLv3",
+        "licenses/ffmpeg/LICENSE.md"
+      ],
+      "targets": {
+        "macos-arm64": {
+          "license": "LGPL-2.1-or-later",
+          "license_status": "identified",
+          "version3": false,
+          "static_library": "$BUILD/macos-arm64/install/lib/libavformat.a",
+          "framework_binary": "$BUILD/xcframeworks/Libavformat.xcframework/macos-arm64/Libavformat.framework/Libavformat"
+        },
+        "ios-arm64": {
+          "license": "LGPL-3.0-or-later",
+          "license_status": "needs-legal-review",
+          "version3": true,
+          "static_library": "$BUILD/ios-arm64/install/lib/libavformat.a",
+          "framework_binary": "$BUILD/xcframeworks/Libavformat.xcframework/ios-arm64/Libavformat.framework/Libavformat"
+        },
+        "ios-sim-arm64": {
+          "license": "LGPL-3.0-or-later",
+          "license_status": "needs-legal-review",
+          "version3": true,
+          "static_library": "$BUILD/ios-sim-arm64/install/lib/libavformat.a",
+          "framework_binary": "$BUILD/xcframeworks/Libavformat.xcframework/ios-arm64-simulator/Libavformat.framework/Libavformat"
+        }
+      },
+      "internal_dependencies": [
+        "libavcodec",
+        "libavutil"
+      ]
+    },
+    {
+      "name": "Libavfilter",
+      "kind": "ffmpeg-library",
+      "source_dependency": "ffmpeg",
+      "license": "按切片不同:macos-arm64=LGPL-2.1-or-later;ios-arm64=LGPL-3.0-or-later;ios-sim-arm64=LGPL-3.0-or-later(待法务确认)",
+      "license_status": "needs-legal-review",
+      "license_files": [
+        "licenses/ffmpeg/COPYING.LGPLv2.1",
+        "licenses/ffmpeg/COPYING.LGPLv3",
+        "licenses/ffmpeg/COPYING.GPLv2",
+        "licenses/ffmpeg/COPYING.GPLv3",
+        "licenses/ffmpeg/LICENSE.md"
+      ],
+      "targets": {
+        "macos-arm64": {
+          "license": "LGPL-2.1-or-later",
+          "license_status": "identified",
+          "version3": false,
+          "static_library": "$BUILD/macos-arm64/install/lib/libavfilter.a",
+          "framework_binary": "$BUILD/xcframeworks/Libavfilter.xcframework/macos-arm64/Libavfilter.framework/Libavfilter"
+        },
+        "ios-arm64": {
+          "license": "LGPL-3.0-or-later",
+          "license_status": "needs-legal-review",
+          "version3": true,
+          "static_library": "$BUILD/ios-arm64/install/lib/libavfilter.a",
+          "framework_binary": "$BUILD/xcframeworks/Libavfilter.xcframework/ios-arm64/Libavfilter.framework/Libavfilter"
+        },
+        "ios-sim-arm64": {
+          "license": "LGPL-3.0-or-later",
+          "license_status": "needs-legal-review",
+          "version3": true,
+          "static_library": "$BUILD/ios-sim-arm64/install/lib/libavfilter.a",
+          "framework_binary": "$BUILD/xcframeworks/Libavfilter.xcframework/ios-arm64-simulator/Libavfilter.framework/Libavfilter"
+        }
+      },
+      "internal_dependencies": [
+        "libavcodec",
+        "libavformat",
+        "libavutil",
+        "libswscale",
+        "libswresample"
+      ]
+    },
+    {
+      "name": "Libswscale",
+      "kind": "ffmpeg-library",
+      "source_dependency": "ffmpeg",
+      "license": "按切片不同:macos-arm64=LGPL-2.1-or-later;ios-arm64=LGPL-3.0-or-later;ios-sim-arm64=LGPL-3.0-or-later(待法务确认)",
+      "license_status": "needs-legal-review",
+      "license_files": [
+        "licenses/ffmpeg/COPYING.LGPLv2.1",
+        "licenses/ffmpeg/COPYING.LGPLv3",
+        "licenses/ffmpeg/COPYING.GPLv2",
+        "licenses/ffmpeg/COPYING.GPLv3",
+        "licenses/ffmpeg/LICENSE.md"
+      ],
+      "targets": {
+        "macos-arm64": {
+          "license": "LGPL-2.1-or-later",
+          "license_status": "identified",
+          "version3": false,
+          "static_library": "$BUILD/macos-arm64/install/lib/libswscale.a",
+          "framework_binary": "$BUILD/xcframeworks/Libswscale.xcframework/macos-arm64/Libswscale.framework/Libswscale"
+        },
+        "ios-arm64": {
+          "license": "LGPL-3.0-or-later",
+          "license_status": "needs-legal-review",
+          "version3": true,
+          "static_library": "$BUILD/ios-arm64/install/lib/libswscale.a",
+          "framework_binary": "$BUILD/xcframeworks/Libswscale.xcframework/ios-arm64/Libswscale.framework/Libswscale"
+        },
+        "ios-sim-arm64": {
+          "license": "LGPL-3.0-or-later",
+          "license_status": "needs-legal-review",
+          "version3": true,
+          "static_library": "$BUILD/ios-sim-arm64/install/lib/libswscale.a",
+          "framework_binary": "$BUILD/xcframeworks/Libswscale.xcframework/ios-arm64-simulator/Libswscale.framework/Libswscale"
+        }
+      },
+      "internal_dependencies": [
+        "libavutil"
+      ]
+    },
+    {
+      "name": "Libswresample",
+      "kind": "ffmpeg-library",
+      "source_dependency": "ffmpeg",
+      "license": "按切片不同:macos-arm64=LGPL-2.1-or-later;ios-arm64=LGPL-3.0-or-later;ios-sim-arm64=LGPL-3.0-or-later(待法务确认)",
+      "license_status": "needs-legal-review",
+      "license_files": [
+        "licenses/ffmpeg/COPYING.LGPLv2.1",
+        "licenses/ffmpeg/COPYING.LGPLv3",
+        "licenses/ffmpeg/COPYING.GPLv2",
+        "licenses/ffmpeg/COPYING.GPLv3",
+        "licenses/ffmpeg/LICENSE.md"
+      ],
+      "targets": {
+        "macos-arm64": {
+          "license": "LGPL-2.1-or-later",
+          "license_status": "identified",
+          "version3": false,
+          "static_library": "$BUILD/macos-arm64/install/lib/libswresample.a",
+          "framework_binary": "$BUILD/xcframeworks/Libswresample.xcframework/macos-arm64/Libswresample.framework/Libswresample"
+        },
+        "ios-arm64": {
+          "license": "LGPL-3.0-or-later",
+          "license_status": "needs-legal-review",
+          "version3": true,
+          "static_library": "$BUILD/ios-arm64/install/lib/libswresample.a",
+          "framework_binary": "$BUILD/xcframeworks/Libswresample.xcframework/ios-arm64/Libswresample.framework/Libswresample"
+        },
+        "ios-sim-arm64": {
+          "license": "LGPL-3.0-or-later",
+          "license_status": "needs-legal-review",
+          "version3": true,
+          "static_library": "$BUILD/ios-sim-arm64/install/lib/libswresample.a",
+          "framework_binary": "$BUILD/xcframeworks/Libswresample.xcframework/ios-arm64-simulator/Libswresample.framework/Libswresample"
+        }
+      },
+      "internal_dependencies": [
+        "libavutil"
+      ]
+    },
+    {
+      "name": "Libavutil",
+      "kind": "ffmpeg-library",
+      "source_dependency": "ffmpeg",
+      "license": "按切片不同:macos-arm64=LGPL-2.1-or-later;ios-arm64=LGPL-3.0-or-later;ios-sim-arm64=LGPL-3.0-or-later(待法务确认)",
+      "license_status": "needs-legal-review",
+      "license_files": [
+        "licenses/ffmpeg/COPYING.LGPLv2.1",
+        "licenses/ffmpeg/COPYING.LGPLv3",
+        "licenses/ffmpeg/COPYING.GPLv2",
+        "licenses/ffmpeg/COPYING.GPLv3",
+        "licenses/ffmpeg/LICENSE.md"
+      ],
+      "targets": {
+        "macos-arm64": {
+          "license": "LGPL-2.1-or-later",
+          "license_status": "identified",
+          "version3": false,
+          "static_library": "$BUILD/macos-arm64/install/lib/libavutil.a",
+          "framework_binary": "$BUILD/xcframeworks/Libavutil.xcframework/macos-arm64/Libavutil.framework/Libavutil"
+        },
+        "ios-arm64": {
+          "license": "LGPL-3.0-or-later",
+          "license_status": "needs-legal-review",
+          "version3": true,
+          "static_library": "$BUILD/ios-arm64/install/lib/libavutil.a",
+          "framework_binary": "$BUILD/xcframeworks/Libavutil.xcframework/ios-arm64/Libavutil.framework/Libavutil"
+        },
+        "ios-sim-arm64": {
+          "license": "LGPL-3.0-or-later",
+          "license_status": "needs-legal-review",
+          "version3": true,
+          "static_library": "$BUILD/ios-sim-arm64/install/lib/libavutil.a",
+          "framework_binary": "$BUILD/xcframeworks/Libavutil.xcframework/ios-arm64-simulator/Libavutil.framework/Libavutil"
+        }
+      },
+      "internal_dependencies": []
+    },
+    {
+      "name": "Libmpv",
+      "kind": "libmpv-stack-framework",
+      "source_dependency": "mpv",
+      "license": "待法务确认",
+      "license_status": "needs-legal-review",
+      "license_notes": "Copyright 明示默认 GPL-2.0+;构建使用 -Dgpl=false;同一文件说明该开关本身不构成 LGPL 授权。",
+      "bundled_gpl_review": [
+        "freetype"
+      ],
+      "license_files": [
+        "licenses/mpv/Copyright",
+        "licenses/mpv/LICENSE.GPL",
+        "licenses/mpv/LICENSE.LGPL"
+      ],
+      "targets": {
+        "macos-arm64": {
+          "binary": "lux/.build/mpv-frameworks/macos-arm64/Libmpv.framework/Libmpv",
+          "binary_kind": "framework",
+          "otool_command": "otool -L lux/.build/mpv-frameworks/macos-arm64/Libmpv.framework/Libmpv",
+          "dynamic_dependencies": [
+            "@rpath/Libfribidi.framework/Libfribidi",
+            "@rpath/Libavcodec.framework/Libavcodec",
+            "@rpath/Libavfilter.framework/Libavfilter",
+            "@rpath/Libavformat.framework/Libavformat",
+            "@rpath/Libavutil.framework/Libavutil",
+            "@rpath/Libplacebo.framework/Libplacebo",
+            "@rpath/Libswresample.framework/Libswresample",
+            "@rpath/Libswscale.framework/Libswscale",
+            "@rpath/Libuchardet.framework/Libuchardet"
+          ],
+          "system_dependencies": [
+            "/System/Library/Frameworks/CoreFoundation.framework/Versions/A/CoreFoundation",
+            "/usr/lib/libSystem.B.dylib",
+            "/usr/lib/libiconv.2.dylib",
+            "/usr/lib/libhvf.dylib",
+            "/System/Library/Frameworks/CoreMedia.framework/Versions/A/CoreMedia",
+            "/System/Library/Frameworks/AVFoundation.framework/Versions/A/AVFoundation",
+            "/System/Library/Frameworks/Metal.framework/Versions/A/Metal",
+            "/System/Library/Frameworks/CoreGraphics.framework/Versions/A/CoreGraphics",
+            "/System/Library/Frameworks/Foundation.framework/Versions/C/Foundation",
+            "/System/Library/Frameworks/CoreVideo.framework/Versions/A/CoreVideo",
+            "/System/Library/Frameworks/CoreText.framework/Versions/A/CoreText",
+            "/usr/lib/libobjc.A.dylib"
+          ],
+          "non_system_dependencies": [
+            {
+              "raw": "@rpath/Libfribidi.framework/Libfribidi",
+              "deps_lock_name": "fribidi",
+              "framework": "Libfribidi",
+              "license": "LGPL-2.1-or-later"
+            },
+            {
+              "raw": "@rpath/Libavcodec.framework/Libavcodec",
+              "deps_lock_name": "ffmpeg",
+              "framework": "Libavcodec",
+              "license": "待法务确认"
+            },
+            {
+              "raw": "@rpath/Libavfilter.framework/Libavfilter",
+              "deps_lock_name": "ffmpeg",
+              "framework": "Libavfilter",
+              "license": "待法务确认"
+            },
+            {
+              "raw": "@rpath/Libavformat.framework/Libavformat",
+              "deps_lock_name": "ffmpeg",
+              "framework": "Libavformat",
+              "license": "待法务确认"
+            },
+            {
+              "raw": "@rpath/Libavutil.framework/Libavutil",
+              "deps_lock_name": "ffmpeg",
+              "framework": "Libavutil",
+              "license": "待法务确认"
+            },
+            {
+              "raw": "@rpath/Libplacebo.framework/Libplacebo",
+              "deps_lock_name": "libplacebo",
+              "framework": "Libplacebo",
+              "license": "LGPL-2.1-or-later"
+            },
+            {
+              "raw": "@rpath/Libswresample.framework/Libswresample",
+              "deps_lock_name": "ffmpeg",
+              "framework": "Libswresample",
+              "license": "待法务确认"
+            },
+            {
+              "raw": "@rpath/Libswscale.framework/Libswscale",
+              "deps_lock_name": "ffmpeg",
+              "framework": "Libswscale",
+              "license": "待法务确认"
+            },
+            {
+              "raw": "@rpath/Libuchardet.framework/Libuchardet",
+              "deps_lock_name": "uchardet",
+              "framework": "Libuchardet",
+              "license": "MPL-1.1 或 GPL-2.0-or-later 或 LGPL-2.1-or-later(待法务确认)"
+            }
+          ],
+          "source_dependency": "mpv",
+          "license": "待法务确认",
+          "license_status": "needs-legal-review"
+        },
+        "ios-arm64": {
+          "binary": "lux/.build/mpv-frameworks/ios-arm64/Libmpv.framework/Libmpv",
+          "binary_kind": "framework",
+          "otool_command": "otool -L lux/.build/mpv-frameworks/ios-arm64/Libmpv.framework/Libmpv",
+          "dynamic_dependencies": [
+            "@rpath/Libfribidi.framework/Libfribidi",
+            "@rpath/Libavcodec.framework/Libavcodec",
+            "@rpath/Libavfilter.framework/Libavfilter",
+            "@rpath/Libavformat.framework/Libavformat",
+            "@rpath/Libavutil.framework/Libavutil",
+            "@rpath/Libplacebo.framework/Libplacebo",
+            "@rpath/Libswresample.framework/Libswresample",
+            "@rpath/Libswscale.framework/Libswscale",
+            "@rpath/Libuchardet.framework/Libuchardet"
+          ],
+          "system_dependencies": [
+            "/System/Library/Frameworks/CoreText.framework/CoreText",
+            "/System/Library/Frameworks/CoreFoundation.framework/CoreFoundation",
+            "/usr/lib/libSystem.B.dylib",
+            "/System/Library/Frameworks/CoreGraphics.framework/CoreGraphics",
+            "/usr/lib/libiconv.2.dylib",
+            "/System/Library/Frameworks/AudioToolbox.framework/AudioToolbox",
+            "/System/Library/Frameworks/Metal.framework/Metal",
+            "/System/Library/Frameworks/CoreVideo.framework/CoreVideo",
+            "/usr/lib/libobjc.A.dylib"
+          ],
+          "non_system_dependencies": [
+            {
+              "raw": "@rpath/Libfribidi.framework/Libfribidi",
+              "deps_lock_name": "fribidi",
+              "framework": "Libfribidi",
+              "license": "LGPL-2.1-or-later"
+            },
+            {
+              "raw": "@rpath/Libavcodec.framework/Libavcodec",
+              "deps_lock_name": "ffmpeg",
+              "framework": "Libavcodec",
+              "license": "待法务确认"
+            },
+            {
+              "raw": "@rpath/Libavfilter.framework/Libavfilter",
+              "deps_lock_name": "ffmpeg",
+              "framework": "Libavfilter",
+              "license": "待法务确认"
+            },
+            {
+              "raw": "@rpath/Libavformat.framework/Libavformat",
+              "deps_lock_name": "ffmpeg",
+              "framework": "Libavformat",
+              "license": "待法务确认"
+            },
+            {
+              "raw": "@rpath/Libavutil.framework/Libavutil",
+              "deps_lock_name": "ffmpeg",
+              "framework": "Libavutil",
+              "license": "待法务确认"
+            },
+            {
+              "raw": "@rpath/Libplacebo.framework/Libplacebo",
+              "deps_lock_name": "libplacebo",
+              "framework": "Libplacebo",
+              "license": "LGPL-2.1-or-later"
+            },
+            {
+              "raw": "@rpath/Libswresample.framework/Libswresample",
+              "deps_lock_name": "ffmpeg",
+              "framework": "Libswresample",
+              "license": "待法务确认"
+            },
+            {
+              "raw": "@rpath/Libswscale.framework/Libswscale",
+              "deps_lock_name": "ffmpeg",
+              "framework": "Libswscale",
+              "license": "待法务确认"
+            },
+            {
+              "raw": "@rpath/Libuchardet.framework/Libuchardet",
+              "deps_lock_name": "uchardet",
+              "framework": "Libuchardet",
+              "license": "MPL-1.1 或 GPL-2.0-or-later 或 LGPL-2.1-or-later(待法务确认)"
+            }
+          ],
+          "source_dependency": "mpv",
+          "license": "待法务确认",
+          "license_status": "needs-legal-review"
+        },
+        "ios-sim-arm64": {
+          "binary": "lux/.build/mpv-frameworks/ios-sim-arm64/Libmpv.framework/Libmpv",
+          "binary_kind": "framework",
+          "otool_command": "otool -L lux/.build/mpv-frameworks/ios-sim-arm64/Libmpv.framework/Libmpv",
+          "dynamic_dependencies": [
+            "@rpath/Libfribidi.framework/Libfribidi",
+            "@rpath/Libavcodec.framework/Libavcodec",
+            "@rpath/Libavfilter.framework/Libavfilter",
+            "@rpath/Libavformat.framework/Libavformat",
+            "@rpath/Libavutil.framework/Libavutil",
+            "@rpath/Libplacebo.framework/Libplacebo",
+            "@rpath/Libswresample.framework/Libswresample",
+            "@rpath/Libswscale.framework/Libswscale",
+            "@rpath/Libuchardet.framework/Libuchardet"
+          ],
+          "system_dependencies": [
+            "/System/Library/Frameworks/CoreText.framework/CoreText",
+            "/System/Library/Frameworks/CoreFoundation.framework/CoreFoundation",
+            "/usr/lib/libSystem.B.dylib",
+            "/System/Library/Frameworks/CoreGraphics.framework/CoreGraphics",
+            "/usr/lib/libiconv.2.dylib",
+            "/System/Library/Frameworks/AudioToolbox.framework/AudioToolbox",
+            "/System/Library/Frameworks/Metal.framework/Metal",
+            "/System/Library/Frameworks/CoreVideo.framework/CoreVideo",
+            "/usr/lib/libobjc.A.dylib"
+          ],
+          "non_system_dependencies": [
+            {
+              "raw": "@rpath/Libfribidi.framework/Libfribidi",
+              "deps_lock_name": "fribidi",
+              "framework": "Libfribidi",
+              "license": "LGPL-2.1-or-later"
+            },
+            {
+              "raw": "@rpath/Libavcodec.framework/Libavcodec",
+              "deps_lock_name": "ffmpeg",
+              "framework": "Libavcodec",
+              "license": "待法务确认"
+            },
+            {
+              "raw": "@rpath/Libavfilter.framework/Libavfilter",
+              "deps_lock_name": "ffmpeg",
+              "framework": "Libavfilter",
+              "license": "待法务确认"
+            },
+            {
+              "raw": "@rpath/Libavformat.framework/Libavformat",
+              "deps_lock_name": "ffmpeg",
+              "framework": "Libavformat",
+              "license": "待法务确认"
+            },
+            {
+              "raw": "@rpath/Libavutil.framework/Libavutil",
+              "deps_lock_name": "ffmpeg",
+              "framework": "Libavutil",
+              "license": "待法务确认"
+            },
+            {
+              "raw": "@rpath/Libplacebo.framework/Libplacebo",
+              "deps_lock_name": "libplacebo",
+              "framework": "Libplacebo",
+              "license": "LGPL-2.1-or-later"
+            },
+            {
+              "raw": "@rpath/Libswresample.framework/Libswresample",
+              "deps_lock_name": "ffmpeg",
+              "framework": "Libswresample",
+              "license": "待法务确认"
+            },
+            {
+              "raw": "@rpath/Libswscale.framework/Libswscale",
+              "deps_lock_name": "ffmpeg",
+              "framework": "Libswscale",
+              "license": "待法务确认"
+            },
+            {
+              "raw": "@rpath/Libuchardet.framework/Libuchardet",
+              "deps_lock_name": "uchardet",
+              "framework": "Libuchardet",
+              "license": "MPL-1.1 或 GPL-2.0-or-later 或 LGPL-2.1-or-later(待法务确认)"
+            }
+          ],
+          "source_dependency": "mpv",
+          "license": "待法务确认",
+          "license_status": "needs-legal-review"
+        }
+      },
+      "statically_linked": [
+        {
+          "name": "libass",
+          "kind": "static",
+          "evidence": "libass.a 静态链接;nm -gU 可查到 _ass_* 符号",
+          "symbol_evidence": {
+            "macos-arm64": [
+              "Libmpv:_ass_library_init",
+              "Libmpv:_ass_renderer_init"
+            ],
+            "ios-arm64": [
+              "Libmpv:_ass_library_init",
+              "Libmpv:_ass_renderer_init"
+            ],
+            "ios-sim-arm64": [
+              "Libmpv:_ass_library_init",
+              "Libmpv:_ass_renderer_init"
+            ]
+          }
+        },
+        {
+          "name": "freetype",
+          "kind": "static",
+          "evidence": "freetype.a 静态链接;nm -gU 可查到 _FT_* 符号",
+          "symbol_evidence": {
+            "macos-arm64": [
+              "Libmpv:_FT_Init_FreeType"
+            ],
+            "ios-arm64": [
+              "Libmpv:_FT_Init_FreeType"
+            ],
+            "ios-sim-arm64": [
+              "Libmpv:_FT_Init_FreeType"
+            ]
+          }
+        },
+        {
+          "name": "harfbuzz",
+          "kind": "static",
+          "evidence": "harfbuzz.a 静态链接;nm -gU 可查到 _hb_* 符号",
+          "symbol_evidence": {
+            "macos-arm64": [
+              "Libmpv:_hb_buffer_create"
+            ],
+            "ios-arm64": [
+              "Libmpv:_hb_buffer_create"
+            ],
+            "ios-sim-arm64": [
+              "Libmpv:_hb_buffer_create"
+            ]
+          }
+        },
+        {
+          "name": "libunibreak",
+          "kind": "static",
+          "evidence": "libunibreak.a 静态链接;nm -gU 可查到 _init_linebreak 等符号",
+          "symbol_evidence": {
+            "macos-arm64": [
+              "Libmpv:_init_linebreak",
+              "Libmpv:_set_linebreaks_utf8"
+            ],
+            "ios-arm64": [
+              "Libmpv:_init_linebreak",
+              "Libmpv:_set_linebreaks_utf8"
+            ],
+            "ios-sim-arm64": [
+              "Libmpv:_init_linebreak",
+              "Libmpv:_set_linebreaks_utf8"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Libplacebo",
+      "kind": "libmpv-stack-framework",
+      "source_dependency": "libplacebo",
+      "license": "LGPL-2.1-or-later",
+      "license_status": "needs-legal-review",
+      "license_notes": "LICENSE 为 LGPL-2.1。",
+      "bundled_gpl_review": [
+        "glslang"
+      ],
+      "license_files": [
+        "licenses/libplacebo/LICENSE"
+      ],
+      "targets": {
+        "macos-arm64": {
+          "binary": "lux/.build/mpv-frameworks/macos-arm64/Libplacebo.framework/Libplacebo",
+          "binary_kind": "framework",
+          "otool_command": "otool -L lux/.build/mpv-frameworks/macos-arm64/Libplacebo.framework/Libplacebo",
+          "dynamic_dependencies": [],
+          "system_dependencies": [
+            "/System/Library/Frameworks/Metal.framework/Versions/A/Metal",
+            "/System/Library/Frameworks/IOSurface.framework/Versions/A/IOSurface",
+            "/System/Library/Frameworks/QuartzCore.framework/Versions/A/QuartzCore",
+            "/System/Library/Frameworks/IOKit.framework/Versions/A/IOKit",
+            "/System/Library/Frameworks/CoreGraphics.framework/Versions/A/CoreGraphics",
+            "/System/Library/Frameworks/Foundation.framework/Versions/C/Foundation",
+            "/System/Library/Frameworks/AppKit.framework/Versions/C/AppKit",
+            "/usr/lib/libSystem.B.dylib",
+            "/usr/lib/libc++.1.dylib",
+            "/System/Library/Frameworks/CoreFoundation.framework/Versions/A/CoreFoundation",
+            "/usr/lib/libobjc.A.dylib"
+          ],
+          "non_system_dependencies": [],
+          "source_dependency": "libplacebo",
+          "license": "LGPL-2.1-or-later",
+          "license_status": "identified"
+        },
+        "ios-arm64": {
+          "binary": "lux/.build/mpv-frameworks/ios-arm64/Libplacebo.framework/Libplacebo",
+          "binary_kind": "framework",
+          "otool_command": "otool -L lux/.build/mpv-frameworks/ios-arm64/Libplacebo.framework/Libplacebo",
+          "dynamic_dependencies": [],
+          "system_dependencies": [
+            "/System/Library/Frameworks/Metal.framework/Metal",
+            "/System/Library/Frameworks/IOSurface.framework/IOSurface",
+            "/System/Library/Frameworks/QuartzCore.framework/QuartzCore",
+            "/System/Library/Frameworks/CoreGraphics.framework/CoreGraphics",
+            "/System/Library/Frameworks/Foundation.framework/Foundation",
+            "/System/Library/Frameworks/UIKit.framework/UIKit",
+            "/usr/lib/libSystem.B.dylib",
+            "/usr/lib/libc++.1.dylib",
+            "/System/Library/Frameworks/CoreFoundation.framework/CoreFoundation",
+            "/usr/lib/libobjc.A.dylib"
+          ],
+          "non_system_dependencies": [],
+          "source_dependency": "libplacebo",
+          "license": "LGPL-2.1-or-later",
+          "license_status": "identified"
+        },
+        "ios-sim-arm64": {
+          "binary": "lux/.build/mpv-frameworks/ios-sim-arm64/Libplacebo.framework/Libplacebo",
+          "binary_kind": "framework",
+          "otool_command": "otool -L lux/.build/mpv-frameworks/ios-sim-arm64/Libplacebo.framework/Libplacebo",
+          "dynamic_dependencies": [],
+          "system_dependencies": [
+            "/System/Library/Frameworks/Metal.framework/Metal",
+            "/System/Library/Frameworks/IOSurface.framework/IOSurface",
+            "/System/Library/Frameworks/QuartzCore.framework/QuartzCore",
+            "/System/Library/Frameworks/CoreGraphics.framework/CoreGraphics",
+            "/System/Library/Frameworks/Foundation.framework/Foundation",
+            "/System/Library/Frameworks/UIKit.framework/UIKit",
+            "/usr/lib/libSystem.B.dylib",
+            "/usr/lib/libc++.1.dylib",
+            "/System/Library/Frameworks/CoreFoundation.framework/CoreFoundation",
+            "/usr/lib/libobjc.A.dylib"
+          ],
+          "non_system_dependencies": [],
+          "source_dependency": "libplacebo",
+          "license": "LGPL-2.1-or-later",
+          "license_status": "identified"
+        }
+      },
+      "statically_linked": [
+        {
+          "name": "lcms2",
+          "kind": "static",
+          "evidence": "lcms2.a 静态链接;nm -gU 可查到 _cms* 符号",
+          "symbol_evidence": {
+            "macos-arm64": [
+              "Libplacebo:_cmsCreateTransform",
+              "Libplacebo:_cmsOpenProfileFromMem"
+            ],
+            "ios-arm64": [
+              "Libplacebo:_cmsCreateTransform",
+              "Libplacebo:_cmsOpenProfileFromMem"
+            ],
+            "ios-sim-arm64": [
+              "Libplacebo:_cmsCreateTransform",
+              "Libplacebo:_cmsOpenProfileFromMem"
+            ]
+          }
+        },
+        {
+          "name": "moltenvk",
+          "kind": "static",
+          "evidence": "vulkan.pc 提供 -lMoltenVK;nm -gU 可查到 _vk* 符号",
+          "symbol_evidence": {
+            "macos-arm64": [
+              "Libplacebo:_vkCreateInstance"
+            ],
+            "ios-arm64": [
+              "Libplacebo:_vkCreateInstance"
+            ],
+            "ios-sim-arm64": [
+              "Libplacebo:_vkCreateInstance"
+            ]
+          }
+        },
+        {
+          "name": "shaderc",
+          "kind": "static",
+          "evidence": "shaderc.pc 提供 -lshaderc_combined;二进制内有 shaderc_util 符号"
+        },
+        {
+          "name": "spirv-cross",
+          "kind": "static-transitive",
+          "evidence": "MoltenVK ExternalDependencies 的 libSPIRVCross.a"
+        },
+        {
+          "name": "spirv-tools",
+          "kind": "static-transitive",
+          "evidence": "shaderc_combined 的 SPIRV-Tools 部分"
+        },
+        {
+          "name": "spirv-tools-mvk",
+          "kind": "static-transitive",
+          "evidence": "MoltenVK ExternalDependencies 的 libSPIRVTools.a"
+        },
+        {
+          "name": "glslang",
+          "kind": "static-transitive",
+          "evidence": "shaderc_combined 的 glslang 部分"
+        },
+        {
+          "name": "spirv-headers",
+          "kind": "build-time",
+          "evidence": "shaderc 构建期头文件"
+        },
+        {
+          "name": "spirv-headers-mvk",
+          "kind": "build-time",
+          "evidence": "MoltenVK/SPIRV-Tools 构建期头文件"
+        },
+        {
+          "name": "vulkan-headers",
+          "kind": "build-time",
+          "evidence": "libplacebo/MoltenVK 构建期头文件"
+        },
+        {
+          "name": "volk",
+          "kind": "build-time",
+          "evidence": "MoltenVK 构建期 Vulkan 加载器源码/头文件"
+        },
+        {
+          "name": "cereal",
+          "kind": "build-time",
+          "evidence": "MoltenVK 构建期头文件"
+        },
+        {
+          "name": "fast_float",
+          "kind": "header-only",
+          "evidence": "libplacebo 构建期头文件"
+        }
+      ]
+    },
+    {
+      "name": "Libfribidi",
+      "kind": "libmpv-stack-framework",
+      "source_dependency": "fribidi",
+      "license": "LGPL-2.1-or-later",
+      "license_status": "identified",
+      "license_notes": "COPYING 为 LGPL-2.1;源码头声明 2.1 或更高版本。",
+      "bundled_gpl_review": [],
+      "license_files": [
+        "licenses/fribidi/COPYING"
+      ],
+      "targets": {
+        "macos-arm64": {
+          "binary": "lux/.build/mpv-frameworks/macos-arm64/Libfribidi.framework/Libfribidi",
+          "binary_kind": "framework",
+          "otool_command": "otool -L lux/.build/mpv-frameworks/macos-arm64/Libfribidi.framework/Libfribidi",
+          "dynamic_dependencies": [],
+          "system_dependencies": [
+            "/usr/lib/libSystem.B.dylib"
+          ],
+          "non_system_dependencies": [],
+          "source_dependency": "fribidi",
+          "license": "LGPL-2.1-or-later",
+          "license_status": "identified"
+        },
+        "ios-arm64": {
+          "binary": "lux/.build/mpv-frameworks/ios-arm64/Libfribidi.framework/Libfribidi",
+          "binary_kind": "framework",
+          "otool_command": "otool -L lux/.build/mpv-frameworks/ios-arm64/Libfribidi.framework/Libfribidi",
+          "dynamic_dependencies": [],
+          "system_dependencies": [
+            "/usr/lib/libSystem.B.dylib"
+          ],
+          "non_system_dependencies": [],
+          "source_dependency": "fribidi",
+          "license": "LGPL-2.1-or-later",
+          "license_status": "identified"
+        },
+        "ios-sim-arm64": {
+          "binary": "lux/.build/mpv-frameworks/ios-sim-arm64/Libfribidi.framework/Libfribidi",
+          "binary_kind": "framework",
+          "otool_command": "otool -L lux/.build/mpv-frameworks/ios-sim-arm64/Libfribidi.framework/Libfribidi",
+          "dynamic_dependencies": [],
+          "system_dependencies": [
+            "/usr/lib/libSystem.B.dylib"
+          ],
+          "non_system_dependencies": [],
+          "source_dependency": "fribidi",
+          "license": "LGPL-2.1-or-later",
+          "license_status": "identified"
+        }
+      },
+      "statically_linked": []
+    },
+    {
+      "name": "Libuchardet",
+      "kind": "libmpv-stack-framework",
+      "source_dependency": "uchardet",
+      "license": "MPL-1.1 或 GPL-2.0-or-later 或 LGPL-2.1-or-later(待法务确认)",
+      "license_status": "needs-legal-review",
+      "license_notes": "COPYING 同时含 MPL-1.1、GPL-2.0、LGPL-2.1 文本;README 明示三选一;lux/build/build-deps.sh 注释写作 LGPL-2.1+,与源码表述不一致。",
+      "bundled_gpl_review": [],
+      "license_files": [
+        "licenses/uchardet/COPYING"
+      ],
+      "targets": {
+        "macos-arm64": {
+          "binary": "lux/.build/mpv-frameworks/macos-arm64/Libuchardet.framework/Libuchardet",
+          "binary_kind": "framework",
+          "otool_command": "otool -L lux/.build/mpv-frameworks/macos-arm64/Libuchardet.framework/Libuchardet",
+          "dynamic_dependencies": [],
+          "system_dependencies": [
+            "/usr/lib/libc++.1.dylib",
+            "/usr/lib/libSystem.B.dylib"
+          ],
+          "non_system_dependencies": [],
+          "source_dependency": "uchardet",
+          "license": "MPL-1.1 或 GPL-2.0-or-later 或 LGPL-2.1-or-later(待法务确认)",
+          "license_status": "needs-legal-review"
+        },
+        "ios-arm64": {
+          "binary": "lux/.build/mpv-frameworks/ios-arm64/Libuchardet.framework/Libuchardet",
+          "binary_kind": "framework",
+          "otool_command": "otool -L lux/.build/mpv-frameworks/ios-arm64/Libuchardet.framework/Libuchardet",
+          "dynamic_dependencies": [],
+          "system_dependencies": [
+            "/usr/lib/libc++.1.dylib",
+            "/usr/lib/libSystem.B.dylib"
+          ],
+          "non_system_dependencies": [],
+          "source_dependency": "uchardet",
+          "license": "MPL-1.1 或 GPL-2.0-or-later 或 LGPL-2.1-or-later(待法务确认)",
+          "license_status": "needs-legal-review"
+        },
+        "ios-sim-arm64": {
+          "binary": "lux/.build/mpv-frameworks/ios-sim-arm64/Libuchardet.framework/Libuchardet",
+          "binary_kind": "framework",
+          "otool_command": "otool -L lux/.build/mpv-frameworks/ios-sim-arm64/Libuchardet.framework/Libuchardet",
+          "dynamic_dependencies": [],
+          "system_dependencies": [
+            "/usr/lib/libc++.1.dylib",
+            "/usr/lib/libSystem.B.dylib"
+          ],
+          "non_system_dependencies": [],
+          "source_dependency": "uchardet",
+          "license": "MPL-1.1 或 GPL-2.0-or-later 或 LGPL-2.1-or-later(待法务确认)",
+          "license_status": "needs-legal-review"
+        }
+      },
+      "statically_linked": []
+    }
+  ],
+  "dependencies": [
+    {
+      "name": "freetype",
+      "version": "2.15.0",
+      "sha256": "93cd47eb719c325107f2d3cf087d06299e944c3b48a40b55537302304dea1dd5",
+      "url": "https://download.savannah.gnu.org/releases/freetype/freetype-2.15.0.tar.xz",
+      "archive": "lux/.build/deps/src/freetype-2.15.0.tar.xz",
+      "archive_sha256": "93cd47eb719c325107f2d3cf087d06299e944c3b48a40b55537302304dea1dd5",
+      "sha256_verified": true,
+      "license": "FTL 或 GPL-2.0(二选一,待法务确认)",
+      "license_status": "needs-legal-review",
+      "license_notes": "源码 LICENSE.TXT 明示 FTL 与 GPL-2.0 二选一;docs/FTL.TXT 与 docs/GPLv2.TXT 均已复制。",
+      "license_files": [
+        "licenses/freetype/LICENSE.TXT",
+        "licenses/freetype/docs/FTL.TXT",
+        "licenses/freetype/docs/GPLv2.TXT"
+      ],
+      "license_source_files": [
+        "LICENSE.TXT",
+        "docs/FTL.TXT",
+        "docs/GPLv2.TXT"
+      ],
+      "license_terms_detected": [
+        "FTL",
+        "GPL-2.0"
+      ],
+      "gpl_or_nonfree_terms": true,
+      "linkage": [
+        {
+          "kind": "static",
+          "into": [
+            "Libmpv"
+          ],
+          "targets": [
+            "macos-arm64",
+            "ios-arm64",
+            "ios-sim-arm64"
+          ],
+          "evidence": "freetype.a 静态链接;nm -gU 可查到 _FT_* 符号"
+        }
+      ]
+    },
+    {
+      "name": "harfbuzz",
+      "version": "15.0.0",
+      "sha256": "968536e9abd782f07f7954044c0c4020199fcdd39b41d221ec42d2a3be4a44df",
+      "url": "https://github.com/harfbuzz/harfbuzz/releases/download/15.0.0/harfbuzz-15.0.0.tar.xz",
+      "archive": "lux/.build/deps/src/harfbuzz-15.0.0.tar.xz",
+      "archive_sha256": "968536e9abd782f07f7954044c0c4020199fcdd39b41d221ec42d2a3be4a44df",
+      "sha256_verified": true,
+      "license": "MIT",
+      "license_status": "identified",
+      "license_notes": "COPYING 为 Old MIT;src/ms-use/COPYING 为另一份 MIT 文本,已一并复制。",
+      "license_files": [
+        "licenses/harfbuzz/COPYING",
+        "licenses/harfbuzz/src/ms-use/COPYING"
+      ],
+      "license_source_files": [
+        "COPYING",
+        "src/ms-use/COPYING"
+      ],
+      "license_terms_detected": [
+        "MIT"
+      ],
+      "gpl_or_nonfree_terms": false,
+      "linkage": [
+        {
+          "kind": "static",
+          "into": [
+            "Libmpv"
+          ],
+          "targets": [
+            "macos-arm64",
+            "ios-arm64",
+            "ios-sim-arm64"
+          ],
+          "evidence": "harfbuzz.a 静态链接;nm -gU 可查到 _hb_* 符号"
+        }
+      ]
+    },
+    {
+      "name": "fribidi",
+      "version": "1.0.17",
+      "sha256": "6949dcde27d41cebad1fd741fcafc36d55a1020d2d872d4a6eb3914caabbada2",
+      "url": "https://github.com/fribidi/fribidi/releases/download/v1.0.17/fribidi-1.0.17.tar.xz",
+      "archive": "lux/.build/deps/src/fribidi-1.0.17.tar.xz",
+      "archive_sha256": "6949dcde27d41cebad1fd741fcafc36d55a1020d2d872d4a6eb3914caabbada2",
+      "sha256_verified": true,
+      "license": "LGPL-2.1-or-later",
+      "license_status": "identified",
+      "license_notes": "COPYING 为 LGPL-2.1;源码头声明 2.1 或更高版本。",
+      "license_files": [
+        "licenses/fribidi/COPYING"
+      ],
+      "license_source_files": [
+        "COPYING"
+      ],
+      "license_terms_detected": [
+        "LGPL-2.1"
+      ],
+      "gpl_or_nonfree_terms": false,
+      "linkage": [
+        {
+          "kind": "dynamic",
+          "into": [
+            "Libmpv"
+          ],
+          "targets": [
+            "ios-arm64",
+            "ios-sim-arm64",
+            "macos-arm64"
+          ],
+          "evidence": "otool -L ios-arm64:Libmpv, ios-sim-arm64:Libmpv, macos-arm64:Libmpv"
+        },
+        {
+          "kind": "framework-source",
+          "into": [
+            "Libfribidi"
+          ],
+          "targets": [
+            "macos-arm64",
+            "ios-arm64",
+            "ios-sim-arm64"
+          ],
+          "evidence": "Libfribidi.framework 的二进制来自 fribidi 1.0.17 构建"
+        }
+      ]
+    },
+    {
+      "name": "libunibreak",
+      "version": "8.0",
+      "sha256": "9c4fad6e517338a098373acc9f35579ae2c325e6446666fb9ac2666ba15ceba4",
+      "url": "https://github.com/adah1972/libunibreak/releases/download/libunibreak_8_0/libunibreak-8.0.tar.gz",
+      "archive": "lux/.build/deps/src/libunibreak-8.0.tar.gz",
+      "archive_sha256": "9c4fad6e517338a098373acc9f35579ae2c325e6446666fb9ac2666ba15ceba4",
+      "sha256_verified": true,
+      "license": "Zlib",
+      "license_status": "identified",
+      "license_notes": "LICENCE 为 zlib 风格许可。",
+      "license_files": [
+        "licenses/libunibreak/LICENCE"
+      ],
+      "license_source_files": [
+        "LICENCE"
+      ],
+      "license_terms_detected": [
+        "Zlib"
+      ],
+      "gpl_or_nonfree_terms": false,
+      "linkage": [
+        {
+          "kind": "static",
+          "into": [
+            "Libmpv"
+          ],
+          "targets": [
+            "macos-arm64",
+            "ios-arm64",
+            "ios-sim-arm64"
+          ],
+          "evidence": "libunibreak.a 静态链接;nm -gU 可查到 _init_linebreak 等符号"
+        }
+      ]
+    },
+    {
+      "name": "lcms2",
+      "version": "2.19.1",
+      "sha256": "bfc54f7bab59fbc921012014a8032e4cba4abd46db47d46b76416a8c0b2815c8",
+      "url": "https://github.com/mm2/Little-CMS/releases/download/lcms2.19.1/lcms2-2.19.1.tar.gz",
+      "archive": "lux/.build/deps/src/lcms2-2.19.1.tar.gz",
+      "archive_sha256": "bfc54f7bab59fbc921012014a8032e4cba4abd46db47d46b76416a8c0b2815c8",
+      "sha256_verified": true,
+      "license": "MIT",
+      "license_status": "identified",
+      "license_notes": "LICENSE 为 MIT。",
+      "license_files": [
+        "licenses/lcms2/LICENSE"
+      ],
+      "license_source_files": [
+        "LICENSE"
+      ],
+      "license_terms_detected": [
+        "MIT"
+      ],
+      "gpl_or_nonfree_terms": false,
+      "linkage": [
+        {
+          "kind": "static",
+          "into": [
+            "Libplacebo"
+          ],
+          "targets": [
+            "macos-arm64",
+            "ios-arm64",
+            "ios-sim-arm64"
+          ],
+          "evidence": "lcms2.a 静态链接;nm -gU 可查到 _cms* 符号"
+        }
+      ]
+    },
+    {
+      "name": "uchardet",
+      "version": "0.0.8",
+      "sha256": "e97a60cfc00a1c147a674b097bb1422abd9fa78a2d9ce3f3fdcc2e78a34ac5f0",
+      "url": "https://www.freedesktop.org/software/uchardet/releases/uchardet-0.0.8.tar.xz",
+      "archive": "lux/.build/deps/src/uchardet-0.0.8.tar.xz",
+      "archive_sha256": "e97a60cfc00a1c147a674b097bb1422abd9fa78a2d9ce3f3fdcc2e78a34ac5f0",
+      "sha256_verified": true,
+      "license": "MPL-1.1 或 GPL-2.0-or-later 或 LGPL-2.1-or-later(待法务确认)",
+      "license_status": "needs-legal-review",
+      "license_notes": "COPYING 同时含 MPL-1.1、GPL-2.0、LGPL-2.1 文本;README 明示三选一;lux/build/build-deps.sh 注释写作 LGPL-2.1+,与源码表述不一致。",
+      "license_files": [
+        "licenses/uchardet/COPYING"
+      ],
+      "license_source_files": [
+        "COPYING"
+      ],
+      "license_terms_detected": [
+        "LGPL-2.1",
+        "GPL-2.0",
+        "MPL-1.1"
+      ],
+      "gpl_or_nonfree_terms": true,
+      "linkage": [
+        {
+          "kind": "dynamic",
+          "into": [
+            "Libmpv"
+          ],
+          "targets": [
+            "ios-arm64",
+            "ios-sim-arm64",
+            "macos-arm64"
+          ],
+          "evidence": "otool -L ios-arm64:Libmpv, ios-sim-arm64:Libmpv, macos-arm64:Libmpv"
+        },
+        {
+          "kind": "framework-source",
+          "into": [
+            "Libuchardet"
+          ],
+          "targets": [
+            "macos-arm64",
+            "ios-arm64",
+            "ios-sim-arm64"
+          ],
+          "evidence": "Libuchardet.framework 的二进制来自 uchardet 0.0.8 构建"
+        }
+      ]
+    },
+    {
+      "name": "libass",
+      "version": "0.17.5",
+      "sha256": "2dca25c0e0c837ddf00b52011b3f82cac1e4ddd3ad018227806b0c2288864acc",
+      "url": "https://github.com/libass/libass/releases/download/0.17.5/libass-0.17.5.tar.xz",
+      "archive": "lux/.build/deps/src/libass-0.17.5.tar.xz",
+      "archive_sha256": "2dca25c0e0c837ddf00b52011b3f82cac1e4ddd3ad018227806b0c2288864acc",
+      "sha256_verified": true,
+      "license": "ISC",
+      "license_status": "identified",
+      "license_notes": "COPYING 为 ISC。",
+      "license_files": [
+        "licenses/libass/COPYING"
+      ],
+      "license_source_files": [
+        "COPYING"
+      ],
+      "license_terms_detected": [
+        "ISC"
+      ],
+      "gpl_or_nonfree_terms": false,
+      "linkage": [
+        {
+          "kind": "static",
+          "into": [
+            "Libmpv"
+          ],
+          "targets": [
+            "macos-arm64",
+            "ios-arm64",
+            "ios-sim-arm64"
+          ],
+          "evidence": "libass.a 静态链接;nm -gU 可查到 _ass_* 符号"
+        }
+      ]
+    },
+    {
+      "name": "mpv",
+      "version": "0.41.0",
+      "sha256": "ee21092a5ee427353392360929dc64645c54479aefdb5babc5cfbb5fad626209",
+      "url": "https://github.com/mpv-player/mpv/archive/refs/tags/v0.41.0.tar.gz",
+      "archive": "lux/.build/deps/src/v0.41.0.tar.gz",
+      "archive_sha256": "ee21092a5ee427353392360929dc64645c54479aefdb5babc5cfbb5fad626209",
+      "sha256_verified": true,
+      "license": "待法务确认",
+      "license_status": "needs-legal-review",
+      "license_notes": "Copyright 明示默认 GPL-2.0+;构建使用 -Dgpl=false;同一文件说明该开关本身不构成 LGPL 授权。",
+      "license_files": [
+        "licenses/mpv/Copyright",
+        "licenses/mpv/LICENSE.GPL",
+        "licenses/mpv/LICENSE.LGPL"
+      ],
+      "license_source_files": [
+        "Copyright",
+        "LICENSE.GPL",
+        "LICENSE.LGPL"
+      ],
+      "license_terms_detected": [
+        "LGPL-2.1",
+        "GPL-2.0"
+      ],
+      "gpl_or_nonfree_terms": true,
+      "linkage": [
+        {
+          "kind": "framework-source",
+          "into": [
+            "Libmpv"
+          ],
+          "targets": [
+            "macos-arm64",
+            "ios-arm64",
+            "ios-sim-arm64"
+          ],
+          "evidence": "Libmpv.framework 的二进制来自 mpv 0.41.0 构建"
+        }
+      ]
+    },
+    {
+      "name": "libplacebo",
+      "version": "7.360.1",
+      "sha256": "14c0a99f4b01557ec9826ce6b1d52f6de21be274ba03fd5aab7307f18766dc39",
+      "url": "https://code.videolan.org/videolan/libplacebo/-/archive/v7.360.1/libplacebo-v7.360.1.tar.gz",
+      "archive": "lux/.build/deps/src/libplacebo-v7.360.1.tar.gz",
+      "archive_sha256": "14c0a99f4b01557ec9826ce6b1d52f6de21be274ba03fd5aab7307f18766dc39",
+      "sha256_verified": true,
+      "license": "LGPL-2.1-or-later",
+      "license_status": "identified",
+      "license_notes": "LICENSE 为 LGPL-2.1。",
+      "license_files": [
+        "licenses/libplacebo/LICENSE"
+      ],
+      "license_source_files": [
+        "LICENSE"
+      ],
+      "license_terms_detected": [
+        "LGPL-2.1"
+      ],
+      "gpl_or_nonfree_terms": false,
+      "linkage": [
+        {
+          "kind": "dynamic",
+          "into": [
+            "Libmpv"
+          ],
+          "targets": [
+            "ios-arm64",
+            "ios-sim-arm64",
+            "macos-arm64"
+          ],
+          "evidence": "otool -L ios-arm64:Libmpv, ios-sim-arm64:Libmpv, macos-arm64:Libmpv"
+        },
+        {
+          "kind": "framework-source",
+          "into": [
+            "Libplacebo"
+          ],
+          "targets": [
+            "macos-arm64",
+            "ios-arm64",
+            "ios-sim-arm64"
+          ],
+          "evidence": "Libplacebo.framework 的二进制来自 libplacebo 7.360.1 构建"
+        }
+      ]
+    },
+    {
+      "name": "shaderc",
+      "version": "2025.5",
+      "sha256": "fca5041b1fdea6daba167b63e04e55e5059fab40828342126169336643445447",
+      "url": "https://github.com/google/shaderc/archive/refs/tags/v2025.5.tar.gz",
+      "archive": "lux/.build/deps/src/v2025.5.tar.gz",
+      "archive_sha256": "fca5041b1fdea6daba167b63e04e55e5059fab40828342126169336643445447",
+      "sha256_verified": true,
+      "license": "Apache-2.0",
+      "license_status": "identified",
+      "license_notes": "LICENSE 为 Apache-2.0;third_party 的 glslang/SPIRV-Tools 许可见各自条目。",
+      "license_files": [
+        "licenses/shaderc/LICENSE"
+      ],
+      "license_source_files": [
+        "LICENSE"
+      ],
+      "license_terms_detected": [
+        "Apache-2.0"
+      ],
+      "gpl_or_nonfree_terms": false,
+      "linkage": [
+        {
+          "kind": "static",
+          "into": [
+            "Libplacebo"
+          ],
+          "targets": [
+            "macos-arm64",
+            "ios-arm64",
+            "ios-sim-arm64"
+          ],
+          "evidence": "shaderc.pc 提供 -lshaderc_combined;二进制内有 shaderc_util 符号"
+        }
+      ]
+    },
+    {
+      "name": "glslang",
+      "version": "7a47e2531cb334982b2a2dd8513dca0a3de4373d",
+      "sha256": "272d2725b140e09e85b96eecdc59c2e00c1a14cda2301767e1bf3c363a44b931",
+      "url": "https://github.com/KhronosGroup/glslang/archive/7a47e2531cb334982b2a2dd8513dca0a3de4373d.tar.gz",
+      "archive": "lux/.build/deps/src/7a47e2531cb334982b2a2dd8513dca0a3de4373d.tar.gz",
+      "archive_sha256": "272d2725b140e09e85b96eecdc59c2e00c1a14cda2301767e1bf3c363a44b931",
+      "sha256_verified": true,
+      "license": "BSD-3-Clause / BSD-2-Clause / MIT / Apache-2.0 / GPL-3.0-with-bison-exception(按文件,待法务确认)",
+      "license_status": "needs-legal-review",
+      "license_notes": "LICENSE.txt 按文件列出 3-Clause BSD、2-Clause BSD、MIT、Apache-2.0,并含 “GPL 3 with special bison exception” 一节;未逐文件核对适用范围。",
+      "license_files": [
+        "licenses/glslang/LICENSE.txt"
+      ],
+      "license_source_files": [
+        "LICENSE.txt"
+      ],
+      "license_terms_detected": [
+        "GPL-3.0",
+        "Apache-2.0",
+        "MIT",
+        "BSD-3-Clause",
+        "BSD-2-Clause"
+      ],
+      "gpl_or_nonfree_terms": true,
+      "linkage": [
+        {
+          "kind": "static-transitive",
+          "into": [
+            "Libplacebo"
+          ],
+          "targets": [
+            "macos-arm64",
+            "ios-arm64",
+            "ios-sim-arm64"
+          ],
+          "evidence": "shaderc_combined 的 glslang 部分"
+        }
+      ]
+    },
+    {
+      "name": "spirv-tools",
+      "version": "262bdab48146c937467f826699a40da0fdfc0f1a",
+      "sha256": "8f830936b057003be77e90d37068ff6066eb87a1bab0033f8f2f5feaa966ce56",
+      "url": "https://github.com/KhronosGroup/SPIRV-Tools/archive/262bdab48146c937467f826699a40da0fdfc0f1a.tar.gz",
+      "archive": "lux/.build/deps/src/262bdab48146c937467f826699a40da0fdfc0f1a.tar.gz",
+      "archive_sha256": "8f830936b057003be77e90d37068ff6066eb87a1bab0033f8f2f5feaa966ce56",
+      "sha256_verified": true,
+      "license": "Apache-2.0",
+      "license_status": "identified",
+      "license_notes": "LICENSE 为 Apache-2.0。",
+      "license_files": [
+        "licenses/spirv-tools/LICENSE"
+      ],
+      "license_source_files": [
+        "LICENSE"
+      ],
+      "license_terms_detected": [
+        "Apache-2.0"
+      ],
+      "gpl_or_nonfree_terms": false,
+      "linkage": [
+        {
+          "kind": "static-transitive",
+          "into": [
+            "Libplacebo"
+          ],
+          "targets": [
+            "macos-arm64",
+            "ios-arm64",
+            "ios-sim-arm64"
+          ],
+          "evidence": "shaderc_combined 的 SPIRV-Tools 部分"
+        }
+      ]
+    },
+    {
+      "name": "spirv-headers",
+      "version": "b824a462d4256d720bebb40e78b9eb8f78bbb305",
+      "sha256": "c693867f10a7760ef1bcf85419d51783586768cc2c601d03841bc6a8b2554b9c",
+      "url": "https://github.com/KhronosGroup/SPIRV-Headers/archive/b824a462d4256d720bebb40e78b9eb8f78bbb305.tar.gz",
+      "archive": "lux/.build/deps/src/b824a462d4256d720bebb40e78b9eb8f78bbb305.tar.gz",
+      "archive_sha256": "c693867f10a7760ef1bcf85419d51783586768cc2c601d03841bc6a8b2554b9c",
+      "sha256_verified": true,
+      "license": "MIT(部分文档 CC-BY-4.0,待法务确认)",
+      "license_status": "needs-legal-review",
+      "license_notes": "LICENSE 按文件列出 MIT;tools/jsoncpp 为 MIT;部分 .md 文档为 CC-BY-4.0。",
+      "license_files": [
+        "licenses/spirv-headers/LICENSE",
+        "licenses/spirv-headers/LICENSES/CC-BY-4.0.txt",
+        "licenses/spirv-headers/LICENSES/MIT.txt"
+      ],
+      "license_source_files": [
+        "LICENSE",
+        "LICENSES/CC-BY-4.0.txt",
+        "LICENSES/MIT.txt"
+      ],
+      "license_terms_detected": [
+        "MIT",
+        "CC-BY-4.0"
+      ],
+      "gpl_or_nonfree_terms": false,
+      "linkage": [
+        {
+          "kind": "build-time",
+          "into": [
+            "Libplacebo"
+          ],
+          "targets": [
+            "macos-arm64",
+            "ios-arm64",
+            "ios-sim-arm64"
+          ],
+          "evidence": "shaderc 构建期头文件"
+        }
+      ]
+    },
+    {
+      "name": "moltenvk",
+      "version": "1.4.2",
+      "sha256": "6864db532f1dbbdb621a8d0ec13f24edae318fd9269dd3dd0cdff791334bb1cb",
+      "url": "https://github.com/KhronosGroup/MoltenVK/archive/refs/tags/v1.4.2.tar.gz",
+      "archive": "lux/.build/deps/src/v1.4.2.tar.gz",
+      "archive_sha256": "6864db532f1dbbdb621a8d0ec13f24edae318fd9269dd3dd0cdff791334bb1cb",
+      "sha256_verified": true,
+      "license": "Apache-2.0",
+      "license_status": "identified",
+      "license_notes": "LICENSE 为 Apache-2.0。",
+      "license_files": [
+        "licenses/moltenvk/LICENSE"
+      ],
+      "license_source_files": [
+        "LICENSE"
+      ],
+      "license_terms_detected": [
+        "Apache-2.0"
+      ],
+      "gpl_or_nonfree_terms": false,
+      "linkage": [
+        {
+          "kind": "static",
+          "into": [
+            "Libplacebo"
+          ],
+          "targets": [
+            "macos-arm64",
+            "ios-arm64",
+            "ios-sim-arm64"
+          ],
+          "evidence": "vulkan.pc 提供 -lMoltenVK;nm -gU 可查到 _vk* 符号"
+        }
+      ]
+    },
+    {
+      "name": "vulkan-headers",
+      "version": "e3b1eec08173d6b825cd3ac88c885a63b621504a",
+      "sha256": "f492279345cbc10708b64fcd432b3ff6c8246a5837c4db2b649abba00cf82208",
+      "url": "https://github.com/KhronosGroup/Vulkan-Headers/archive/e3b1eec08173d6b825cd3ac88c885a63b621504a.tar.gz",
+      "archive": "lux/.build/deps/src/e3b1eec08173d6b825cd3ac88c885a63b621504a.tar.gz",
+      "archive_sha256": "f492279345cbc10708b64fcd432b3ff6c8246a5837c4db2b649abba00cf82208",
+      "sha256_verified": true,
+      "license": "Apache-2.0 或 MIT(按文件)",
+      "license_status": "identified",
+      "license_notes": "LICENSE.md 明示文件按 Apache-2.0 或 MIT。",
+      "license_files": [
+        "licenses/vulkan-headers/LICENSE.md",
+        "licenses/vulkan-headers/LICENSES/Apache-2.0.txt",
+        "licenses/vulkan-headers/LICENSES/MIT.txt"
+      ],
+      "license_source_files": [
+        "LICENSE.md",
+        "LICENSES/Apache-2.0.txt",
+        "LICENSES/MIT.txt"
+      ],
+      "license_terms_detected": [
+        "Apache-2.0",
+        "MIT"
+      ],
+      "gpl_or_nonfree_terms": false,
+      "linkage": [
+        {
+          "kind": "build-time",
+          "into": [
+            "Libplacebo"
+          ],
+          "targets": [
+            "macos-arm64",
+            "ios-arm64",
+            "ios-sim-arm64"
+          ],
+          "evidence": "libplacebo/MoltenVK 构建期头文件"
+        }
+      ]
+    },
+    {
+      "name": "spirv-cross",
+      "version": "6c09849fe88c48eaed08413aa022aaa136a3a057",
+      "sha256": "b81b9956289950570953738e666a031ca32ff64e4fc925eba89f227c42109518",
+      "url": "https://github.com/KhronosGroup/SPIRV-Cross/archive/6c09849fe88c48eaed08413aa022aaa136a3a057.tar.gz",
+      "archive": "lux/.build/deps/src/6c09849fe88c48eaed08413aa022aaa136a3a057.tar.gz",
+      "archive_sha256": "b81b9956289950570953738e666a031ca32ff64e4fc925eba89f227c42109518",
+      "sha256_verified": true,
+      "license": "Apache-2.0(部分文件 MIT / Khronos Free Use / CC-BY-4.0,待法务确认)",
+      "license_status": "needs-legal-review",
+      "license_notes": "LICENSE 为 Apache-2.0;LICENSES/ 另有 MIT、Khronos Free Use 与 CC-BY-4.0 文本。",
+      "license_files": [
+        "licenses/spirv-cross/LICENSE",
+        "licenses/spirv-cross/LICENSES/Apache-2.0.txt",
+        "licenses/spirv-cross/LICENSES/CC-BY-4.0.txt",
+        "licenses/spirv-cross/LICENSES/LicenseRef-KhronosFreeUse.txt",
+        "licenses/spirv-cross/LICENSES/MIT.txt"
+      ],
+      "license_source_files": [
+        "LICENSE",
+        "LICENSES/Apache-2.0.txt",
+        "LICENSES/CC-BY-4.0.txt",
+        "LICENSES/LicenseRef-KhronosFreeUse.txt",
+        "LICENSES/MIT.txt"
+      ],
+      "license_terms_detected": [
+        "Apache-2.0",
+        "MIT",
+        "CC-BY-4.0"
+      ],
+      "gpl_or_nonfree_terms": false,
+      "linkage": [
+        {
+          "kind": "static-transitive",
+          "into": [
+            "Libplacebo"
+          ],
+          "targets": [
+            "macos-arm64",
+            "ios-arm64",
+            "ios-sim-arm64"
+          ],
+          "evidence": "MoltenVK ExternalDependencies 的 libSPIRVCross.a"
+        }
+      ]
+    },
+    {
+      "name": "spirv-tools-mvk",
+      "version": "0d6fd73ca73830ccab5fa1f00ed5ed40124e2c55",
+      "sha256": "20219c0962dffb0d7644bb3116a5923cfcf0526a569baa0b2a17343dd2fa6e5d",
+      "url": "https://github.com/KhronosGroup/SPIRV-Tools/archive/0d6fd73ca73830ccab5fa1f00ed5ed40124e2c55.tar.gz",
+      "archive": "lux/.build/deps/src/0d6fd73ca73830ccab5fa1f00ed5ed40124e2c55.tar.gz",
+      "archive_sha256": "20219c0962dffb0d7644bb3116a5923cfcf0526a569baa0b2a17343dd2fa6e5d",
+      "sha256_verified": true,
+      "license": "Apache-2.0",
+      "license_status": "identified",
+      "license_notes": "LICENSE 为 Apache-2.0。",
+      "license_files": [
+        "licenses/spirv-tools-mvk/LICENSE"
+      ],
+      "license_source_files": [
+        "LICENSE"
+      ],
+      "license_terms_detected": [
+        "Apache-2.0"
+      ],
+      "gpl_or_nonfree_terms": false,
+      "linkage": [
+        {
+          "kind": "static-transitive",
+          "into": [
+            "Libplacebo"
+          ],
+          "targets": [
+            "macos-arm64",
+            "ios-arm64",
+            "ios-sim-arm64"
+          ],
+          "evidence": "MoltenVK ExternalDependencies 的 libSPIRVTools.a"
+        }
+      ]
+    },
+    {
+      "name": "spirv-headers-mvk",
+      "version": "29981f65241605e08b0ede4cfeb999fe3b723c6a",
+      "sha256": "232899f1ad4104fb5bc377b94596c7621575eee62ad9a9e8f929b63a7dd8a7ad",
+      "url": "https://github.com/KhronosGroup/SPIRV-Headers/archive/29981f65241605e08b0ede4cfeb999fe3b723c6a.tar.gz",
+      "archive": "lux/.build/deps/src/29981f65241605e08b0ede4cfeb999fe3b723c6a.tar.gz",
+      "archive_sha256": "232899f1ad4104fb5bc377b94596c7621575eee62ad9a9e8f929b63a7dd8a7ad",
+      "sha256_verified": true,
+      "license": "MIT(部分文件 Apache-2.0 / 文档 CC-BY-4.0,待法务确认)",
+      "license_status": "needs-legal-review",
+      "license_notes": "LICENSE 按文件列出 MIT;LICENSES/ 另有 Apache-2.0;部分文档为 CC-BY-4.0。",
+      "license_files": [
+        "licenses/spirv-headers-mvk/LICENSE",
+        "licenses/spirv-headers-mvk/LICENSES/CC-BY-4.0.txt",
+        "licenses/spirv-headers-mvk/LICENSES/MIT.txt"
+      ],
+      "license_source_files": [
+        "LICENSE",
+        "LICENSES/CC-BY-4.0.txt",
+        "LICENSES/MIT.txt"
+      ],
+      "license_terms_detected": [
+        "MIT",
+        "CC-BY-4.0"
+      ],
+      "gpl_or_nonfree_terms": false,
+      "linkage": [
+        {
+          "kind": "build-time",
+          "into": [
+            "Libplacebo"
+          ],
+          "targets": [
+            "macos-arm64",
+            "ios-arm64",
+            "ios-sim-arm64"
+          ],
+          "evidence": "MoltenVK/SPIRV-Tools 构建期头文件"
+        }
+      ]
+    },
+    {
+      "name": "volk",
+      "version": "776893306c5d3b22b6185b5d4a258b81d94572bf",
+      "sha256": "ff5b63e1b7104b34955eb4a993b94882a55f8561e971b92119069e496e3496b5",
+      "url": "https://github.com/zeux/volk/archive/776893306c5d3b22b6185b5d4a258b81d94572bf.tar.gz",
+      "archive": "lux/.build/deps/src/776893306c5d3b22b6185b5d4a258b81d94572bf.tar.gz",
+      "archive_sha256": "ff5b63e1b7104b34955eb4a993b94882a55f8561e971b92119069e496e3496b5",
+      "sha256_verified": true,
+      "license": "MIT",
+      "license_status": "identified",
+      "license_notes": "LICENSE.md 为 MIT。",
+      "license_files": [
+        "licenses/volk/LICENSE.md"
+      ],
+      "license_source_files": [
+        "LICENSE.md"
+      ],
+      "license_terms_detected": [
+        "MIT"
+      ],
+      "gpl_or_nonfree_terms": false,
+      "linkage": [
+        {
+          "kind": "build-time",
+          "into": [
+            "Libplacebo"
+          ],
+          "targets": [
+            "macos-arm64",
+            "ios-arm64",
+            "ios-sim-arm64"
+          ],
+          "evidence": "MoltenVK 构建期 Vulkan 加载器源码/头文件"
+        }
+      ]
+    },
+    {
+      "name": "cereal",
+      "version": "a56bad8bbb770ee266e930c95d37fff2a5be7fea",
+      "sha256": "12e10fb541270632f6683286ce8c7e8c321fe4addb53fa91ed498b95c1758f93",
+      "url": "https://github.com/USCiLab/cereal/archive/a56bad8bbb770ee266e930c95d37fff2a5be7fea.tar.gz",
+      "archive": "lux/.build/deps/src/a56bad8bbb770ee266e930c95d37fff2a5be7fea.tar.gz",
+      "archive_sha256": "12e10fb541270632f6683286ce8c7e8c321fe4addb53fa91ed498b95c1758f93",
+      "sha256_verified": true,
+      "license": "BSD-3-Clause(含 zlib 许可的 external 组件)",
+      "license_status": "identified",
+      "license_notes": "LICENSE 为 BSD-3-Clause;include/cereal/external/LICENSE 为 zlib 风格许可。",
+      "license_files": [
+        "licenses/cereal/LICENSE",
+        "licenses/cereal/include/cereal/external/LICENSE"
+      ],
+      "license_source_files": [
+        "LICENSE",
+        "include/cereal/external/LICENSE"
+      ],
+      "license_terms_detected": [
+        "Zlib",
+        "BSD-3-Clause"
+      ],
+      "gpl_or_nonfree_terms": false,
+      "linkage": [
+        {
+          "kind": "build-time",
+          "into": [
+            "Libplacebo"
+          ],
+          "targets": [
+            "macos-arm64",
+            "ios-arm64",
+            "ios-sim-arm64"
+          ],
+          "evidence": "MoltenVK 构建期头文件"
+        }
+      ]
+    },
+    {
+      "name": "fast_float",
+      "version": "8.0.2",
+      "sha256": "e14a33089712b681d74d94e2a11362643bd7d769ae8f7e7caefe955f57f7eacd",
+      "url": "https://github.com/fastfloat/fast_float/archive/refs/tags/v8.0.2.tar.gz",
+      "archive": "lux/.build/deps/src/v8.0.2.tar.gz",
+      "archive_sha256": "e14a33089712b681d74d94e2a11362643bd7d769ae8f7e7caefe955f57f7eacd",
+      "sha256_verified": true,
+      "license": "MIT 或 Apache-2.0 或 BSL-1.0(三选一,待法务确认)",
+      "license_status": "needs-legal-review",
+      "license_notes": "LICENSE-APACHE、LICENSE-MIT、LICENSE-BOOST 三份并存;适用选择待法务确认。",
+      "license_files": [
+        "licenses/fast_float/LICENSE-APACHE",
+        "licenses/fast_float/LICENSE-BOOST",
+        "licenses/fast_float/LICENSE-MIT"
+      ],
+      "license_source_files": [
+        "LICENSE-APACHE",
+        "LICENSE-BOOST",
+        "LICENSE-MIT"
+      ],
+      "license_terms_detected": [
+        "Apache-2.0",
+        "MIT",
+        "BSL-1.0"
+      ],
+      "gpl_or_nonfree_terms": false,
+      "linkage": [
+        {
+          "kind": "header-only",
+          "into": [
+            "Libplacebo"
+          ],
+          "targets": [
+            "macos-arm64",
+            "ios-arm64",
+            "ios-sim-arm64"
+          ],
+          "evidence": "libplacebo 构建期头文件"
+        }
+      ]
+    }
+  ],
+  "missing": [],
+  "anomalies": [
+    {
+      "kind": "artifact-license-version3",
+      "name": "ffmpeg:ios-arm64",
+      "detail": "该切片产物记录为 LGPL-3.0-or-later,当前配置未写生效的 --enable-version3;待法务确认"
+    },
+    {
+      "kind": "artifact-license-version3",
+      "name": "ffmpeg:ios-sim-arm64",
+      "detail": "该切片产物记录为 LGPL-3.0-or-later,当前配置未写生效的 --enable-version3;待法务确认"
+    }
+  ],
+  "review_items": [
+    {
+      "component": "Libmpv",
+      "license": "待法务确认",
+      "status": "needs-legal-review",
+      "note": "静态并入含 GPL 文本/选项的组件:freetype"
+    },
+    {
+      "component": "Libplacebo",
+      "license": "LGPL-2.1-or-later",
+      "status": "needs-legal-review",
+      "note": "静态并入含 GPL 文本/选项的组件:glslang"
+    },
+    {
+      "component": "freetype",
+      "license": "FTL 或 GPL-2.0(二选一,待法务确认)",
+      "status": "needs-legal-review",
+      "note": "源码 LICENSE.TXT 明示 FTL 与 GPL-2.0 二选一;docs/FTL.TXT 与 docs/GPLv2.TXT 均已复制。"
+    },
+    {
+      "component": "uchardet",
+      "license": "MPL-1.1 或 GPL-2.0-or-later 或 LGPL-2.1-or-later(待法务确认)",
+      "status": "needs-legal-review",
+      "note": "COPYING 同时含 MPL-1.1、GPL-2.0、LGPL-2.1 文本;README 明示三选一;lux/build/build-deps.sh 注释写作 LGPL-2.1+,与源码表述不一致。"
+    },
+    {
+      "component": "mpv",
+      "license": "待法务确认",
+      "status": "needs-legal-review",
+      "note": "Copyright 明示默认 GPL-2.0+;构建使用 -Dgpl=false;同一文件说明该开关本身不构成 LGPL 授权。"
+    },
+    {
+      "component": "glslang",
+      "license": "BSD-3-Clause / BSD-2-Clause / MIT / Apache-2.0 / GPL-3.0-with-bison-exception(按文件,待法务确认)",
+      "status": "needs-legal-review",
+      "note": "LICENSE.txt 按文件列出 3-Clause BSD、2-Clause BSD、MIT、Apache-2.0,并含 “GPL 3 with special bison exception” 一节;未逐文件核对适用范围。"
+    },
+    {
+      "component": "spirv-headers",
+      "license": "MIT(部分文档 CC-BY-4.0,待法务确认)",
+      "status": "needs-legal-review",
+      "note": "LICENSE 按文件列出 MIT;tools/jsoncpp 为 MIT;部分 .md 文档为 CC-BY-4.0。"
+    },
+    {
+      "component": "spirv-cross",
+      "license": "Apache-2.0(部分文件 MIT / Khronos Free Use / CC-BY-4.0,待法务确认)",
+      "status": "needs-legal-review",
+      "note": "LICENSE 为 Apache-2.0;LICENSES/ 另有 MIT、Khronos Free Use 与 CC-BY-4.0 文本。"
+    },
+    {
+      "component": "spirv-headers-mvk",
+      "license": "MIT(部分文件 Apache-2.0 / 文档 CC-BY-4.0,待法务确认)",
+      "status": "needs-legal-review",
+      "note": "LICENSE 按文件列出 MIT;LICENSES/ 另有 Apache-2.0;部分文档为 CC-BY-4.0。"
+    },
+    {
+      "component": "fast_float",
+      "license": "MIT 或 Apache-2.0 或 BSL-1.0(三选一,待法务确认)",
+      "status": "needs-legal-review",
+      "note": "LICENSE-APACHE、LICENSE-MIT、LICENSE-BOOST 三份并存;适用选择待法务确认。"
+    },
+    {
+      "component": "ffmpeg",
+      "license": "按切片不同:macos-arm64=LGPL-2.1-or-later;ios-arm64=LGPL-3.0-or-later;ios-sim-arm64=LGPL-3.0-or-later(待法务确认)",
+      "status": "needs-legal-review",
+      "note": "各切片产物记录的许可不一致或启用了 version3;见 ffmpeg.targets。"
+    },
+    {
+      "component": "ffmpeg:ios-arm64",
+      "license": "LGPL-3.0-or-later",
+      "status": "needs-legal-review",
+      "note": "产物启用了 --enable-version3 / CONFIG_VERSION3=1;当前配置文件未写生效的 --enable-version3 行。"
+    },
+    {
+      "component": "ffmpeg:ios-sim-arm64",
+      "license": "LGPL-3.0-or-later",
+      "status": "needs-legal-review",
+      "note": "产物启用了 --enable-version3 / CONFIG_VERSION3=1;当前配置文件未写生效的 --enable-version3 行。"
+    }
+  ],
+  "gpl_nonfree_marker": "⚠ GPL/nonfree 需复核"
+}
