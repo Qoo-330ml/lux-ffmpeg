@@ -73,10 +73,21 @@
 | `rtp_parse_set_dynamic` protocol | 当前版本不可用 | 这不是 FFmpeg 8.1.3 的 protocol 名(MPVKit 符号表里的内部/派生名);RTP 由 `rtp` 协议覆盖。 |
 | `init_cabac` `init_range` `vpx_init_range` decoder | 当前版本不可用 | 它们是 MPVKit 符号表里的初始化辅助符号,不是 8.1.3 可启用的 decoder;对应能力由 H.264/VP8/VP9 解码器本身提供。 |
 
-### 本轮新增后的 parser 与 decoder
+### a) 本步新增:parser
 
-parser/decoder 的逐项理由见下文 D4 小节;两者按同一 a/b/c 口径处理。`mlp` parser、`webp` parser 虽不在
-MPVKit 符号表,但已在 FFmpeg 中存在;`truehd` 会自动 select `mlp` parser,`webp` 会自动 select `vp8` decoder。
+下表每个名字都是一个独立启用的 parser。`dvd_nav` 是唯一未加入的基线 parser(见 c 类)。
+
+| 组件 | 理由 |
+| --- | --- |
+| `av1` `avs2` `avs3` `cavsvideo` `dirac` `dnxhd` `dnxuc` `evc` `ffv1` `h261` `h263` `hdr` `ipu` `jpeg2000` `jpegxl` `jpegxs` `lcevc` `mjpeg` `mpeg4video` `mpegvideo` `prores` `prores_raw` `rv34` `vc1` `vp3` `vp8` `vp9` `vvc` `webp` | 视频 elementary stream 的帧边界/参数解析,用于 MPV 对 MPEG-4/VC-1/RV/ProRes/AV1/VP8/VP9/VVC/图像序列等格式的探测与解码。 |
+| `apv` `bmp` `gif` `png` `pnm` `qoi` `xbm` `xwd` | 图像/封面类 parser;用于附件和图像 demuxer 的 codecpar 探测。 |
+| `cri` `dpx` `dvaudio` | MPVKit 基线中的专业/广播格式 parser;FFmpeg 原生,保留基线覆盖。 |
+| `aac_latm` `adx` `amr` `cook` `dca` `dolby_e` `flac` `ftr` `g723_1` `g729` `gsm` `mlp` `mpegaudio` `sbc` `sipr` `tak` `xma` | 音频帧边界与 codecpar 解析。`mlp` 由 `truehd` 自动 select,也是 MPVKit 符号表未列出但本仓库确认存在的 parser。 |
+| `dvbsub` `dvdsub` `misc4` | 字幕/辅助流 parser;保留 MPVKit 的 DVB/DVD 字幕能力,但不启用 DVD 导航解析。 |
+
+### decoder
+
+decoder 的逐项理由见下一个 D4 提交;`mlp` 与 `webp` 两个 decoder 已在 P1 原白名单中,本步不为它们重复登记。
 
 ---
 
