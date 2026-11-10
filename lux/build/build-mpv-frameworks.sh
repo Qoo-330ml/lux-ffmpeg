@@ -1,22 +1,24 @@
 #!/usr/bin/env bash
 #
-# lux/build/build-mpv-frameworks.sh — P2 第2步:把动态 libmpv 及其非系统依赖打包成 macOS framework
+# lux/build/build-mpv-frameworks.sh — P2 第2/3步:把动态 libmpv 及其非系统依赖打包成 framework
 #
-#   ./lux/build/build-mpv-frameworks.sh macos-arm64   # 打包 + 自检
-#   ./lux/build/build-mpv-frameworks.sh verify        # 只复检已有产物(不改文件)
-#   ./lux/build/build-mpv-frameworks.sh clean         # 删掉 lux/.build/mpv-frameworks
+#   ./lux/build/build-mpv-frameworks.sh macos-arm64     # 打包 + 自检
+#   ./lux/build/build-mpv-frameworks.sh ios-arm64       # 同上(iOS device 切片)
+#   ./lux/build/build-mpv-frameworks.sh ios-sim-arm64   # 同上(iOS simulator 切片)
+#   ./lux/build/build-mpv-frameworks.sh verify [target] # 只复检已有产物(不改文件);target=all 时逐个查
+#   ./lux/build/build-mpv-frameworks.sh clean           # 删掉 lux/.build/mpv-frameworks
 #
-# 输入(已有产物,不重建;缺失时才调用 build-mpv.sh):
-#   lux/.build/deps/macos-arm64/install/lib/libmpv.<ver>.dylib
-#   lux/.build/deps/macos-arm64/install/lib/libplacebo.<ver>.dylib
-#   lux/.build/deps/macos-arm64/install/lib/libfribidi.<ver>.dylib
-#   lux/.build/deps/macos-arm64/install/lib/libuchardet.<ver>.dylib
+# 输入(已有产物,不重建;缺失时才调用 build-mpv.sh <target>):
+#   lux/.build/deps/<target>/install/lib/libmpv.<ver>.dylib
+#   lux/.build/deps/<target>/install/lib/libplacebo.<ver>.dylib
+#   lux/.build/deps/<target>/install/lib/libfribidi.<ver>.dylib
+#   lux/.build/deps/<target>/install/lib/libuchardet.<ver>.dylib
 #
 # 输出:
-#   lux/.build/mpv-frameworks/macos-arm64/Libmpv.framework
-#   lux/.build/mpv-frameworks/macos-arm64/Libplacebo.framework
-#   lux/.build/mpv-frameworks/macos-arm64/Libfribidi.framework
-#   lux/.build/mpv-frameworks/macos-arm64/Libuchardet.framework
+#   lux/.build/mpv-frameworks/<target>/Libmpv.framework
+#   lux/.build/mpv-frameworks/<target>/Libplacebo.framework
+#   lux/.build/mpv-frameworks/<target>/Libfribidi.framework
+#   lux/.build/mpv-frameworks/<target>/Libuchardet.framework
 #
 # 规则:
 #   * 四个 framework 的 LC_ID_DYLIB 都是 @rpath/<Name>.framework/<Name>;
@@ -24,23 +26,57 @@
 #   * /usr/lib 与 /System 下的系统库原样保留;
 #   * 其它任何依赖都必须是 @rpath/<Name>.framework/<Name>,否则脚本失败。
 #
-# 只处理 macos-arm64;iOS 切片等有对应 dylib 后再扩展。
+# 目标:macos-arm64 / ios-arm64 / ios-sim-arm64。三个切片的规则完全相同,只有
+# 依赖前缀、Info.plist 平台字段与最低系统版本按目标切换:
+#   * MinimumOSVersion 与 F1 的切片一致(macos 14.0 / iOS 17.0,见 lux/config/ffmpeg-ios.conf);
+#   * iOS device 为 iPhoneOS/iphoneos,simulator 为 iPhoneSimulator/iphonesimulator。
 #
 set -euo pipefail
 
 HERE=$(cd "$(dirname "$0")" && pwd)
 LUX=$(cd "$HERE/.." && pwd)
 BUILD_ROOT="$LUX/.build"
-DEPS_INSTALL="$BUILD_ROOT/deps/macos-arm64/install"
-LIBDIR="$DEPS_INSTALL/lib"
-INCDIR="$DEPS_INSTALL/include"
 OUT_ROOT="$BUILD_ROOT/mpv-frameworks"
-SLICE="$OUT_ROOT/macos-arm64"
 LOGDIR="$BUILD_ROOT/logs"
+
+TARGETS="macos-arm64 ios-arm64 ios-sim-arm64"
 
 MPV_FRAMEWORKS="Libmpv Libplacebo Libfribidi Libuchardet"
 BUNDLE_ID_PREFIX="${LUX_MPV_BUNDLE_ID_PREFIX:-dev.lux.mpv}"
-MIN_OS="14.0"
+
+# 目标相关变量。TARGET/DEPS_INSTALL/LIBDIR/INCDIR/SLICE/MIN_OS/PLIST_*/BUILD_PLATFORM
+# 全部由 set_target 设置,避免在函数里散落 target 判断。
+set_target() {
+    case "$1" in
+        macos-arm64)
+            MIN_OS="14.0"
+            PLIST_PLATFORM="MacOSX"
+            PLIST_SDK="macosx"
+            BUILD_PLATFORM="MACOS"
+            ;;
+        ios-arm64)
+            MIN_OS="17.0"
+            PLIST_PLATFORM="iPhoneOS"
+            PLIST_SDK="iphoneos"
+            BUILD_PLATFORM="IOS"
+            ;;
+        ios-sim-arm64)
+            MIN_OS="17.0"
+            PLIST_PLATFORM="iPhoneSimulator"
+            PLIST_SDK="iphonesimulator"
+            BUILD_PLATFORM="IOSSIMULATOR"
+            ;;
+        *)
+            return 1
+            ;;
+    esac
+    TARGET="$1"
+    DEPS_INSTALL="$BUILD_ROOT/deps/$TARGET/install"
+    LIBDIR="$DEPS_INSTALL/lib"
+    INCDIR="$DEPS_INSTALL/include"
+    SLICE="$OUT_ROOT/$TARGET"
+    return 0
+}
 
 die() { printf 'error: %s\n' "$*" >&2; exit 1; }
 log() { printf '[mpv-frameworks] %s\n' "$*"; }
@@ -49,7 +85,7 @@ pass() { printf '  [ok]   %s\n' "$*"; }
 fail() { printf '  [FAIL] %s\n' "$*"; FAILS=$((FAILS + 1)); }
 
 usage() {
-    die "usage: $0 <macos-arm64|verify|clean>"
+    die "usage: $0 <macos-arm64|ios-arm64|ios-sim-arm64|verify [target|all]|clean>"
 }
 
 fw_stem() { # framework -> dylib 名字前缀(不含版本与 .dylib)
@@ -175,14 +211,14 @@ write_info_plist() { # $1 = framework, $2 = version, $3 = output
     <string>$version</string>
     <key>CFBundleSupportedPlatforms</key>
     <array>
-        <string>MacOSX</string>
+        <string>$PLIST_PLATFORM</string>
     </array>
     <key>MinimumOSVersion</key>
     <string>$MIN_OS</string>
     <key>DTPlatformName</key>
-    <string>macosx</string>
+    <string>$PLIST_SDK</string>
     <key>DTSDKName</key>
-    <string>macosx</string>
+    <string>$PLIST_SDK</string>
 </dict>
 </plist>
 PLIST
@@ -233,8 +269,8 @@ package_slice() {
 
     # libmpv 缺失才重建;已有产物直接复用。
     if ! dylib_for libmpv >/dev/null; then
-        log "libmpv 产物缺失,调用 build-mpv.sh macos-arm64"
-        "$LUX/build/build-mpv.sh" macos-arm64
+        log "libmpv 产物缺失,调用 build-mpv.sh $TARGET"
+        "$LUX/build/build-mpv.sh" "$TARGET"
     fi
 
     mkdir -p "$LOGDIR"
@@ -262,11 +298,11 @@ package_slice() {
     for fw in $MPV_FRAMEWORKS; do
         fr="$SLICE/$fw.framework"
         codesign --force --sign - --timestamp=none "$fr" \
-            > "$LOGDIR/p2-2-codesign-$fw.log" 2>&1 || die "codesign failed for $fw"
+            > "$LOGDIR/p2-2-codesign-$TARGET-$fw.log" 2>&1 || die "codesign failed for $fw"
     done
 
     {
-        printf 'target=macos-arm64\n'
+        printf 'target=%s\n' "$TARGET"
         printf 'built_at=%s\n' "$(date -u '+%Y-%m-%dT%H:%M:%SZ')"
         printf 'source_libmpv=%s\n' "$(dylib_for libmpv)"
         for fw in $MPV_FRAMEWORKS; do
@@ -278,11 +314,11 @@ package_slice() {
 }
 
 verify_slice() {
-    local fw fr bin dep id deps bad vtool_out platform minos ass_count hits
+    local fw fr bin dep id deps bad vtool_out platform minos ass_count hits plist_platform plist_minos
     FAILS=0
 
     hdr "verify: $SLICE"
-    [ -d "$SLICE" ] || { fail "$SLICE 不存在 — 先运行 $0 macos-arm64"; return 1; }
+    [ -d "$SLICE" ] || { fail "$SLICE 不存在 — 先运行 $0 $TARGET"; return 1; }
 
     for fw in $MPV_FRAMEWORKS; do
         fr="$SLICE/$fw.framework"
@@ -331,14 +367,21 @@ verify_slice() {
         vtool_out=$(vtool -show-build "$bin" 2>/dev/null)
         platform=$(printf '%s\n' "$vtool_out" | awk '/platform/ {print $2; exit}')
         minos=$(printf '%s\n' "$vtool_out" | awk '/minos/ {print $2; exit}')
-        if [ "$platform" = "MACOS" ] && [ "$minos" = "$MIN_OS" ]; then
+        if [ "$platform" = "$BUILD_PLATFORM" ] && [ "$minos" = "$MIN_OS" ]; then
             pass "platform=$platform minos=$minos"
         else
-            fail "platform=$platform minos=$minos (期望 MACOS $MIN_OS)"
+            fail "platform=$platform minos=$minos (期望 $BUILD_PLATFORM $MIN_OS)"
         fi
 
         if [ -f "$fr/Info.plist" ] && plutil -lint "$fr/Info.plist" >/dev/null 2>&1; then
             pass "Info.plist 可解析"
+            plist_platform=$(plutil -extract CFBundleSupportedPlatforms.0 raw -o - "$fr/Info.plist" 2>/dev/null || true)
+            plist_minos=$(plutil -extract MinimumOSVersion raw -o - "$fr/Info.plist" 2>/dev/null || true)
+            if [ "$plist_platform" = "$PLIST_PLATFORM" ] && [ "$plist_minos" = "$MIN_OS" ]; then
+                pass "Info.plist CFBundleSupportedPlatforms=$plist_platform MinimumOSVersion=$plist_minos"
+            else
+                fail "Info.plist 平台 '${plist_platform:-<none>}' / MinimumOSVersion '${plist_minos:-<none>}' (期望 $PLIST_PLATFORM / $MIN_OS)"
+            fi
         else
             fail "Info.plist 缺失或不可解析"
         fi
@@ -380,9 +423,9 @@ main() {
     # 外层为了取 PIPESTATUS 用了 set +e;这里必须恢复,否则 cp/install_name_tool
     # 的失败会被 tee 吞掉,脚本会带着半成品“通过”。
     set -euo pipefail
-    local mode=${1:-macos-arm64} fw before after
+    local mode=${1:-macos-arm64} verify_target=${2:-macos-arm64} fw before after rc t
     case "$mode" in
-        macos-arm64|verify|clean) ;;
+        macos-arm64|ios-arm64|ios-sim-arm64|verify|clean) ;;
         *) usage ;;
     esac
 
@@ -395,14 +438,29 @@ main() {
     fi
 
     if [ "$mode" = verify ]; then
+        # verify 默认只查 macos-arm64(与第2步一致);verify all 逐个查已有切片。
+        if [ "$verify_target" = all ]; then
+            rc=0
+            for t in $TARGETS; do
+                if [ ! -d "$OUT_ROOT/$t" ]; then
+                    log "skip $t(没有产物)"
+                    continue
+                fi
+                set_target "$t" || die "unknown target: $t"
+                verify_slice || rc=1
+            done
+            return $rc
+        fi
+        set_target "$verify_target" || usage
         verify_slice
         return $?
     fi
 
+    set_target "$mode" || usage
     [ -d "$LIBDIR" ] || die "缺少依赖目录: $LIBDIR"
 
-    before="$LOGDIR/p2-2-install-names-before.log"
-    after="$LOGDIR/p2-2-install-names-after.log"
+    before="$LOGDIR/p2-2-install-names-$TARGET-before.log"
+    after="$LOGDIR/p2-2-install-names-$TARGET-after.log"
 
     hdr "before: source dylibs"
     {
@@ -424,9 +482,9 @@ main() {
 # 所有输出同时进日志;main 在管道里跑,所以显式取 PIPESTATUS[0] 作为退出码。
 stamp=$(date '+%Y%m%d-%H%M%S')
 case "${1:-macos-arm64}" in
-    verify) logfile="$LOGDIR/p2-2-verify-macos-arm64-$stamp.log" ;;
+    verify) logfile="$LOGDIR/p2-2-verify-${2:-macos-arm64}-$stamp.log" ;;
     clean)  logfile="$LOGDIR/p2-2-clean-$stamp.log" ;;
-    *)      logfile="$LOGDIR/p2-2-package-macos-arm64-$stamp.log" ;;
+    *)      logfile="$LOGDIR/p2-2-package-${1:-macos-arm64}-$stamp.log" ;;
 esac
 mkdir -p "$LOGDIR"
 

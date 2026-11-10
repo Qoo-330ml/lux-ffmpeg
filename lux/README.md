@@ -699,17 +699,21 @@ done
   URL 只从环境变量 `LUX_TEST_HTTPS_URL` 读取,不写入仓库。实测:协议表 https/http/tls/tcp/file 均存在;
   经 SecureTransport 打开一个公开 https 文件并读取 1810 字节,返回 PASS。
 
-## 14. P2-2 libmpv framework 化(macOS 切片,2026-11-10)
+## 14. P2-2 / P2-3 libmpv framework 化(macOS + iOS 切片,2026-11-10)
 
 - 脚本:`./lux/build/build-mpv-frameworks.sh macos-arm64` 复用
   `lux/.build/deps/macos-arm64/install/lib` 里已有的 libmpv 0.41.0 产物,不重新编译;
   libmpv 缺失时才调用 `build-mpv.sh`。
 - 产物:`lux/.build/mpv-frameworks/macos-arm64/{Libmpv,Libplacebo,Libfribidi,Libuchardet}.framework`。
+- iOS 切片(P2-3):`./lux/build/build-mpv-frameworks.sh ios-arm64|ios-sim-arm64` 输出到
+  `lux/.build/mpv-frameworks/<target>/`,规则与 macOS 相同;Info.plist 为 `iPhoneOS`/`iphoneos`
+  (模拟器 `iPhoneSimulator`/`iphonesimulator`),`MinimumOSVersion` 17.0(与 F1 切片一致)。
 - 规则:四个 framework 的 install name 都是 `@rpath/<Name>.framework/<Name>`;Libmpv 的
   libfribidi / libplacebo 绝对路径依赖,以及 `@rpath/libuchardet.0.dylib`,都改成
   `@rpath/<Name>.framework/<Name>`;6 个 `@rpath/Libav*.framework` 与系统库原样保留。
-- 校验:`./lux/build/build-mpv-frameworks.sh verify` 检查 install name、非系统依赖、
+- 校验:`./lux/build/build-mpv-frameworks.sh verify [target]` 检查 install name、非系统依赖、
   绝对路径残留、`ass_*` 导出符号、platform/minos、Info.plist 与 ad-hoc 签名;失败非零。
+  `verify` 默认查 macos-arm64,`verify all` 逐个查已有切片。
 - 说明:Libplacebo / Libfribidi 保留 Headers,但没有生成 module map(两者的头文件
   自引用方式不适合 framework 的 `-F` 搜索);Libmpv / Libuchardet 的 module map 已用
-  `clang -fmodules` 验证。iOS 切片尚未做。
+  `clang -fmodules` 验证。
