@@ -115,8 +115,8 @@ verify_target() {
 
     # ---------------------------------------------------------------- 2. 许可开关
     local check
-    for check in "CONFIG_GPL 0" "CONFIG_NONFREE 0" "CONFIG_VERSION3 1" \
-                 "CONFIG_LGPLV3 1" "CONFIG_AVFILTER 1" "CONFIG_SWSCALE 1" \
+    for check in "CONFIG_GPL 0" "CONFIG_NONFREE 0" "CONFIG_VERSION3 0" \
+                 "CONFIG_LGPLV3 0" "CONFIG_AVFILTER 1" "CONFIG_SWSCALE 1" \
                  "CONFIG_AVDEVICE 0" "CONFIG_NETWORK 1" "CONFIG_SECURETRANSPORT 1"; do
         local name=${check% *} want=${check#* }
         if grep -qE "^#define $name ${want}$" "$build/config.h"; then
@@ -131,7 +131,7 @@ verify_target() {
     local license_line=""
     [ -f "$cfg_log" ] && license_line=$(grep -m1 '^License:' "$cfg_log")
     case "$license_line" in
-        "License: LGPL version 3 or later") pass "configure: $license_line" ;;
+        "License: LGPL version 2.1 or later") pass "configure: $license_line" ;;
         "") fail "找不到 $cfg_log 里的 License: 行" ;;
         *)  fail "configure: 意外的许可行 '$license_line'" ;;
     esac
@@ -182,10 +182,10 @@ EOF
                       grep -iE 'license:.*(lgpl|gpl|nonfree)' | sort -u)
         lic_lower=$(printf '%s\n' "$lic_strings" | tr 'A-Z' 'a-z')
         case "$lic_lower" in
-            *"license: lgpl version 3 or later"*)
+            *"license: lgpl version 2.1 or later"*)
                 pass "libavutil.a 内嵌许可标识: $(printf '%s' "$lic_strings" | tr '\n' '|')" ;;
             *)
-                fail "libavutil.a 内找不到 LGPL 3 许可标识(实际: $(printf '%s' "$lic_strings" | tr '\n' '|'))" ;;
+                fail "libavutil.a 内找不到 LGPL 2.1 许可标识(实际: $(printf '%s' "$lic_strings" | tr '\n' '|'))" ;;
         esac
         if printf '%s\n' "$lic_lower" | grep -qE 'license: *(gpl|nonfree)'; then
             fail "libavutil.a 内嵌了非 LGPL 的许可标识: $(printf '%s' "$lic_strings" | tr '\n' '|')"
