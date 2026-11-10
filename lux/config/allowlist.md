@@ -20,8 +20,9 @@
 - **b) 需要外部库**:留到 D4 后续步骤,逐条登记在本节 b) 表。
 - **c) 有意不要 / 当前版本不可用**:不加,保留理由与替代路径。
 
-最终计数(dav1d 纳入后):demuxer 40、protocol 36、bsf 49、parser 66、decoder 198;相对 P1 起点
-分别新增 37、31、42、60、181,合计 351 个组件(dav1d 见「外部依赖:dav1d」一节)。P1 第 5 步再加入 38 个原生滤镜,`LUX_FILTERS`
+最终计数(dav1d / zlib / OpenSSL 纳入后):demuxer 40、protocol 35、bsf 49、parser 66、decoder 199;相对 P1 起点
+分别新增 37、30、42、60、182,合计 351 个组件(dav1d / zlib / OpenSSL 见「外部依赖」一节;
+protocol 比上一版少 1:新增 `dtls`/`ffrtmpcrypt`,移除 `ffrtmphttp`/`rtmpt`/`rtmpts`)。P1 第 5 步再加入 38 个原生滤镜,`LUX_FILTERS`
 到 45 项(见「滤镜(P1 第5步)」)。`ffmpeg-ios.conf` 是唯一真相,本文件的表格是逐项理由。
 
 `mlp` 与 `webp` 不在 MPVKit 的导出符号里,但它们**确实存在**于 FFmpeg 8.1.3:
@@ -43,8 +44,8 @@ P1 白名单里,因此不是 D4 新增项,也不属于 MPVKit 缺口。
 
 | 组件 | 理由 |
 | --- | --- |
-| `async` `cache` `concat` `concatf` `crypto` `data` `fd` `ffrtmphttp` `md5` `pipe` `subfile` `tee` | 本地/组合/缓存协议,供播放列表、分片与 MPV 播放链使用。`crypto` 是 FFmpeg 内建 AES,不引入 OpenSSL。 |
-| `ftp` `gopher` `gophers` `httpproxy` `icecast` `ipfs_gateway` `ipns_gateway` `mmsh` `mmst` `rtmp` `rtmps` `rtmpt` `rtmpts` `rtp` `srtp` `udp` `udplite` `unix` `prompeg` | MPVKit 基线的网络协议集合。除已列在 b 类的加密/DTLS 项外,均由 FFmpeg 原生实现;TLS 继续走 SecureTransport。 |
+| `async` `cache` `concat` `concatf` `crypto` `data` `fd` `md5` `pipe` `subfile` `tee` | 本地/组合/缓存协议,供播放列表、分片与 MPV 播放链使用。`crypto` 是 FFmpeg 内建 AES,不依赖 OpenSSL。 |
+| `ftp` `gopher` `gophers` `httpproxy` `icecast` `ipfs_gateway` `ipns_gateway` `mmsh` `mmst` `rtmp` `rtmps` `rtp` `srtp` `udp` `udplite` `unix` `prompeg` | MPVKit 基线的网络协议集合。除 `dtls`/`ffrtmpcrypt`(依赖 OpenSSL,已纳入,见「外部依赖」)外,均由 FFmpeg 原生实现;TLS 走 OpenSSL 3.5 LTS。`rtmpt`/`rtmpts` 因强制 select `ffrtmphttp` 而一并移除(见 c 类)。 |
 
 ### a) 本步新增:bitstream filter
 
@@ -108,22 +109,52 @@ P1 白名单里,因此不是 D4 新增项,也不属于 MPVKit 缺口。
   都要在 `libavcodec.a` 之后追加 `lux/.build/deps/<target>/install/lib/libdav1d.a`
   (`lux/test/run.sh` 已按此修改);动态 framework 构建时由 configure 的 EXTRALIBS 自动带上。
 
-### b) 需要外部库,留待 D4 后续步骤
+### a) 本步新增:外部依赖 zlib 与 OpenSSL(2026-11-10 b 类转 a 类)
 
-| 组件 | 外部依赖 / 原因 | 后续处理 |
+D3(TLS 后端)与 D4 b 类收口一起决定:纳入 `tscc`(zlib)、`ffrtmpcrypt` 与 `dtls`(OpenSSL)。
+两者都不改变 LGPL-2.1+ 结论;OpenSSL 3.x 的 version3 断言只在 GPL 构建里触发,本构建 `CONFIG_GPL=0`。
+
+| 项 | zlib | OpenSSL |
 | --- | --- | --- |
-| `dash` demuxer | `configure:3868` 要求 `libxml2` | 后续单独评估 libxml2(连同许可/体积)。 |
-| `libuavs3d` decoder | `configure:3820` 要求 `libuavs3d` | 需要外部 AVS3 解码库,单独评估。 |
-| `tscc` decoder | `configure:3290` select `inflate_wrapper`,后者 `deps="zlib"` | 当前 `--disable-zlib`;需与 zlib 一起评估。它虽然出现在 `--list-decoders`,实际 configure 会因依赖不满足而关闭。 |
-| `ffrtmpcrypt` protocol | `configure:4017` 要求 `gcrypt`/`gmp`/`openssl`/`mbedtls` 之一 | 与 RTMP 加密一起后续评估。 |
-| `rtmpe` protocol | select `ffrtmpcrypt` | 依赖上一项;本轮不开。 |
-| `rtmpte` protocol | select `ffrtmpcrypt` + `ffrtmphttp` | 依赖上一项;本轮不开。 |
-| `dtls` protocol | `configure:4057` 要求 OpenSSL/SChannel/GnuTLS/mbedTLS | 与 D3 TLS 方案一起评估。 |
+| 用途 | `tscc` decoder 的 `inflate_wrapper` | `tls`/`https`/`dtls`/`ffrtmpcrypt` 的加密后端 |
+| 版本 | **1.3.2**(1.3 分支末版,2026-02-17) | **3.5.9**(3.5 LTS,2026-09-29,EOL 2030-04-08) |
+| 许可 | zlib 许可(非 copyleft) | Apache-2.0 |
+| 来源 | `https://zlib.net/fossils/zlib-1.3.2.tar.gz` | `https://github.com/openssl/openssl/releases/download/openssl-3.5.9/openssl-3.5.9.tar.gz`(openssl.org 官方下载跳转) |
+| sha256 | `bb329a0a2cd0274d05519d61c667c062e06990d72e125ee2dfa8de64f0119d16` | `603f5602e2eef00d77fbd429d34dcd5822bb301757a1bc9cdb24c670f1eb859a` |
+| 校验 | 与上游 PGP 签名 `zlib-1.3.2.tar.gz.asc` 验签通过(签名者指纹 `5ED46A6721D365587791E2AA783FCD8E58BCAFBA`);zlib.net/fossils 与 GitHub release 资产逐字节一致 | 与 openssl.org 发布的 `openssl-3.5.9.tar.gz.sha256` 逐字一致 |
+| 形态 | 静态 `libz.a`(`--static`),装到 `lux/.build/deps/<target>/install` | 静态 `libssl.a`/`libcrypto.a`(`no-shared no-module`),同一前缀 |
+| 构建 | `build-deps.sh <target> zlib` | `build-deps.sh <target> openssl`;macOS `darwin64-arm64-cc`,iOS `ios64-xcrun`,模拟器 `iossimulator-xcrun` |
+| 许可文本 | `lux/release/licenses/zlib/LICENSE` | `lux/release/licenses/openssl/LICENSE.txt` |
+
+链接约定:`libavcodec.a`(tscc)与 `libavformat.a`(TLS/DTLS/ffrtmpcrypt)以及
+`libavutil.a`(OpenSSL 随机源 `RAND_bytes`)都静态引用这两个库;任何链接本构建静态库的程序
+都要在 FFmpeg 库之后追加 `-L lux/.build/deps/<target>/install/lib -lssl -lcrypto -lz`。
+`lux/test/run.sh` 的所有探针都按这个顺序链接。**不**把 OpenSSL/zlib 目标文件并进 FFmpeg 归档,
+避免符号重复与许可边界模糊。
+
+验证(2026-11-10):三切片 `libz.a`/`libssl.a`/`libcrypto.a` 均为单架构 arm64,平台/最低版本为
+MACOS 14.0 / IOS 17.0 / IOSSIMULATOR 17.0(`vtool -show-build`);`config.h` 的
+`CONFIG_GPL`/`CONFIG_NONFREE`/`CONFIG_VERSION3` 均为 0。
+
+### b) 需要外部库:已按所有者决定纳入(zlib / OpenSSL)
+
+| 组件 | 外部依赖 / 原因 | 处理 |
+| --- | --- | --- |
+| `tscc` decoder | `configure:3290` select `inflate_wrapper`,后者 `deps="zlib"` | **已纳入**:zlib 1.3.2,`--enable-zlib` + `--enable-decoder=tscc`;见「外部依赖:zlib」。 |
+| `ffrtmpcrypt` protocol | `configure:4017` 要求 `gcrypt`/`gmp`/`openssl`/`mbedtls` 之一 | **已纳入**:OpenSSL 3.5.9(Apache-2.0),不再引入 gcrypt/gmp。 |
+| `dtls` protocol | `configure:4057` 要求 OpenSSL/SChannel/GnuTLS/mbedTLS | **已纳入**:OpenSSL 3.5.9。 |
 
 ### c) 有意不要 / 当前版本不可用
 
 | 组件 | 类别 | 理由 |
 | --- | --- | --- |
+| `dash` demuxer | 有意不要 | 需要 libxml2(新依赖);当前无 DASH 片源需求。现有 HLS 与 `webm_dash_manifest` 不受影响。 |
+| `libuavs3d` decoder | 有意不要 | AVS3 片源场景窄;库许可需单独核对,不随本次引入。 |
+| `rtmpe` protocol | 有意不要 | Flash 时代的加密 RTMP,已淘汰;基础 `rtmp`/`rtmps`/`rtmpt`/`rtmpts` 仍保留。 |
+| `rtmpte` protocol | 有意不要 | 同上,且 select `ffrtmpcrypt` + `ffrtmphttp`。 |
+| `ffrtmphttp` protocol | 有意不要 | HTTP 隧道传输层;`rtmpe`/`rtmpte`/`rtmpt`/`rtmpts` 都会 select 它,本次一律不纳入。 |
+| `rtmpt` protocol | 有意不要 | `configure:4041` select `ffrtmphttp_protocol`;为满足「不启用 ffrtmphttp」一并移除。明文 RTMP(`rtmp`)与 TLS RTMP(`rtmps`)保留。 |
+| `rtmpts` protocol | 有意不要 | `configure:4045` select `ffrtmphttp_protocol` + `https_protocol`;同上。 |
 | `data` demuxer | 有意不要 | MPVKit 符号表里的调试/数据通道 demuxer,不对应正常媒体文件;正常文件由各容器 demuxer 处理。 |
 | `dvd_nav` parser | 有意不要 | DVD 导航解析不属于文件播放/MPVKit 的流媒体覆盖;保留 `dvdsub` 字幕解码,不引入 DVD 菜单路径。 |
 | `rdt` demuxer | 当前版本不可用 | FFmpeg 8.1.3 的 `configure --list-demuxers` 没有 `rdt`;无法用同名组件补齐。 |
@@ -151,8 +182,7 @@ P1 白名单里,因此不是 D4 新增项,也不属于 MPVKit 缺口。
 
 ### a) 本步新增:decoder
 
-本步新增 180 个 decoder;每个名字都在下面某一行的列表里独立启用。`libuavs3d` 与 `tscc` 是两个未加入的
-基线 decoder(见 b 类);`libdav1d` 已在 D4 后续步骤纳入(见「外部依赖:dav1d」);`init_cabac`/`init_range`/
+本步新增 180 个 decoder;每个名字都在下面某一行的列表里独立启用。`libuavs3d` 是未加入的基线 decoder(见 c 类);`tscc` 已随 zlib 纳入(见「外部依赖:zlib」);`libdav1d` 已在 D4 后续步骤纳入(见「外部依赖:dav1d」);`init_cabac`/`init_range`/
 `vpx_init_range` 不是 8.1.3 可启用的 decoder(见 c 类)。
 `mlp` 与 `webp` 已在 P1 原白名单中,故不重复列出。
 
@@ -162,7 +192,7 @@ P1 白名单里,因此不是 D4 新增项,也不属于 MPVKit 缺口。
 | `pcm_alaw` `pcm_bluray` `pcm_dvd` `pcm_f16le` `pcm_f24le` `pcm_f32be` `pcm_f32le` `pcm_f64be` `pcm_f64le` `pcm_lxf` `pcm_mulaw` `pcm_s16be` `pcm_s16be_planar` `pcm_s16le` `pcm_s16le_planar` `pcm_s24be` `pcm_s24daud` `pcm_s24le` `pcm_s24le_planar` `pcm_s32be` `pcm_s32le` `pcm_s32le_planar` `pcm_s64be` `pcm_s64le` `pcm_s8` `pcm_s8_planar` `pcm_sga` `pcm_u16be` `pcm_u16le` `pcm_u24be` `pcm_u24le` `pcm_u32be` `pcm_u32le` `pcm_u8` `pcm_vidc` | MPVKit 基线的 PCM 全格式覆盖,含 Blu-ray/DVD PCM、视频容器里的 PCM 与浮点 PCM。全部是 FFmpeg 原生实现。 |
 | `adpcm_4xm` `adpcm_adx` `adpcm_afc` `adpcm_agm` `adpcm_aica` `adpcm_argo` `adpcm_ct` `adpcm_dtk` `adpcm_ea` `adpcm_ea_maxis_xa` `adpcm_ea_r1` `adpcm_ea_r2` `adpcm_ea_r3` `adpcm_ea_xas` `adpcm_g722` `adpcm_g726` `adpcm_g726le` `adpcm_ima_acorn` `adpcm_ima_alp` `adpcm_ima_amv` `adpcm_ima_apc` `adpcm_ima_apm` `adpcm_ima_cunning` `adpcm_ima_dat4` `adpcm_ima_dk3` `adpcm_ima_dk4` `adpcm_ima_ea_eacs` `adpcm_ima_ea_sead` `adpcm_ima_iss` `adpcm_ima_moflex` `adpcm_ima_mtf` `adpcm_ima_oki` `adpcm_ima_qt` `adpcm_ima_rad` `adpcm_ima_smjpeg` `adpcm_ima_ssi` `adpcm_ima_wav` `adpcm_ima_ws` `adpcm_ima_xbox` `adpcm_ms` `adpcm_mtaf` `adpcm_psx` `adpcm_sanyo` `adpcm_sbpro_2` `adpcm_sbpro_3` `adpcm_sbpro_4` `adpcm_swf` `adpcm_thp` `adpcm_thp_le` `adpcm_vima` `adpcm_xa` `adpcm_xmd` `adpcm_yamaha` `adpcm_zork` | MPVKit 基线的游戏/相机/广播 ADPCM 族。主要出现在 AVI、MOV、MKV 的老片源与游戏录像;FFmpeg 原生,无外部库。 |
 | `mp1` `mp1float` `mp2` `mp2float` `mp3` `mp3adu` `mp3adufloat` `mp3float` `mp3on4` `mp3on4float` | MP1/MP2/MP3 及其浮点/ADU/MP3on4 变体。覆盖老旧音频与 MP4 中的 MP3 轨道。 |
-| `av1` `dxv` `ffv1` `ffvhuff` `flv` `h263` `h263i` `h263p` `hap` `huffyuv` `indeo5` `ipu` `media100` `mjpegb` `mpeg1video` `mpeg2video` `mpeg4` `mpegvideo` `msmpeg4v1` `msmpeg4v2` `msmpeg4v3` `mts2` `prores` `rv10` `rv20` `rv30` `rv40` `snow` `sonic` `svq3` `vc1` `vp6` `vp6a` `vp6f` `vp7` `vp8` `vp9` `wmv1` `wmv2` `wmv3` | MPVKit 基线的视频解码覆盖:AV1(`av1` 只是 OBU 解析 + hwaccel 入口)、Motion JPEG/ProRes/VC-1/WMV/RV/VP6-9/MPEG-1/2/4 等。D4 决定默认保留;AV1 的**软件**解码只有 `libdav1d` 一条路径(2026-11-10 实测,见「外部依赖:dav1d」),`libuavs3d`/`tscc` 见 b 类。 |
+| `av1` `dxv` `ffv1` `ffvhuff` `flv` `h263` `h263i` `h263p` `hap` `huffyuv` `indeo5` `ipu` `media100` `mjpegb` `mpeg1video` `mpeg2video` `mpeg4` `mpegvideo` `msmpeg4v1` `msmpeg4v2` `msmpeg4v3` `mts2` `prores` `rv10` `rv20` `rv30` `rv40` `snow` `sonic` `svq3` `vc1` `vp6` `vp6a` `vp6f` `vp7` `vp8` `vp9` `wmv1` `wmv2` `wmv3` | MPVKit 基线的视频解码覆盖:AV1(`av1` 只是 OBU 解析 + hwaccel 入口)、Motion JPEG/ProRes/VC-1/WMV/RV/VP6-9/MPEG-1/2/4 等。D4 决定默认保留;AV1 的**软件**解码只有 `libdav1d` 一条路径(2026-11-10 实测,见「外部依赖:dav1d」),`libuavs3d` 见 c 类;`tscc` 已随 zlib 纳入。 |
 | `aac_fixed` `aac_latm` `ac3_fixed` | AAC/AC-3 的定点与 LATM 变体;与主 decoder 共享 DSP,用于低功耗与广播流。 |
 | `alac` `amrnb` `amrwb` `ape` `cook` `dolby_e` `tta` `wmalossless` `wmapro` `wmav1` `wmav2` `wmavoice` `xma1` `xma2` | MPVKit 基线的无损/语音/WMA/XMA 音频族,覆盖 ALAC、APE、RealAudio Cook、Dolby E、TTA、WMA 与 Xbox XMA。 |
 | `ccaption` `dvbsub` `dvdsub` `movtext` `mpl2` `srt` `ssa` `xsub` | MPVKit 基线的字幕解码:CEA-608、DVB/DVD 字幕、mov_text、MPL2、SubRip/SSA、XSUB。渲染仍由外部 libass 负责。 |
@@ -272,10 +302,10 @@ AV1 软解由 `libdav1d` 提供(见「外部依赖:dav1d」)。开了 `h264`/`he
 | `--enable-gpl` / `--enable-nonfree` | 硬约束。 |
 | `--enable-version3` | 会把许可抬到 LGPL-3.0-or-later。D2 决定维持 **LGPL-2.1+**,理由见下面「许可决定」一节。 |
 | libx264 / libx265 / libfdk-aac / libxvid / libvidstab / libmp3lame / libvpx / libass / libfreetype | 外部库/额外依赖;当前构建不下载、不引入,需要时单独评估许可与体积。 |
-| `libuavs3d` / `tscc` | D4 b 类:分别需要 libuavs3d,或 zlib(`tscc` 经 `inflate_wrapper`);留到后续步骤。 |
-| `zlib`(全局) | 当前 `--disable-zlib`;D4 只有 `tscc` 需要它,不为一个 decoder 打开全局依赖。 |
-| `dash` demuxer | 需要 libxml2,留到后续步骤;现有 HLS/`webm_dash_manifest` 不受影响。 |
-| `ffrtmpcrypt` / `rtmpe` / `rtmpte` / `dtls` | 需要 gcrypt/gmp/OpenSSL/mbedTLS 等加密后端;基础 RTMP/RTMPS/RTMPT 仍可用。 |
+| `libuavs3d` | D4 c 类:需要外部 AVS3 解码库,许可需单独核对;本次不引入。 |
+| `bzlib` / `lzma` / `iconv` | 仍关闭;`zlib` 只按 `tscc` 的解压需要启用(`--enable-zlib`),不作为通用压缩后端。 |
+| `dash` demuxer | 需要 libxml2,当前无 DASH 片源需求(见 c 类);现有 HLS/`webm_dash_manifest` 不受影响。 |
+| `rtmpe` / `rtmpte` / `rtmpt` / `rtmpts` / `ffrtmphttp` | Flash 时代加密 RTMP 与 HTTP 隧道,已淘汰(见 c 类);基础 RTMP/RTMPS 仍可用。 |
 | `libavdevice` | `--disable-avdevice`。不做采集。 |
 | `libpostproc` | FFmpeg 8.0 起已从源码树移除,没有这个库,也没有 `--disable-postproc` 选项。 |
 | `matroska` muxer | F0 的产物方向是 fMP4;写 mkv 用不到,不开。 |
@@ -292,8 +322,8 @@ AV1 软解由 `libdav1d` 提供(见「外部依赖:dav1d」)。开了 `h264`/`he
   从 `License: LGPL version 3 or later` 变成 `License: LGPL version 2.1 or later`。
 - **什么情况会被迫加回来**(届时必须重新评估 D2):启用 `EXTERNAL_LIBRARY_VERSION3_LIST` 里的库
   (gmp、libaribb24、liblensfun、libopencore-amr、mbedtls、rkmpp 等)、`libsmbclient`、
-  以 OpenSSL ≥ 3.0 作 TLS 后端,或引入任何 GPLv3-only 代码。当前白名单一个都不涉及;TLS 走
-  `--enable-securetransport`,configure 里与 OpenSSL 互斥。
+  GPL 构建下以 OpenSSL ≥ 3.0 作 TLS 后端,或引入任何 GPLv3-only 代码。本构建**没有 GPL**,
+  因此 `--enable-openssl`(3.5.9)不触发 configure 的 version3 断言;三切片实测 `CONFIG_VERSION3 0`。
 - **守护**:`verify-license.sh` 硬性要求 `CONFIG_VERSION3 0`、`CONFIG_LGPLV3 0`,且 configure
   日志的 `License:` 必须是 `LGPL version 2.1 or later`;`build-ffmpeg.sh` 只接受以 `License: LGPL`
   开头的许可行。把 version3 加回来会让 verify 直接 FAIL。
@@ -450,11 +480,11 @@ P1 D4 之前,`mlp` parser、`vp9_superframe` bsf、`vp8` decoder 会由 `_select
 |---|---|---|---|
 | 网络 | `--enable-network` | `http`/`https`/`tls` 协议的前提。F1 的 `--disable-network` 会让远程 URL 在 libmpv 里直接失败 | 随 FFmpeg(LGPL) |
 | 协议 `http` `https` `tcp` `tls` | `--enable-protocol=...`(经 `LUX_PROTOCOLS`) | libmpv 的 `http-header-fields` 注入头与远程播放地址都走这些协议 | 随 FFmpeg(LGPL) |
-| TLS 后端 | `--enable-securetransport` | 使用 Apple 系统 Security 框架的 SecureTransport,信任根是系统的,iOS 上无需随包 CA、无第三方库。代价:TLS 1.2 上限、Apple 标记为弃用 API。与 openssl/gnutls/mbedtls/libtls 在 configure 中互斥(`configure:4051`) | 随 FFmpeg(LGPL) + 系统框架 |
+| TLS 后端 | `--enable-openssl` | OpenSSL 3.5 LTS,**支持 TLS 1.3**。原 Secure Transport 只到 TLS 1.2,连不上 1.3-only 服务端(`-9836`,实测见 `lux/docs/tls-13-probe.md`),D3 改为 OpenSSL。与 gnutls/mbedtls/libtls/schannel/securetransport 在 configure 中互斥(`configure:4048`/`4051`) | Apache-2.0(静态 `libssl.a`/`libcrypto.a`) |
 
 **未开启(留给后续判断)**
 
-- `zlib`:仍 `--disable-zlib`。是否需要由 F2-3 的 libmpv 链接/运行结果决定;没有证据之前不开。
+- `zlib`:已按 `tscc` 的解压需要启用(`--enable-zlib`),见「外部依赖:zlib」;不作为通用压缩/解压后端,minizip 等不构建。
 - `avdevice`:仍 `--disable-avdevice`。Homebrew 的 mpv.pc 把 libavdevice 列入 Requires.private,但那是 Homebrew 构建的特性集合,不能证明 mpv 0.41 在 MPVKit 式的最小配置下必须它。**UNVERIFIED**,由 F2-3 第一天用 mpv 的 meson feature 表确认。
 - `libdav1d`:已不再禁止。P1 D4 后续步骤按所有者决定纳入(静态并入 libavcodec),见「外部依赖:dav1d」;
   原生 `av1` 解码器仍在白名单里,但它只做 OBU 解析 + hwaccel,不是软解回退(2026-11-10 实测,同上)。

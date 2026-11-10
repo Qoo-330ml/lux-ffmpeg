@@ -34,11 +34,13 @@ hdr()  { printf '\n== %s\n' "$*"; }
 # 符号表里绝对不允许出现的东西(外部库 / GPL 组件 / 我们没构建的库)。
 # theora/xvid 也只匹配外部库的 API。FFmpeg 自带的 ogg_codec 描述符
 # `_ff_theora_codec` 与内建 IDCT `_ff_xvid_idct` 不是外部库(ogg/idctdsp 会参与构建)。
-# 豁免:dav1d(AV1 软解)已纳入 LGPL-2.1+ 构建(2026-11-10 所有者决定)。dav1d 是
-# BSD-2-Clause,与 LGPL-2.1+ 兼容,以静态库并入 libavcodec,所以 `dav1d_*` 与
-# `libdav1d` 相关符号(引用或定义)不再算禁用符号;许可依据见 lux/config/allowlist.md。
-# 其它外部库/GPL 的规则保持原样,不受此豁免影响。
-FORBIDDEN_SYMBOL_RE='x264|x265|fdk|fdkaac|(^|_)xvid_(global|encore|decore|image|plugin|version)|vidstab|xavs|postproc|mp3lame|libmp3lame|(^|_)(th_(decode|encode|comment|info|packet|version|granule|setup|clear|merge)|theora_(decode|encode|version|comment|info|packet))|svt_|svtav1|libvpx|vpx_codec_|vpx_img_|faac|vo_aacenc|opencore|libass|fribidi|fontconfig|freetype|gnutls|openssl|libvorbis|libopus|zimg|placebo|shaderc|chromaprint|vid\.stab'
+# 豁免:dav1d(AV1 软解)、zlib(tscc 的 inflate)、OpenSSL(TLS/DTLS/ffrtmpcrypt)
+# 已纳入 LGPL-2.1+ 构建(2026-11-10 所有者决定)。dav1d 是 BSD-2-Clause、zlib 是 zlib
+# 许可、OpenSSL 3.x 是 Apache-2.0,都与 LGPL-2.1+ 兼容,以静态库在链接期并入。
+# 因此 `dav1d_*`、zlib 的 `inflate*`/`uncompress`/`zlibVersion`、OpenSSL 的
+# `SSL_*`/`OPENSSL_*` 以及 FFmpeg 自己的 `ff_tls_openssl_*` 都不再算禁用符号;许可依据见
+# lux/config/allowlist.md「外部依赖」一节。其它外部库/GPL 的规则保持原样。
+FORBIDDEN_SYMBOL_RE='x264|x265|fdk|fdkaac|(^|_)xvid_(global|encore|decore|image|plugin|version)|vidstab|xavs|postproc|mp3lame|libmp3lame|(^|_)(th_(decode|encode|comment|info|packet|version|granule|setup|clear|merge)|theora_(decode|encode|version|comment|info|packet))|svt_|svtav1|libvpx|vpx_codec_|vpx_img_|faac|vo_aacenc|opencore|libass|fribidi|fontconfig|freetype|gnutls|libvorbis|libopus|zimg|placebo|shaderc|chromaprint|vid\.stab'
 # 符号先落到文件再 grep:直接 `nm ... | grep -q` 会让 grep 提前关闭管道,
 # 在 pipefail 下把 nm 的 SIGPIPE 当失败。
 dump_symbols() { # $1 = archive, $2 = 输出文件
@@ -123,7 +125,8 @@ verify_target() {
     local check
     for check in "CONFIG_GPL 0" "CONFIG_NONFREE 0" "CONFIG_VERSION3 0" \
                  "CONFIG_LGPLV3 0" "CONFIG_AVFILTER 1" "CONFIG_SWSCALE 1" \
-                 "CONFIG_AVDEVICE 0" "CONFIG_NETWORK 1" "CONFIG_SECURETRANSPORT 1"; do
+                 "CONFIG_AVDEVICE 0" "CONFIG_NETWORK 1" "CONFIG_OPENSSL 1" \
+                 "CONFIG_ZLIB 1" "CONFIG_SECURETRANSPORT 0"; do
         local name=${check% *} want=${check#* }
         if grep -qE "^#define $name ${want}$" "$build/config.h"; then
             pass "config.h: $name = $want"
@@ -157,6 +160,22 @@ verify_target() {
         fail "$build/configure.opts.txt 不存在(不是用 lux/build/build-ffmpeg.sh 构建的?)"
     fi
 
+    # D3 / b 类收口的硬断言:OpenSSL 后端必须真的生效,被排除的协议必须没被 select 回来。
+    local want_comp comp_re
+    for want_comp in CONFIG_TSCC_DECODER CONFIG_DTLS_PROTOCOL CONFIG_FFRTMPCRYPT_PROTOCOL; do
+        grep -qE "^#define $want_comp 1$" "$build/config_components.h" \
+            && pass "config_components.h: $want_comp = 1" \
+            || fail "config_components.h: $want_comp 不是 1"
+    done
+    for comp_re in CONFIG_FFRTMPHTTP_PROTOCOL CONFIG_RTMPE_PROTOCOL CONFIG_RTMPTE_PROTOCOL \
+                   CONFIG_RTMPT_PROTOCOL CONFIG_RTMPTS_PROTOCOL CONFIG_DASH_DEMUXER CONFIG_LIBUAVS3D_DECODER; do
+        if grep -qE "^#define $comp_re 1$" "$build/config_components.h"; then
+            fail "config_components.h: $comp_re 被意外启用(应保持 0)"
+        else
+            pass "config_components.h: $comp_re = 0"
+        fi
+    done
+
     # ---------------------------------------------------------------- 3. avutil_license()
     local probe_dir="$VERIFY_ROOT/$target"
     mkdir -p "$probe_dir"
@@ -166,9 +185,11 @@ verify_target() {
 #include <libavutil/avutil.h>
 int main(void) { printf("%s\n", avutil_license()); return 0; }
 EOF
+        local deps_prefix="$BUILD_ROOT/deps/$target/install"
         if xcrun --sdk macosx clang $FF_MIN_FLAG -isysroot "$FF_SDK_PATH" \
                 -I"$install/include" -o "$probe_dir/license_probe" \
                 "$probe_dir/license_probe.c" "$install/lib/libavutil.a" \
+                -L"$deps_prefix/lib" -lssl -lcrypto -lz \
                 -framework CoreFoundation -framework Security > "$probe_dir/probe-build.log" 2>&1; then
             local lic_out
             lic_out=$("$probe_dir/license_probe" 2>&1)
@@ -243,7 +264,7 @@ EOF
             symbols_ok=0
         fi
     done
-    [ "$symbols_ok" = 1 ] && pass "符号表干净: 无 x264/x265/fdk/xvid/vidstab/postproc/外部解码库符号(dav1d 例外,BSD-2-Clause)"
+    [ "$symbols_ok" = 1 ] && pass "符号表干净: 无 x264/x265/fdk/xvid/vidstab/postproc/未纳入的外部库符号(dav1d/zlib/OpenSSL 例外,许可见 allowlist)"
 
     # 正向确认:确实是我们构建的库(不是空归档/占位文件)
     for lib in libavformat.a libavcodec.a libavutil.a libswresample.a; do
