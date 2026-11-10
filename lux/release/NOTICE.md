@@ -7,10 +7,10 @@
 - 清单范围:FFmpeg 六库 + libmpv 栈(Libmpv/Libplacebo/Libfribidi/Libuchardet)及其非系统依赖
 - 生成脚本:`lux/build/make-license-bundle.sh`
 - 仓库:lux-ffmpeg
-- 源码 HEAD(最近一次触及源码的提交,排除本清单生成物):`2d1eba83168faef22dc37d86293f954aaf7a5666`
-- 分支:`tspace/p3-b-license-bundle`
-- 提交时间:`2026-11-10T15:02:22+08:00`
-- 提交标题:lux: package iOS libmpv slices as frameworks
+- 源码 HEAD(最近一次触及源码的提交,排除本清单生成物):`e8c09615cf18bb3c8c3ae4bf8809f2c97fd20e71`
+- 分支:`p1-allowlist`
+- 提交时间:`2026-11-10T15:12:43+08:00`
+- 提交标题:lux: neutralize libmpv embedded install paths
 - 补丁集:`lux/config/patches.txt` 13 条,sha256 `9f532c1b8144fb212e5bc3bb6c3bfe5f193ca97ada07c64a951bc84de28a056e`
 - apply-patches digest:`45aeb1df8deddd7abd5d011e32379428536dffb61fb9d63702ed26a224839c52`
 - 构建配置:`lux/config/ffmpeg-ios.conf`,sha256 `8a563b8b79d4b70c0dc541b3cee863b2211dac4365c786ca36d552633a8f4c2e`
@@ -20,32 +20,28 @@
 
 | 目标 | 库 | 静态库 | Framework 切片 | 产物许可(草稿) | 状态 |
 | --- | --- | --- | --- | --- | --- |
-| macos-arm64 | libavcodec | $BUILD/macos-arm64/install/lib/libavcodec.a | $BUILD/xcframeworks/Libavcodec.xcframework/macos-arm64/Libavcodec.framework/Libavcodec | LGPL-2.1-or-later | 已定位(事实记录) |
-| macos-arm64 | libavformat | $BUILD/macos-arm64/install/lib/libavformat.a | $BUILD/xcframeworks/Libavformat.xcframework/macos-arm64/Libavformat.framework/Libavformat | LGPL-2.1-or-later | 已定位(事实记录) |
-| macos-arm64 | libavfilter | $BUILD/macos-arm64/install/lib/libavfilter.a | $BUILD/xcframeworks/Libavfilter.xcframework/macos-arm64/Libavfilter.framework/Libavfilter | LGPL-2.1-or-later | 已定位(事实记录) |
-| macos-arm64 | libswscale | $BUILD/macos-arm64/install/lib/libswscale.a | $BUILD/xcframeworks/Libswscale.xcframework/macos-arm64/Libswscale.framework/Libswscale | LGPL-2.1-or-later | 已定位(事实记录) |
-| macos-arm64 | libswresample | $BUILD/macos-arm64/install/lib/libswresample.a | $BUILD/xcframeworks/Libswresample.xcframework/macos-arm64/Libswresample.framework/Libswresample | LGPL-2.1-or-later | 已定位(事实记录) |
-| macos-arm64 | libavutil | $BUILD/macos-arm64/install/lib/libavutil.a | $BUILD/xcframeworks/Libavutil.xcframework/macos-arm64/Libavutil.framework/Libavutil | LGPL-2.1-or-later | 已定位(事实记录) |
-| ios-arm64 | libavcodec | $BUILD/ios-arm64/install/lib/libavcodec.a | $BUILD/xcframeworks/Libavcodec.xcframework/ios-arm64/Libavcodec.framework/Libavcodec | LGPL-3.0-or-later | 待法务确认 |
-| ios-arm64 | libavformat | $BUILD/ios-arm64/install/lib/libavformat.a | $BUILD/xcframeworks/Libavformat.xcframework/ios-arm64/Libavformat.framework/Libavformat | LGPL-3.0-or-later | 待法务确认 |
-| ios-arm64 | libavfilter | $BUILD/ios-arm64/install/lib/libavfilter.a | $BUILD/xcframeworks/Libavfilter.xcframework/ios-arm64/Libavfilter.framework/Libavfilter | LGPL-3.0-or-later | 待法务确认 |
-| ios-arm64 | libswscale | $BUILD/ios-arm64/install/lib/libswscale.a | $BUILD/xcframeworks/Libswscale.xcframework/ios-arm64/Libswscale.framework/Libswscale | LGPL-3.0-or-later | 待法务确认 |
-| ios-arm64 | libswresample | $BUILD/ios-arm64/install/lib/libswresample.a | $BUILD/xcframeworks/Libswresample.xcframework/ios-arm64/Libswresample.framework/Libswresample | LGPL-3.0-or-later | 待法务确认 |
-| ios-arm64 | libavutil | $BUILD/ios-arm64/install/lib/libavutil.a | $BUILD/xcframeworks/Libavutil.xcframework/ios-arm64/Libavutil.framework/Libavutil | LGPL-3.0-or-later | 待法务确认 |
-| ios-sim-arm64 | libavcodec | $BUILD/ios-sim-arm64/install/lib/libavcodec.a | $BUILD/xcframeworks/Libavcodec.xcframework/ios-arm64-simulator/Libavcodec.framework/Libavcodec | LGPL-3.0-or-later | 待法务确认 |
-| ios-sim-arm64 | libavformat | $BUILD/ios-sim-arm64/install/lib/libavformat.a | $BUILD/xcframeworks/Libavformat.xcframework/ios-arm64-simulator/Libavformat.framework/Libavformat | LGPL-3.0-or-later | 待法务确认 |
-| ios-sim-arm64 | libavfilter | $BUILD/ios-sim-arm64/install/lib/libavfilter.a | $BUILD/xcframeworks/Libavfilter.xcframework/ios-arm64-simulator/Libavfilter.framework/Libavfilter | LGPL-3.0-or-later | 待法务确认 |
-| ios-sim-arm64 | libswscale | $BUILD/ios-sim-arm64/install/lib/libswscale.a | $BUILD/xcframeworks/Libswscale.xcframework/ios-arm64-simulator/Libswscale.framework/Libswscale | LGPL-3.0-or-later | 待法务确认 |
-| ios-sim-arm64 | libswresample | $BUILD/ios-sim-arm64/install/lib/libswresample.a | $BUILD/xcframeworks/Libswresample.xcframework/ios-arm64-simulator/Libswresample.framework/Libswresample | LGPL-3.0-or-later | 待法务确认 |
-| ios-sim-arm64 | libavutil | $BUILD/ios-sim-arm64/install/lib/libavutil.a | $BUILD/xcframeworks/Libavutil.xcframework/ios-arm64-simulator/Libavutil.framework/Libavutil | LGPL-3.0-or-later | 待法务确认 |
+| macos-arm64 | libavcodec | lux/.build/macos-arm64/install/lib/libavcodec.a | lux/.build/xcframeworks/Libavcodec.xcframework/macos-arm64/Libavcodec.framework/Libavcodec | LGPL-2.1-or-later | 已定位(事实记录) |
+| macos-arm64 | libavformat | lux/.build/macos-arm64/install/lib/libavformat.a | lux/.build/xcframeworks/Libavformat.xcframework/macos-arm64/Libavformat.framework/Libavformat | LGPL-2.1-or-later | 已定位(事实记录) |
+| macos-arm64 | libavfilter | lux/.build/macos-arm64/install/lib/libavfilter.a | lux/.build/xcframeworks/Libavfilter.xcframework/macos-arm64/Libavfilter.framework/Libavfilter | LGPL-2.1-or-later | 已定位(事实记录) |
+| macos-arm64 | libswscale | lux/.build/macos-arm64/install/lib/libswscale.a | lux/.build/xcframeworks/Libswscale.xcframework/macos-arm64/Libswscale.framework/Libswscale | LGPL-2.1-or-later | 已定位(事实记录) |
+| macos-arm64 | libswresample | lux/.build/macos-arm64/install/lib/libswresample.a | lux/.build/xcframeworks/Libswresample.xcframework/macos-arm64/Libswresample.framework/Libswresample | LGPL-2.1-or-later | 已定位(事实记录) |
+| macos-arm64 | libavutil | lux/.build/macos-arm64/install/lib/libavutil.a | lux/.build/xcframeworks/Libavutil.xcframework/macos-arm64/Libavutil.framework/Libavutil | LGPL-2.1-or-later | 已定位(事实记录) |
+| ios-arm64 | libavcodec | lux/.build/ios-arm64/install/lib/libavcodec.a | lux/.build/xcframeworks/Libavcodec.xcframework/ios-arm64/Libavcodec.framework/Libavcodec | LGPL-2.1-or-later | 已定位(事实记录) |
+| ios-arm64 | libavformat | lux/.build/ios-arm64/install/lib/libavformat.a | lux/.build/xcframeworks/Libavformat.xcframework/ios-arm64/Libavformat.framework/Libavformat | LGPL-2.1-or-later | 已定位(事实记录) |
+| ios-arm64 | libavfilter | lux/.build/ios-arm64/install/lib/libavfilter.a | lux/.build/xcframeworks/Libavfilter.xcframework/ios-arm64/Libavfilter.framework/Libavfilter | LGPL-2.1-or-later | 已定位(事实记录) |
+| ios-arm64 | libswscale | lux/.build/ios-arm64/install/lib/libswscale.a | lux/.build/xcframeworks/Libswscale.xcframework/ios-arm64/Libswscale.framework/Libswscale | LGPL-2.1-or-later | 已定位(事实记录) |
+| ios-arm64 | libswresample | lux/.build/ios-arm64/install/lib/libswresample.a | lux/.build/xcframeworks/Libswresample.xcframework/ios-arm64/Libswresample.framework/Libswresample | LGPL-2.1-or-later | 已定位(事实记录) |
+| ios-arm64 | libavutil | lux/.build/ios-arm64/install/lib/libavutil.a | lux/.build/xcframeworks/Libavutil.xcframework/ios-arm64/Libavutil.framework/Libavutil | LGPL-2.1-or-later | 已定位(事实记录) |
+| ios-sim-arm64 | libavcodec | lux/.build/ios-sim-arm64/install/lib/libavcodec.a | lux/.build/xcframeworks/Libavcodec.xcframework/ios-arm64-simulator/Libavcodec.framework/Libavcodec | LGPL-2.1-or-later | 已定位(事实记录) |
+| ios-sim-arm64 | libavformat | lux/.build/ios-sim-arm64/install/lib/libavformat.a | lux/.build/xcframeworks/Libavformat.xcframework/ios-arm64-simulator/Libavformat.framework/Libavformat | LGPL-2.1-or-later | 已定位(事实记录) |
+| ios-sim-arm64 | libavfilter | lux/.build/ios-sim-arm64/install/lib/libavfilter.a | lux/.build/xcframeworks/Libavfilter.xcframework/ios-arm64-simulator/Libavfilter.framework/Libavfilter | LGPL-2.1-or-later | 已定位(事实记录) |
+| ios-sim-arm64 | libswscale | lux/.build/ios-sim-arm64/install/lib/libswscale.a | lux/.build/xcframeworks/Libswscale.xcframework/ios-arm64-simulator/Libswscale.framework/Libswscale | LGPL-2.1-or-later | 已定位(事实记录) |
+| ios-sim-arm64 | libswresample | lux/.build/ios-sim-arm64/install/lib/libswresample.a | lux/.build/xcframeworks/Libswresample.xcframework/ios-arm64-simulator/Libswresample.framework/Libswresample | LGPL-2.1-or-later | 已定位(事实记录) |
+| ios-sim-arm64 | libavutil | lux/.build/ios-sim-arm64/install/lib/libavutil.a | lux/.build/xcframeworks/Libavutil.xcframework/ios-arm64-simulator/Libavutil.framework/Libavutil | LGPL-2.1-or-later | 已定位(事实记录) |
 
 - `macos-arm64`:BUILD-INFO 记录 `LGPL version 2.1 or later`;version3=false;--disable-gpl=true;--disable-nonfree=true。
-- `ios-arm64`:BUILD-INFO 记录 `LGPL version 3 or later`;version3=true;--disable-gpl=true;--disable-nonfree=true。
-  - configure.opts.txt 含 --enable-version3 或 config.h 的 CONFIG_VERSION3=1;BUILD-INFO 记录许可为“LGPL version 3 or later”
-  - 当前 lux/config/ffmpeg-ios.conf 没有生效的 --enable-version3 行,但该切片产物启用了 version3;产物可能早于当前配置,待法务确认
-- `ios-sim-arm64`:BUILD-INFO 记录 `LGPL version 3 or later`;version3=true;--disable-gpl=true;--disable-nonfree=true。
-  - configure.opts.txt 含 --enable-version3 或 config.h 的 CONFIG_VERSION3=1;BUILD-INFO 记录许可为“LGPL version 3 or later”
-  - 当前 lux/config/ffmpeg-ios.conf 没有生效的 --enable-version3 行,但该切片产物启用了 version3;产物可能早于当前配置,待法务确认
+- `ios-arm64`:BUILD-INFO 记录 `LGPL version 2.1 or later`;version3=false;--disable-gpl=true;--disable-nonfree=true。
+- `ios-sim-arm64`:BUILD-INFO 记录 `LGPL version 2.1 or later`;version3=false;--disable-gpl=true;--disable-nonfree=true。
 
 ## 3. libmpv 栈 Framework
 
@@ -201,16 +197,10 @@ deps.lock 共 21 项;sha256 校验结果与许可文件如下。
 | spirv-cross | Apache-2.0(部分文件 MIT / Khronos Free Use / CC-BY-4.0,待法务确认) | LICENSE 为 Apache-2.0;LICENSES/ 另有 MIT、Khronos Free Use 与 CC-BY-4.0 文本。 |
 | spirv-headers-mvk | MIT(部分文件 Apache-2.0 / 文档 CC-BY-4.0,待法务确认) | LICENSE 按文件列出 MIT;LICENSES/ 另有 Apache-2.0;部分文档为 CC-BY-4.0。 |
 | fast_float | MIT 或 Apache-2.0 或 BSL-1.0(三选一,待法务确认) | LICENSE-APACHE、LICENSE-MIT、LICENSE-BOOST 三份并存;适用选择待法务确认。 |
-| ffmpeg | 按切片不同:macos-arm64=LGPL-2.1-or-later;ios-arm64=LGPL-3.0-or-later;ios-sim-arm64=LGPL-3.0-or-later(待法务确认) | 各切片产物记录的许可不一致或启用了 version3;见 ffmpeg.targets。 |
-| ffmpeg:ios-arm64 | LGPL-3.0-or-later | 产物启用了 --enable-version3 / CONFIG_VERSION3=1;当前配置文件未写生效的 --enable-version3 行。 |
-| ffmpeg:ios-sim-arm64 | LGPL-3.0-or-later | 产物启用了 --enable-version3 / CONFIG_VERSION3=1;当前配置文件未写生效的 --enable-version3 行。 |
 
 ### 其它异常
 
-| 类型 | 名称 | 说明 |
-| --- | --- | --- |
-| artifact-license-version3 | ffmpeg:ios-arm64 | 该切片产物记录为 LGPL-3.0-or-later,当前配置未写生效的 --enable-version3;待法务确认 |
-| artifact-license-version3 | ffmpeg:ios-sim-arm64 | 该切片产物记录为 LGPL-3.0-or-later,当前配置未写生效的 --enable-version3;待法务确认 |
+无。
 
 ## 8. 许可文件索引
 
