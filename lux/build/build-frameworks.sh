@@ -93,12 +93,15 @@ build_target() {
     local build="$FRAMEWORK_ROOT/$target"
     local install="$build/install"
 
-    ff_framework_configure_opts "$target" "$install" || die "cannot resolve configure opts for '$target'"
-    ff_target_setup "$target" || die "unknown target '$target'"
-
     # 外部依赖(dav1d / zlib / OpenSSL)与 build-ffmpeg.sh 同口径:只指向该目标的
     # deps 前缀,清空 PKG_CONFIG_PATH;LUX_DEPS_PREFIX 让 ffmpeg-ios.conf 生成 -I/-L
     # (zlib 的探测不走 pkg-config,不指前缀会静默命中 SDK 里的系统 zlib)。
+    #
+    # 顺序很重要:ff_framework_configure_opts 在生成 FF_OPTS 时就把 LUX_DEPS_PREFIX 读进
+    # --extra-cflags/--extra-ldflags,所以必须先设前缀再解析参数。反过来写的话,
+    # `build-frameworks.sh all` 里第一个切片拿不到 -I/-L(zlib 静默命中系统库、dav1d 在
+    # iOS 切片上报 "dav1d >= 1.0.0 not found"),后面每个切片又会继承上一个切片的
+    # LUX_DEPS_PREFIX(导出变量在同一个 shell 里残留),把 macos 的头文件喂给 iOS 构建。
     local deps_prefix="$REPO/lux/.build/deps/$target/install"
     export LUX_DEPS_PREFIX="$deps_prefix"
     for pc in dav1d zlib openssl; do
@@ -107,6 +110,9 @@ build_target() {
     done
     export PKG_CONFIG_LIBDIR="$deps_prefix/lib/pkgconfig:$deps_prefix/share/pkgconfig"
     export PKG_CONFIG_PATH=""
+
+    ff_framework_configure_opts "$target" "$install" || die "cannot resolve configure opts for '$target'"
+    ff_target_setup "$target" || die "unknown target '$target'"
 
     # 与 build-ffmpeg.sh 相同的许可自检:参数里不能夹带 GPL/nonfree。
     local opt
