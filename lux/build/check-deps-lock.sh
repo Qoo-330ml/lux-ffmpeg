@@ -4,7 +4,8 @@
 # 不碰主检出 lux/.build/deps(下载缓存放在本仓库的 lux/.build/verify/deps-lock)。
 # 用法: ./lux/build/check-deps-lock.sh [--fresh] [--offline] [--cache DIR] [--log FILE]
 #   --fresh     忽略缓存,重新从 URL 下载每一项(默认:缓存存在且校验通过就直接复用)
-#   --offline   不联网,只核对缓存与自存副本
+#   --offline   不联网,只核对本地副本(下载缓存 / 自存副本 / 构建缓存);某项本地一份都
+#               没有就算 FAIL(不会因为“没核对”而算通过)
 #   --cache DIR 下载缓存目录(默认 lux/.build/verify/deps-lock)
 #   --log FILE  日志文件(默认 lux/.build/logs/deps-lock-check-<YYYYmmdd>.log;传 - 表示只输出到终端)
 #   --build-src DIR  顺带核对构建用的源码缓存(默认 lux/.build/deps/src),不存在则跳过
@@ -28,7 +29,7 @@ while [ $# -gt 0 ]; do
     --log=*) LOG="${1#--log=}" ;;
     --build-src) BUILD_SRC="${2:?--build-src 需要参数}"; shift ;;
     --build-src=*) BUILD_SRC="${1#--build-src=}" ;;
-    -h|--help) sed -n '2,11p' "$0"; exit 0 ;;
+    -h|--help) sed -n '2,12p' "$0"; exit 0 ;;
     *) echo "check-deps-lock.sh: 未知选项 $1" >&2; exit 2 ;;
   esac
   shift
@@ -51,6 +52,8 @@ echo
 total=0
 ok=0
 fail=0
+missing=0
+missing_names=()
 while read -r name version sha url rest || [ -n "${name:-}" ]; do
   case "${name:-}" in ''|\#*) continue ;; esac
   if [ -z "${version:-}" ] || [ -z "${sha:-}" ] || [ -z "${url:-}" ]; then
@@ -63,6 +66,7 @@ while read -r name version sha url rest || [ -n "${name:-}" ]; do
   selfstore="$(deps_lock_selfstore ${rest:-})"
   notes=()
   bad=0
+  verified=0   # 这一项有多少份本地副本通过了 sha256 校验(离线模式的判据)
 
   # 1) 自存副本
   if [ -n "$selfstore" ]; then
@@ -70,6 +74,7 @@ while read -r name version sha url rest || [ -n "${name:-}" ]; do
       got="$(deps_lock_sha256 "$REPO/$selfstore")"
       if [ "$got" = "$sha" ]; then
         notes+=("selfstore=ok")
+        verified=$((verified + 1))
       else
         notes+=("selfstore=FAIL($got)")
         bad=1
@@ -81,25 +86,33 @@ while read -r name version sha url rest || [ -n "${name:-}" ]; do
     notes+=("selfstore=-")
   fi
 
-  # 2) URL 字节
+  # 2) URL 字节(离线时只核缓存)
   cached="$CACHE/$(basename "$url")"
   if [ "$OFFLINE" -eq 1 ]; then
     if [ -f "$cached" ]; then
       got="$(deps_lock_sha256 "$cached")"
-      if [ "$got" = "$sha" ]; then notes+=("url=cache-ok"); else notes+=("url=cache-FAIL($got)"); bad=1; fi
+      if [ "$got" = "$sha" ]; then
+        notes+=("url=cache-ok")
+        verified=$((verified + 1))
+      else
+        notes+=("url=cache-FAIL($got)")
+        bad=1
+      fi
     else
-      notes+=("url=skipped(offline)")
+      # 离线时缓存缺失不能算通过:这一项根本没被核对
+      notes+=("url=missing(offline)")
     fi
   elif [ "$FRESH" -eq 0 ] && [ -f "$cached" ]; then
     got="$(deps_lock_sha256 "$cached")"
     if [ "$got" = "$sha" ]; then
       notes+=("url=cache-ok")
+      verified=$((verified + 1))
     else
       # 缓存坏了就重下一次
       rm -f "$cached"
       if deps_lock_curl "$url" "$cached.part"; then
         got="$(deps_lock_sha256 "$cached.part")"
-        if [ "$got" = "$sha" ]; then mv "$cached.part" "$cached"; notes+=("url=ok(redownloaded)"); else rm -f "$cached.part"; notes+=("url=FAIL($got)"); bad=1; fi
+        if [ "$got" = "$sha" ]; then mv "$cached.part" "$cached"; notes+=("url=ok(redownloaded)"); verified=$((verified + 1)); else rm -f "$cached.part"; notes+=("url=FAIL($got)"); bad=1; fi
       else
         notes+=("url=FETCH-FAILED"); bad=1
       fi
@@ -111,6 +124,7 @@ while read -r name version sha url rest || [ -n "${name:-}" ]; do
       if [ "$got" = "$sha" ]; then
         mv "$cached.part" "$cached"
         notes+=("url=ok")
+        verified=$((verified + 1))
       else
         rm -f "$cached.part"
         notes+=("url=FAIL($got)")
@@ -122,10 +136,23 @@ while read -r name version sha url rest || [ -n "${name:-}" ]; do
     fi
   fi
 
-  # 3) 构建用的源码缓存(可选,只报告)
+  # 3) 构建用的源码缓存(只读核对;离线时它也算一份可用副本)
   if [ -n "$BUILD_SRC" ] && [ -f "$BUILD_SRC/$(basename "$url")" ]; then
     got="$(deps_lock_sha256 "$BUILD_SRC/$(basename "$url")")"
-    if [ "$got" = "$sha" ]; then notes+=("build-src=ok"); else notes+=("build-src=STALE($got)"); fi
+    if [ "$got" = "$sha" ]; then
+      notes+=("build-src=ok")
+      verified=$((verified + 1))
+    else
+      notes+=("build-src=STALE($got)")
+    fi
+  fi
+
+  # 4) 离线模式的底线:本地必须至少有一份通过校验的副本,否则就是“没核对却算 OK”
+  if [ "$OFFLINE" -eq 1 ] && [ "$verified" -eq 0 ]; then
+    notes+=("offline=NO-LOCAL-COPY")
+    bad=1
+    missing=$((missing + 1))
+    missing_names+=("$name")
   fi
 
   if [ "$bad" -eq 0 ]; then
@@ -141,6 +168,10 @@ echo
 if [ "$total" -eq 0 ]; then
   echo "== deps.lock 里没有可校验的条目 =="
   exit 1
+fi
+if [ "$missing" -gt 0 ]; then
+  echo "离线缺失(${missing} 项,本地没有可核对的副本):${missing_names[*]}"
+  echo "先联网跑一次 ./lux/build/check-deps-lock.sh --fresh 或 ./lux/build/fetch-deps.sh 再重试。"
 fi
 echo "== $total 项:$ok OK,$fail FAIL(deps.lock 未被修改)=="
 [ "$fail" -eq 0 ] || exit 1
