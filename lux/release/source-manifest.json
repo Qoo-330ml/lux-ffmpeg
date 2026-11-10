@@ -6,11 +6,11 @@
   "generated_by": "lux/build/make-license-bundle.sh",
   "repository": {
     "name": "lux-ffmpeg",
-    "head_commit": "e8c09615cf18bb3c8c3ae4bf8809f2c97fd20e71",
-    "head_commit_date": "2026-11-10T15:12:43+08:00",
-    "head_commit_subject": "lux: neutralize libmpv embedded install paths",
+    "head_commit": "5b165cf41b4e6f47750b14f8c37513fe485e9d7d",
+    "head_commit_date": "2026-11-10T19:06:47+08:00",
+    "head_commit_subject": "lux: P2 冒烟(无头播放 / render / 允许项)与出口文档",
     "head_commit_scope": "最近一次触及源码的提交(排除 lux/release 与本脚本)",
-    "branch": "p1-allowlist"
+    "branch": "tspace/lux-release-package"
   },
   "ffmpeg": {
     "name": "ffmpeg",
@@ -28,16 +28,16 @@
     "gpl_or_nonfree_terms": true,
     "source": {
       "repository": "lux-ffmpeg",
-      "head_commit": "e8c09615cf18bb3c8c3ae4bf8809f2c97fd20e71",
-      "head_commit_date": "2026-11-10T15:12:43+08:00",
-      "head_commit_subject": "lux: neutralize libmpv embedded install paths",
-      "branch": "p1-allowlist",
+      "head_commit": "5b165cf41b4e6f47750b14f8c37513fe485e9d7d",
+      "head_commit_date": "2026-11-10T19:06:47+08:00",
+      "head_commit_subject": "lux: P2 冒烟(无头播放 / render / 允许项)与出口文档",
+      "branch": "tspace/lux-release-package",
       "patches_txt": "lux/config/patches.txt",
       "patches_txt_sha256": "9f532c1b8144fb212e5bc3bb6c3bfe5f193ca97ada07c64a951bc84de28a056e",
       "patches_digest": "45aeb1df8deddd7abd5d011e32379428536dffb61fb9d63702ed26a224839c52",
       "patches_count": 13,
       "configure_file": "lux/config/ffmpeg-ios.conf",
-      "configure_sha256": "8a563b8b79d4b70c0dc541b3cee863b2211dac4365c786ca36d552633a8f4c2e",
+      "configure_sha256": "e1ce5cc7ee46a3dd6cd425c1c084c6da6531ce093d71399d6b02052ba0143b96",
       "patches": [
         {
           "name": "0001-videotoolbox-hwaccel-low-priority.patch",
@@ -117,25 +117,25 @@
             "license": "LGPL-2.1-or-later",
             "license_status": "identified",
             "static_library": "lux/.build/macos-arm64/install/lib/libavcodec.a",
-            "static_library_size": 5178448,
+            "static_library_size": 44866640,
             "framework_binary": "lux/.build/xcframeworks/Libavcodec.xcframework/macos-arm64/Libavcodec.framework/Libavcodec",
-            "framework_binary_size": 7658752
+            "framework_binary_size": 8533824
           },
           {
             "name": "libavformat",
             "license": "LGPL-2.1-or-later",
             "license_status": "identified",
             "static_library": "lux/.build/macos-arm64/install/lib/libavformat.a",
-            "static_library_size": 1272712,
+            "static_library_size": 11568528,
             "framework_binary": "lux/.build/xcframeworks/Libavformat.xcframework/macos-arm64/Libavformat.framework/Libavformat",
-            "framework_binary_size": 1431376
+            "framework_binary_size": 6401616
           },
           {
             "name": "libavfilter",
             "license": "LGPL-2.1-or-later",
             "license_status": "identified",
             "static_library": "lux/.build/macos-arm64/install/lib/libavfilter.a",
-            "static_library_size": 306400,
+            "static_library_size": 4305192,
             "framework_binary": "lux/.build/xcframeworks/Libavfilter.xcframework/macos-arm64/Libavfilter.framework/Libavfilter",
             "framework_binary_size": 718496
           },
@@ -144,7 +144,7 @@
             "license": "LGPL-2.1-or-later",
             "license_status": "identified",
             "static_library": "lux/.build/macos-arm64/install/lib/libswscale.a",
-            "static_library_size": 1418000,
+            "static_library_size": 4866008,
             "framework_binary": "lux/.build/xcframeworks/Libswscale.xcframework/macos-arm64/Libswscale.framework/Libswscale",
             "framework_binary_size": 1252016
           },
@@ -153,7 +153,7 @@
             "license": "LGPL-2.1-or-later",
             "license_status": "identified",
             "static_library": "lux/.build/macos-arm64/install/lib/libswresample.a",
-            "static_library_size": 136344,
+            "static_library_size": 429728,
             "framework_binary": "lux/.build/xcframeworks/Libswresample.xcframework/macos-arm64/Libswresample.framework/Libswresample",
             "framework_binary_size": 144160
           },
@@ -162,7 +162,7 @@
             "license": "LGPL-2.1-or-later",
             "license_status": "identified",
             "static_library": "lux/.build/macos-arm64/install/lib/libavutil.a",
-            "static_library_size": 1025048,
+            "static_library_size": 3335448,
             "framework_binary": "lux/.build/xcframeworks/Libavutil.xcframework/macos-arm64/Libavutil.framework/Libavutil",
             "framework_binary_size": 777024
           }
@@ -192,25 +192,25 @@
             "license": "LGPL-2.1-or-later",
             "license_status": "identified",
             "static_library": "lux/.build/ios-arm64/install/lib/libavcodec.a",
-            "static_library_size": 9646088,
+            "static_library_size": 44304624,
             "framework_binary": "lux/.build/xcframeworks/Libavcodec.xcframework/ios-arm64/Libavcodec.framework/Libavcodec",
-            "framework_binary_size": 7461392
+            "framework_binary_size": 8336496
           },
           {
             "name": "libavformat",
             "license": "LGPL-2.1-or-later",
             "license_status": "identified",
             "static_library": "lux/.build/ios-arm64/install/lib/libavformat.a",
-            "static_library_size": 2186000,
+            "static_library_size": 11526000,
             "framework_binary": "lux/.build/xcframeworks/Libavformat.xcframework/ios-arm64/Libavformat.framework/Libavformat",
-            "framework_binary_size": 1414192
+            "framework_binary_size": 6384512
           },
           {
             "name": "libavfilter",
             "license": "LGPL-2.1-or-later",
             "license_status": "identified",
             "static_library": "lux/.build/ios-arm64/install/lib/libavfilter.a",
-            "static_library_size": 907040,
+            "static_library_size": 4260064,
             "framework_binary": "lux/.build/xcframeworks/Libavfilter.xcframework/ios-arm64/Libavfilter.framework/Libavfilter",
             "framework_binary_size": 702080
           },
@@ -219,7 +219,7 @@
             "license": "LGPL-2.1-or-later",
             "license_status": "identified",
             "static_library": "lux/.build/ios-arm64/install/lib/libswscale.a",
-            "static_library_size": 1442912,
+            "static_library_size": 4863856,
             "framework_binary": "lux/.build/xcframeworks/Libswscale.xcframework/ios-arm64/Libswscale.framework/Libswscale",
             "framework_binary_size": 1251936
           },
@@ -228,7 +228,7 @@
             "license": "LGPL-2.1-or-later",
             "license_status": "identified",
             "static_library": "lux/.build/ios-arm64/install/lib/libswresample.a",
-            "static_library_size": 142792,
+            "static_library_size": 422640,
             "framework_binary": "lux/.build/xcframeworks/Libswresample.xcframework/ios-arm64/Libswresample.framework/Libswresample",
             "framework_binary_size": 144160
           },
@@ -237,7 +237,7 @@
             "license": "LGPL-2.1-or-later",
             "license_status": "identified",
             "static_library": "lux/.build/ios-arm64/install/lib/libavutil.a",
-            "static_library_size": 1029640,
+            "static_library_size": 3309712,
             "framework_binary": "lux/.build/xcframeworks/Libavutil.xcframework/ios-arm64/Libavutil.framework/Libavutil",
             "framework_binary_size": 777008
           }
@@ -267,25 +267,25 @@
             "license": "LGPL-2.1-or-later",
             "license_status": "identified",
             "static_library": "lux/.build/ios-sim-arm64/install/lib/libavcodec.a",
-            "static_library_size": 9836592,
+            "static_library_size": 44894040,
             "framework_binary": "lux/.build/xcframeworks/Libavcodec.xcframework/ios-arm64-simulator/Libavcodec.framework/Libavcodec",
-            "framework_binary_size": 7658352
+            "framework_binary_size": 8533392
           },
           {
             "name": "libavformat",
             "license": "LGPL-2.1-or-later",
             "license_status": "identified",
             "static_library": "lux/.build/ios-sim-arm64/install/lib/libavformat.a",
-            "static_library_size": 2202304,
+            "static_library_size": 11582016,
             "framework_binary": "lux/.build/xcframeworks/Libavformat.xcframework/ios-arm64-simulator/Libavformat.framework/Libavformat",
-            "framework_binary_size": 1430560
+            "framework_binary_size": 5539328
           },
           {
             "name": "libavfilter",
             "license": "LGPL-2.1-or-later",
             "license_status": "identified",
             "static_library": "lux/.build/ios-sim-arm64/install/lib/libavfilter.a",
-            "static_library_size": 925784,
+            "static_library_size": 4310416,
             "framework_binary": "lux/.build/xcframeworks/Libavfilter.xcframework/ios-arm64-simulator/Libavfilter.framework/Libavfilter",
             "framework_binary_size": 718432
           },
@@ -294,7 +294,7 @@
             "license": "LGPL-2.1-or-later",
             "license_status": "identified",
             "static_library": "lux/.build/ios-sim-arm64/install/lib/libswscale.a",
-            "static_library_size": 1427680,
+            "static_library_size": 4868296,
             "framework_binary": "lux/.build/xcframeworks/Libswscale.xcframework/ios-arm64-simulator/Libswscale.framework/Libswscale",
             "framework_binary_size": 1251968
           },
@@ -303,7 +303,7 @@
             "license": "LGPL-2.1-or-later",
             "license_status": "identified",
             "static_library": "lux/.build/ios-sim-arm64/install/lib/libswresample.a",
-            "static_library_size": 146096,
+            "static_library_size": 430672,
             "framework_binary": "lux/.build/xcframeworks/Libswresample.xcframework/ios-arm64-simulator/Libswresample.framework/Libswresample",
             "framework_binary_size": 127744
           },
@@ -312,7 +312,7 @@
             "license": "LGPL-2.1-or-later",
             "license_status": "identified",
             "static_library": "lux/.build/ios-sim-arm64/install/lib/libavutil.a",
-            "static_library_size": 1034584,
+            "static_library_size": 3342688,
             "framework_binary": "lux/.build/xcframeworks/Libavutil.xcframework/ios-arm64-simulator/Libavutil.framework/Libavutil",
             "framework_binary_size": 776960
           }
@@ -3328,6 +3328,115 @@
             "ios-sim-arm64"
           ],
           "evidence": "libplacebo 构建期头文件"
+        }
+      ]
+    },
+    {
+      "name": "dav1d",
+      "version": "1.5.4",
+      "sha256": "686616b7c69eb88d44459391ab25cac13b6647a3b288835c5784e71c1514a5c5",
+      "url": "https://downloads.videolan.org/pub/videolan/dav1d/1.5.4/dav1d-1.5.4.tar.xz",
+      "archive": "lux/.build/deps/src/dav1d-1.5.4.tar.xz",
+      "archive_sha256": "686616b7c69eb88d44459391ab25cac13b6647a3b288835c5784e71c1514a5c5",
+      "sha256_verified": true,
+      "license": "BSD-2-Clause",
+      "license_status": "identified",
+      "license_notes": "COPYING 为 BSD-2-Clause;静态并入 libavcodec(Libdav1d 解码器),见 lux/config/allowlist.md。",
+      "license_files": [
+        "licenses/dav1d/COPYING",
+        "licenses/dav1d/doc/PATENTS"
+      ],
+      "license_source_files": [
+        "COPYING",
+        "doc/PATENTS"
+      ],
+      "license_terms_detected": [],
+      "gpl_or_nonfree_terms": false,
+      "linkage": [
+        {
+          "kind": "static",
+          "into": [
+            "Libavcodec"
+          ],
+          "targets": [
+            "macos-arm64",
+            "ios-arm64",
+            "ios-sim-arm64"
+          ],
+          "evidence": "libdav1d.a 静态链接;nm -g 可查到 _dav1d_* 符号"
+        }
+      ]
+    },
+    {
+      "name": "zlib",
+      "version": "1.4",
+      "sha256": "02dd159783677a749c04adbdd02b55b8a2bcc7e054f51b76b549199a916ad584",
+      "url": "https://zlib.net/zlib-1.4.tar.gz",
+      "archive": "lux/.build/deps/src/zlib-1.4.tar.gz",
+      "archive_sha256": "02dd159783677a749c04adbdd02b55b8a2bcc7e054f51b76b549199a916ad584",
+      "sha256_verified": true,
+      "license": "Zlib",
+      "license_status": "identified",
+      "license_notes": "LICENSE 为 zlib 风格许可;静态并入 libavcodec(tscc inflate)与 libavformat。",
+      "license_files": [
+        "licenses/zlib/LICENSE"
+      ],
+      "license_source_files": [
+        "LICENSE"
+      ],
+      "license_terms_detected": [
+        "Zlib"
+      ],
+      "gpl_or_nonfree_terms": false,
+      "linkage": [
+        {
+          "kind": "static",
+          "into": [
+            "Libavcodec",
+            "Libavformat"
+          ],
+          "targets": [
+            "macos-arm64",
+            "ios-arm64",
+            "ios-sim-arm64"
+          ],
+          "evidence": "libz.a 静态链接;nm -g 可查到 _inflate* 符号"
+        }
+      ]
+    },
+    {
+      "name": "openssl",
+      "version": "3.5.9",
+      "sha256": "603f5602e2eef00d77fbd429d34dcd5822bb301757a1bc9cdb24c670f1eb859a",
+      "url": "https://github.com/openssl/openssl/releases/download/openssl-3.5.9/openssl-3.5.9.tar.gz",
+      "archive": "lux/.build/deps/src/openssl-3.5.9.tar.gz",
+      "archive_sha256": "603f5602e2eef00d77fbd429d34dcd5822bb301757a1bc9cdb24c670f1eb859a",
+      "sha256_verified": true,
+      "license": "Apache-2.0",
+      "license_status": "identified",
+      "license_notes": "LICENSE.txt 为 Apache-2.0;静态并入 libavformat(TLS/DTLS/RTMP),见 lux/docs/tls-13-probe.md。",
+      "license_files": [
+        "licenses/openssl/LICENSE.txt"
+      ],
+      "license_source_files": [
+        "LICENSE.txt"
+      ],
+      "license_terms_detected": [
+        "Apache-2.0"
+      ],
+      "gpl_or_nonfree_terms": false,
+      "linkage": [
+        {
+          "kind": "static",
+          "into": [
+            "Libavformat"
+          ],
+          "targets": [
+            "macos-arm64",
+            "ios-arm64",
+            "ios-sim-arm64"
+          ],
+          "evidence": "libssl.a/libcrypto.a 静态链接;nm -g 可查到 _SSL_* 符号"
         }
       ]
     }

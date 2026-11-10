@@ -7,13 +7,13 @@
 - 清单范围:FFmpeg 六库 + libmpv 栈(Libmpv/Libplacebo/Libfribidi/Libuchardet)及其非系统依赖
 - 生成脚本:`lux/build/make-license-bundle.sh`
 - 仓库:lux-ffmpeg
-- 源码 HEAD(最近一次触及源码的提交,排除本清单生成物):`e8c09615cf18bb3c8c3ae4bf8809f2c97fd20e71`
-- 分支:`p1-allowlist`
-- 提交时间:`2026-11-10T15:12:43+08:00`
-- 提交标题:lux: neutralize libmpv embedded install paths
+- 源码 HEAD(最近一次触及源码的提交,排除本清单生成物):`5b165cf41b4e6f47750b14f8c37513fe485e9d7d`
+- 分支:`tspace/lux-release-package`
+- 提交时间:`2026-11-10T19:06:47+08:00`
+- 提交标题:lux: P2 冒烟(无头播放 / render / 允许项)与出口文档
 - 补丁集:`lux/config/patches.txt` 13 条,sha256 `9f532c1b8144fb212e5bc3bb6c3bfe5f193ca97ada07c64a951bc84de28a056e`
 - apply-patches digest:`45aeb1df8deddd7abd5d011e32379428536dffb61fb9d63702ed26a224839c52`
-- 构建配置:`lux/config/ffmpeg-ios.conf`,sha256 `8a563b8b79d4b70c0dc541b3cee863b2211dac4365c786ca36d552633a8f4c2e`
+- 构建配置:`lux/config/ffmpeg-ios.conf`,sha256 `e1ce5cc7ee46a3dd6cd425c1c084c6da6531ce093d71399d6b02052ba0143b96`
 - 路径占位符:`$BUILD` = `lux/.build`;`$DEPS` = `lux/.build/deps`;`$REPO` = 仓库根目录。
 
 ## 2. FFmpeg 六库
@@ -140,7 +140,7 @@ otool -L 不显示静态并入的组件。以下为依据构建脚本/符号表�
 
 ## 5. 依赖与许可清单(deps.lock)
 
-deps.lock 共 21 项;sha256 校验结果与许可文件如下。
+deps.lock 共 24 项;sha256 校验结果与许可文件如下。
 
 | # | 依赖 | 版本 | 许可(草稿) | 状态 | 链接方式 | sha256 | 许可文件 |
 | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -165,6 +165,9 @@ deps.lock 共 21 项;sha256 校验结果与许可文件如下。
 | 19 | volk | 776893306c5d3b22b6185b5d4a258b81d94572bf | MIT | 已定位(事实记录) | 构建期/头文件 | 一致 | `licenses/volk/LICENSE.md` |
 | 20 | cereal | a56bad8bbb770ee266e930c95d37fff2a5be7fea | BSD-3-Clause(含 zlib 许可的 external 组件) | 已定位(事实记录) | 构建期/头文件 | 一致 | `licenses/cereal/LICENSE`, `licenses/cereal/include/cereal/external/LICENSE` |
 | 21 | fast_float | 8.0.2 | MIT 或 Apache-2.0 或 BSL-1.0(三选一,待法务确认) | 待法务确认 | 头文件 | 一致 | `licenses/fast_float/LICENSE-APACHE`, `licenses/fast_float/LICENSE-BOOST`, `licenses/fast_float/LICENSE-MIT` |
+| 22 | dav1d | 1.5.4 | BSD-2-Clause | 已定位(事实记录) | Libavcodec 静态 | 一致 | `licenses/dav1d/COPYING`, `licenses/dav1d/doc/PATENTS` |
+| 23 | zlib | 1.4 | Zlib | 已定位(事实记录) | Libavcodec、Libavformat 静态 | 一致 | `licenses/zlib/LICENSE` |
+| 24 | openssl | 3.5.9 | Apache-2.0 | 已定位(事实记录) | Libavformat 静态 | 一致 | `licenses/openssl/LICENSE.txt` |
 
 ## 6. ⚠ GPL/nonfree 需复核
 
@@ -245,6 +248,10 @@ deps.lock 共 21 项;sha256 校验结果与许可文件如下。
 | fast_float | `licenses/fast_float/LICENSE-APACHE` |
 | fast_float | `licenses/fast_float/LICENSE-BOOST` |
 | fast_float | `licenses/fast_float/LICENSE-MIT` |
+| dav1d | `licenses/dav1d/COPYING` |
+| dav1d | `licenses/dav1d/doc/PATENTS` |
+| zlib | `licenses/zlib/LICENSE` |
+| openssl | `licenses/openssl/LICENSE.txt` |
 | ffmpeg | `licenses/ffmpeg/COPYING.LGPLv2.1` |
 | ffmpeg | `licenses/ffmpeg/COPYING.LGPLv3` |
 | ffmpeg | `licenses/ffmpeg/COPYING.GPLv2` |

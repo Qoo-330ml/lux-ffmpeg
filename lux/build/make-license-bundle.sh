@@ -231,6 +231,24 @@ LICENSE_FACTS = {
         False,
         "LICENSE-APACHE、LICENSE-MIT、LICENSE-BOOST 三份并存;适用选择待法务确认。",
     ),
+    "dav1d": (
+        "BSD-2-Clause",
+        "identified",
+        False,
+        "COPYING 为 BSD-2-Clause;静态并入 libavcodec(Libdav1d 解码器),见 lux/config/allowlist.md。",
+    ),
+    "zlib": (
+        "Zlib",
+        "identified",
+        False,
+        "LICENSE 为 zlib 风格许可;静态并入 libavcodec(tscc inflate)与 libavformat。",
+    ),
+    "openssl": (
+        "Apache-2.0",
+        "identified",
+        False,
+        "LICENSE.txt 为 Apache-2.0;静态并入 libavformat(TLS/DTLS/RTMP),见 lux/docs/tls-13-probe.md。",
+    ),
 }
 
 # 静态/构建期归属。otool -L 只显示动态依赖,静态并入的组件用构建脚本与符号表补充。
@@ -253,6 +271,9 @@ STATIC_LINKAGE = {
     "volk": ("build-time", ["Libplacebo"], "MoltenVK 构建期 Vulkan 加载器源码/头文件"),
     "cereal": ("build-time", ["Libplacebo"], "MoltenVK 构建期头文件"),
     "fast_float": ("header-only", ["Libplacebo"], "libplacebo 构建期头文件"),
+    "dav1d": ("static", ["Libavcodec"], "libdav1d.a 静态链接;nm -g 可查到 _dav1d_* 符号"),
+    "zlib": ("static", ["Libavcodec", "Libavformat"], "libz.a 静态链接;nm -g 可查到 _inflate* 符号"),
+    "openssl": ("static", ["Libavformat"], "libssl.a/libcrypto.a 静态链接;nm -g 可查到 _SSL_* 符号"),
 }
 
 LICENSE_NAME_RE = re.compile(
@@ -275,6 +296,7 @@ BAD_LICENSE_SUFFIXES = (
     ".am",
     ".cmake",
     ".mk",
+    ".pm",
 )
 EXCLUDED_LICENSE_DIRS = {
     "test",
