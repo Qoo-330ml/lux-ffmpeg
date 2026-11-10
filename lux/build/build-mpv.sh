@@ -17,11 +17,21 @@ PREFIX="$REPO/lux/.build/deps/$TARGET/install"
 WORK="$REPO/lux/.build/deps/$TARGET/mpv"
 XCF="$REPO/lux/.build/xcframeworks"
 PCDIR="$REPO/lux/.build/deps/$TARGET/pc-ffmpeg"
+# 安装前缀只用于“写进二进制”的 meson 配置与默认路径;真实产物仍安装到 PREFIX。
+# 固定的占位路径不会把构建机目录带进发布产物,也不依赖 PREFIX 的位置。
+INSTALL_PREFIX="/lux-install"
+STAGE="$WORK/install-stage"
 export PYTHONPATH="$REPO/lux/.build/deps/pydeps"
 . "$REPO/lux/config/deps-target.sh"; deps_target_setup "$TARGET"
 
 rm -rf "$WORK"; mkdir -p "$WORK" "$PCDIR" "$PCDIR/include"
 tar -C "$WORK" -xzf "$SRC/v0.41.0.tar.gz" --strip-components=1
+
+# meson.build_options() 会把 --cross-file 的实参原样写进 libmpv 的 Configuration。
+# 传绝对路径会把构建机目录带进产物;这里把交叉文件放进 WORK,配合下面在 WORK 里
+# 执行的 meson setup 用相对文件名传参,配置字符串里只会留下 meson-cross.ini。
+cp "$REPO/lux/.build/deps/$TARGET/meson-cross.ini" "$WORK/meson-cross.ini"
+DEPS_MESON_CROSS="--cross-file=meson-cross.ini"
 
 # 0. iOS 切片的源码补丁(幂等):iOS SDK 不声明 AudioDeviceID / AudioStreamID / AudioObjectPropertyAddress 的
 #    完整声明位置(后两者在 AudioHardwareBase.h),而 audiounit 输出会编译 ao_coreaudio_utils.h 与 ao_coreaudio_chmap.c。
@@ -87,7 +97,8 @@ IOS_GL=disabled
 AVFOUNDATION=enabled
 case "$TARGET" in ios-*) AUDIOUNIT=enabled; IOS_GL=enabled; AVFOUNDATION=disabled ;; esac
 rm -rf "$WORK/build"
-meson setup "$WORK/build" "$WORK" --prefix="$PREFIX" --buildtype=release \
+# 在 WORK 里执行,让 --cross-file=meson-cross.ini 保持相对路径(见上)。
+( cd "$WORK" && meson setup "$WORK/build" "$WORK" --prefix="$INSTALL_PREFIX" --buildtype=release \
   --default-library=shared $DEPS_MESON_CROSS \
   -Dc_args="$DEPS_CFLAGS" -Dc_link_args="$DEPS_LDFLAGS" \
   -Dlibmpv=true -Dcplayer=false -Dgpl=false \
@@ -98,8 +109,24 @@ meson setup "$WORK/build" "$WORK" --prefix="$PREFIX" --buildtype=release \
   -Dgl=enabled -Dplain-gl=enabled -Dios-gl=$IOS_GL -Dvideotoolbox-gl=disabled -Dvideotoolbox-pl=enabled \
   -Dvulkan=enabled -Dshaderc=disabled -Daudiounit=$AUDIOUNIT -Dcoreaudio=disabled -Davfoundation=$AVFOUNDATION \
   -Dtests=false -Dmanpage-build=disabled -Dhtml-build=disabled -Dpdf-build=disabled \
-  > "$WORK/configure.log" 2>&1 || { tail -40 "$WORK/configure.log" >&2; exit 1; }
+  ) > "$WORK/configure.log" 2>&1 || { tail -40 "$WORK/configure.log" >&2; exit 1; }
 # 3. 编译与安装
 ninja -C "$WORK/build" -j"$(sysctl -n hw.ncpu)" > "$WORK/build.log" 2>&1 || { grep -a -m5 'error' "$WORK/build.log" >&2; tail -20 "$WORK/build.log" >&2; exit 1; }
-ninja -C "$WORK/build" install >> "$WORK/build.log" 2>&1
+# 安装先落到 DESTDIR,再把占位前缀 /lux-install 下的内容合并回 PREFIX:
+# 这样二进制里记录的是 --prefix=/lux-install(以及 /lux-install/etc/mpv),
+# 不会出现 deps/<target>/install 的绝对路径,产物位置也保持不变。
+rm -rf "$STAGE"
+DESTDIR="$STAGE" ninja -C "$WORK/build" install >> "$WORK/build.log" 2>&1
+[ -d "$STAGE$INSTALL_PREFIX" ] || { echo "build-mpv.sh: 安装暂存目录缺失: $STAGE$INSTALL_PREFIX" >&2; exit 1; }
+mkdir -p "$PREFIX"
+( cd "$STAGE$INSTALL_PREFIX" && tar -cf - . ) | ( cd "$PREFIX" && tar -xf - )
+rm -rf "$STAGE"
+# 4. 回归检查:安装后的 libmpv 不得再把本检出的绝对路径带进产物。
+for lib in "$PREFIX"/lib/libmpv.*.dylib; do
+  [ -f "$lib" ] || continue
+  if strings "$lib" | grep -qF "$REPO"; then
+    echo "build-mpv.sh: $lib 仍包含构建路径 $REPO" >&2
+    exit 1
+  fi
+done
 echo "[built] libmpv 0.41.0 ($TARGET) -> $PREFIX/lib"
