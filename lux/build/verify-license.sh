@@ -167,8 +167,8 @@ verify_target() {
             && pass "config_components.h: $want_comp = 1" \
             || fail "config_components.h: $want_comp 不是 1"
     done
-    for comp_re in CONFIG_FFRTMPHTTP_PROTOCOL CONFIG_RTMPE_PROTOCOL CONFIG_RTMPTE_PROTOCOL \
-                   CONFIG_RTMPT_PROTOCOL CONFIG_RTMPTS_PROTOCOL CONFIG_DASH_DEMUXER CONFIG_LIBUAVS3D_DECODER; do
+    for comp_re in CONFIG_RTMPE_PROTOCOL CONFIG_RTMPTE_PROTOCOL \
+                   CONFIG_DASH_DEMUXER CONFIG_LIBUAVS3D_DECODER; do
         if grep -qE "^#define $comp_re 1$" "$build/config_components.h"; then
             fail "config_components.h: $comp_re 被意外启用(应保持 0)"
         else

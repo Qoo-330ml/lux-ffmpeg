@@ -20,9 +20,9 @@
 - **b) 需要外部库**:留到 D4 后续步骤,逐条登记在本节 b) 表。
 - **c) 有意不要 / 当前版本不可用**:不加,保留理由与替代路径。
 
-最终计数(dav1d / zlib / OpenSSL 纳入后):demuxer 40、protocol 35、bsf 49、parser 66、decoder 199;相对 P1 起点
-分别新增 37、30、42、60、182,合计 351 个组件(dav1d / zlib / OpenSSL 见「外部依赖」一节;
-protocol 比上一版少 1:新增 `dtls`/`ffrtmpcrypt`,移除 `ffrtmphttp`/`rtmpt`/`rtmpts`)。P1 第 5 步再加入 38 个原生滤镜,`LUX_FILTERS`
+最终计数(dav1d / zlib / OpenSSL 纳入后):demuxer 40、protocol 38、bsf 49、parser 66、decoder 199;相对 P1 起点
+分别新增 37、33、42、60、182,合计 354 个组件(dav1d / zlib / OpenSSL 见「外部依赖」一节;
+protocol 比 P1 D4 多 2:新增 `dtls`/`ffrtmpcrypt`,`rtmpt`/`rtmpts`/`ffrtmphttp` 保持纳入)。P1 第 5 步再加入 38 个原生滤镜,`LUX_FILTERS`
 到 45 项(见「滤镜(P1 第5步)」)。`ffmpeg-ios.conf` 是唯一真相,本文件的表格是逐项理由。
 
 `mlp` 与 `webp` 不在 MPVKit 的导出符号里,但它们**确实存在**于 FFmpeg 8.1.3:
@@ -44,8 +44,16 @@ P1 白名单里,因此不是 D4 新增项,也不属于 MPVKit 缺口。
 
 | 组件 | 理由 |
 | --- | --- |
-| `async` `cache` `concat` `concatf` `crypto` `data` `fd` `md5` `pipe` `subfile` `tee` | 本地/组合/缓存协议,供播放列表、分片与 MPV 播放链使用。`crypto` 是 FFmpeg 内建 AES,不依赖 OpenSSL。 |
-| `ftp` `gopher` `gophers` `httpproxy` `icecast` `ipfs_gateway` `ipns_gateway` `mmsh` `mmst` `rtmp` `rtmps` `rtp` `srtp` `udp` `udplite` `unix` `prompeg` | MPVKit 基线的网络协议集合。除 `dtls`/`ffrtmpcrypt`(依赖 OpenSSL,已纳入,见「外部依赖」)外,均由 FFmpeg 原生实现;TLS 走 OpenSSL 3.5 LTS。`rtmpt`/`rtmpts` 因强制 select `ffrtmphttp` 而一并移除(见 c 类)。 |
+| `async` `cache` `concat` `concatf` `crypto` `data` `fd` `ffrtmphttp` `md5` `pipe` `subfile` `tee` | 本地/组合/缓存协议,供播放列表、分片与 MPV 播放链使用。`crypto` 是 FFmpeg 内建 AES,不依赖 OpenSSL。 |
+| `ftp` `gopher` `gophers` `httpproxy` `icecast` `ipfs_gateway` `ipns_gateway` `mmsh` `mmst` `rtmp` `rtmps` `rtmpt` `rtmpts` `rtp` `srtp` `udp` `udplite` `unix` `prompeg` | MPVKit 基线的网络协议集合。除 `dtls`/`ffrtmpcrypt`(依赖 OpenSSL,已纳入,见「外部依赖」)外,均由 FFmpeg 原生实现;TLS 走 OpenSSL 3.5 LTS。`rtmpt`/`rtmpts` 依赖 `ffrtmphttp`(原生实现,无外部库),一并保留。 |
+
+#### a) 协议回补(2026-11-10 返工):rtmpt / rtmpts / ffrtmphttp
+
+| 组件 | 理由 |
+| --- | --- |
+| `ffrtmphttp` | FFmpeg **原生实现,无外部库**;RTMP-over-HTTP 的传输层,`rtmpt`/`rtmpts` 在 configure 里 select 它(`configure:4020`)。 |
+| `rtmpt` | MPVKit 基线的 RTMP-over-HTTP(明文);**依赖 `ffrtmphttp`**(`configure:4041`),原生产生。 |
+| `rtmpts` | MPVKit 基线的 RTMP-over-HTTP over TLS;**依赖 `ffrtmphttp` + `https`**(`configure:4045`),原生产生。 |
 
 ### a) 本步新增:bitstream filter
 
@@ -152,9 +160,6 @@ MACOS 14.0 / IOS 17.0 / IOSSIMULATOR 17.0(`vtool -show-build`);`config.h` 的
 | `libuavs3d` decoder | 有意不要 | AVS3 片源场景窄;库许可需单独核对,不随本次引入。 |
 | `rtmpe` protocol | 有意不要 | Flash 时代的加密 RTMP,已淘汰;基础 `rtmp`/`rtmps`/`rtmpt`/`rtmpts` 仍保留。 |
 | `rtmpte` protocol | 有意不要 | 同上,且 select `ffrtmpcrypt` + `ffrtmphttp`。 |
-| `ffrtmphttp` protocol | 有意不要 | HTTP 隧道传输层;`rtmpe`/`rtmpte`/`rtmpt`/`rtmpts` 都会 select 它,本次一律不纳入。 |
-| `rtmpt` protocol | 有意不要 | `configure:4041` select `ffrtmphttp_protocol`;为满足「不启用 ffrtmphttp」一并移除。明文 RTMP(`rtmp`)与 TLS RTMP(`rtmps`)保留。 |
-| `rtmpts` protocol | 有意不要 | `configure:4045` select `ffrtmphttp_protocol` + `https_protocol`;同上。 |
 | `data` demuxer | 有意不要 | MPVKit 符号表里的调试/数据通道 demuxer,不对应正常媒体文件;正常文件由各容器 demuxer 处理。 |
 | `dvd_nav` parser | 有意不要 | DVD 导航解析不属于文件播放/MPVKit 的流媒体覆盖;保留 `dvdsub` 字幕解码,不引入 DVD 菜单路径。 |
 | `rdt` demuxer | 当前版本不可用 | FFmpeg 8.1.3 的 `configure --list-demuxers` 没有 `rdt`;无法用同名组件补齐。 |
@@ -305,7 +310,7 @@ AV1 软解由 `libdav1d` 提供(见「外部依赖:dav1d」)。开了 `h264`/`he
 | `libuavs3d` | D4 c 类:需要外部 AVS3 解码库,许可需单独核对;本次不引入。 |
 | `bzlib` / `lzma` / `iconv` | 仍关闭;`zlib` 只按 `tscc` 的解压需要启用(`--enable-zlib`),不作为通用压缩后端。 |
 | `dash` demuxer | 需要 libxml2,当前无 DASH 片源需求(见 c 类);现有 HLS/`webm_dash_manifest` 不受影响。 |
-| `rtmpe` / `rtmpte` / `rtmpt` / `rtmpts` / `ffrtmphttp` | Flash 时代加密 RTMP 与 HTTP 隧道,已淘汰(见 c 类);基础 RTMP/RTMPS 仍可用。 |
+| `rtmpe` / `rtmpte` | Flash 时代的加密 RTMP,已淘汰(见 c 类);`rtmp`/`rtmps`/`rtmpt`/`rtmpts` 仍保留。 |
 | `libavdevice` | `--disable-avdevice`。不做采集。 |
 | `libpostproc` | FFmpeg 8.0 起已从源码树移除,没有这个库,也没有 `--disable-postproc` 选项。 |
 | `matroska` muxer | F0 的产物方向是 fMP4;写 mkv 用不到,不开。 |
