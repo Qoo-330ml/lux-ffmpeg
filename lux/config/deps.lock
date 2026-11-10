@@ -42,11 +42,11 @@ fast_float   8.0.2     e14a33089712b681d74d94e2a11362643bd7d769ae8f7e7caefe955f5
 # sha256 与上游随包发布的 dav1d-1.5.4.tar.xz.sha256 逐字一致(2026-11-10 下载核对)。
 dav1d        1.5.4     686616b7c69eb88d44459391ab25cac13b6647a3b288835c5784e71c1514a5c5  https://downloads.videolan.org/pub/videolan/dav1d/1.5.4/dav1d-1.5.4.tar.xz
 # --- zlib:FFmpeg 的 tscc 解码器经 inflate_wrapper 需要 zlib(zlib 许可,非 copyleft)。
-# 版本 = 上游最新稳定 1.3.x(zlib.net 的 1.3 分支末版,2026-02-17)。1.4 已于 2026-11-04 发布,
-# 不在本次锁定范围(升级需单独决策,见 delegate 报告 open_issues)。
-# sha256 与上游 PGP 签名文件 zlib-1.3.2.tar.gz.asc 核对:签名者 5ED46A6721D365587791E2AA783FCD8E58BCAFBA,
-# 2026-11-10 用该公钥对 tar.gz 逐字节验签通过;zlib.net/fossils 与 GitHub release 资产哈希一致。
-zlib         1.3.2     bb329a0a2cd0274d05519d61c667c062e06990d72e125ee2dfa8de64f0119d16  https://zlib.net/fossils/zlib-1.3.2.tar.gz  selfstore=lux/release/sources/zlib-1.3.2.tar.gz
+# 版本 = 上游当前稳定版 1.4(zlib.net,2026-11-04 发布;截至核对时 1.4 尚无补丁版)。
+# 1.4 修复了 1.3.2 及更早版本的多项安全问题;上游 1.4 说明明确列出的 CVE 编号只有 CVE-2026-85091。
+# sha256 与上游 PGP 签名文件 zlib-1.4.tar.gz.asc 核对:签名者 5ED46A6721D365587791E2AA783FCD8E58BCAFBA,
+# 2026-11-10 用该公钥对 tar.gz 逐字节验签通过;zlib.net 与 GitHub release 资产哈希一致。
+zlib         1.4       02dd159783677a749c04adbdd02b55b8a2bcc7e054f51b76b549199a916ad584  https://zlib.net/zlib-1.4.tar.gz  selfstore=lux/release/sources/zlib-1.4.tar.gz
 # --- openssl:D3 的 TLS 后端(Apache-2.0)。Secure Transport 只到 TLS 1.2,连不上 1.3-only 服务端,
 # 见 lux/docs/tls-13-probe.md。版本 = 3.5 LTS 分支最新补丁版(2026-09-29,EOL 2030-04-08)。
 # sha256 与 openssl.org 发布的 openssl-3.5.9.tar.gz.sha256 逐字一致(2026-11-10 下载核对)。

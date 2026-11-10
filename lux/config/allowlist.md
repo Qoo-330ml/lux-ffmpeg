@@ -125,11 +125,11 @@ D3(TLS 后端)与 D4 b 类收口一起决定:纳入 `tscc`(zlib)、`ffrtmpcrypt`
 | 项 | zlib | OpenSSL |
 | --- | --- | --- |
 | 用途 | `tscc` decoder 的 `inflate_wrapper` | `tls`/`https`/`dtls`/`ffrtmpcrypt` 的加密后端 |
-| 版本 | **1.3.2**(1.3 分支末版,2026-02-17) | **3.5.9**(3.5 LTS,2026-09-29,EOL 2030-04-08) |
+| 版本 | **1.4**(上游当前稳定版,2026-11-04) | **3.5.9**(3.5 LTS,2026-09-29,EOL 2030-04-08) |
 | 许可 | zlib 许可(非 copyleft) | Apache-2.0 |
-| 来源 | `https://zlib.net/fossils/zlib-1.3.2.tar.gz` | `https://github.com/openssl/openssl/releases/download/openssl-3.5.9/openssl-3.5.9.tar.gz`(openssl.org 官方下载跳转) |
-| sha256 | `bb329a0a2cd0274d05519d61c667c062e06990d72e125ee2dfa8de64f0119d16` | `603f5602e2eef00d77fbd429d34dcd5822bb301757a1bc9cdb24c670f1eb859a` |
-| 校验 | 与上游 PGP 签名 `zlib-1.3.2.tar.gz.asc` 验签通过(签名者指纹 `5ED46A6721D365587791E2AA783FCD8E58BCAFBA`);zlib.net/fossils 与 GitHub release 资产逐字节一致 | 与 openssl.org 发布的 `openssl-3.5.9.tar.gz.sha256` 逐字一致 |
+| 来源 | `https://zlib.net/zlib-1.4.tar.gz` | `https://github.com/openssl/openssl/releases/download/openssl-3.5.9/openssl-3.5.9.tar.gz`(openssl.org 官方下载跳转) |
+| sha256 | `02dd159783677a749c04adbdd02b55b8a2bcc7e054f51b76b549199a916ad584` | `603f5602e2eef00d77fbd429d34dcd5822bb301757a1bc9cdb24c670f1eb859a` |
+| 校验 | 与上游 PGP 签名 `zlib-1.4.tar.gz.asc` 验签通过(签名者指纹 `5ED46A6721D365587791E2AA783FCD8E58BCAFBA`);zlib.net 与 GitHub release 资产逐字节一致 | 与 openssl.org 发布的 `openssl-3.5.9.tar.gz.sha256` 逐字一致 |
 | 形态 | 静态 `libz.a`(`--static`),装到 `lux/.build/deps/<target>/install` | 静态 `libssl.a`/`libcrypto.a`(`no-shared no-module`),同一前缀 |
 | 构建 | `build-deps.sh <target> zlib` | `build-deps.sh <target> openssl`;macOS `darwin64-arm64-cc`,iOS `ios64-xcrun`,模拟器 `iossimulator-xcrun` |
 | 许可文本 | `lux/release/licenses/zlib/LICENSE` | `lux/release/licenses/openssl/LICENSE.txt` |
@@ -148,7 +148,7 @@ MACOS 14.0 / IOS 17.0 / IOSSIMULATOR 17.0(`vtool -show-build`);`config.h` 的
 
 | 组件 | 外部依赖 / 原因 | 处理 |
 | --- | --- | --- |
-| `tscc` decoder | `configure:3290` select `inflate_wrapper`,后者 `deps="zlib"` | **已纳入**:zlib 1.3.2,`--enable-zlib` + `--enable-decoder=tscc`;见「外部依赖:zlib」。 |
+| `tscc` decoder | `configure:3290` select `inflate_wrapper`,后者 `deps="zlib"` | **已纳入**:zlib 1.4,`--enable-zlib` + `--enable-decoder=tscc`;见「外部依赖:zlib」。 |
 | `ffrtmpcrypt` protocol | `configure:4017` 要求 `gcrypt`/`gmp`/`openssl`/`mbedtls` 之一 | **已纳入**:OpenSSL 3.5.9(Apache-2.0),不再引入 gcrypt/gmp。 |
 | `dtls` protocol | `configure:4057` 要求 OpenSSL/SChannel/GnuTLS/mbedTLS | **已纳入**:OpenSSL 3.5.9。 |
 

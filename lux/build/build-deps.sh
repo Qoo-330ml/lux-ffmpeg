@@ -145,9 +145,9 @@ PC
         -Denable_examples=false -Denable_docs=false -Dxxhash_muxer=disabled ;;
     zlib)
       # zlib(zlib 许可,非 copyleft)。只出静态 libz.a:FFmpeg 的 tscc 解码器经
-      # inflate_wrapper 需要它(zlib 1.3.2,见 lux/config/deps.lock)。minizip / 示例 /
+      # inflate_wrapper 需要它(zlib 1.4,见 lux/config/deps.lock)。minizip / 示例 /
       # 测试一律不构建。
-      extract zlib-1.3.2.tar.gz zlib
+      extract zlib-1.4.tar.gz zlib
       ( cd "$WORK/zlib" && \
         CC="$DEPS_CC" CFLAGS="$DEPS_CFLAGS" LDFLAGS="$DEPS_LDFLAGS" \
         AR="$DEPS_AR" RANLIB="$DEPS_RANLIB" \
