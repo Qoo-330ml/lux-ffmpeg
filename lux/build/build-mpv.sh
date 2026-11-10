@@ -27,6 +27,22 @@ export PYTHONPATH="$REPO/lux/.build/deps/pydeps"
 rm -rf "$WORK"; mkdir -p "$WORK" "$PCDIR" "$PCDIR/include"
 tar -C "$WORK" -xzf "$SRC/v0.41.0.tar.gz" --strip-components=1
 
+# 0a. mpv 源码补丁(lux/patches/mpv/,清单 lux/config/mpv-patches.txt)。
+#     只改 mpv;FFmpeg 补丁集仍走 lux/config/patches.txt,两者互不影响。
+#     WORK 每次都是新解包,所以补丁总能以 -N 零 fuzz 应用;失败即中止。
+MPV_PATCH_DIR="$REPO/lux/patches/mpv"
+MPV_PATCH_LIST="$REPO/lux/config/mpv-patches.txt"
+if [ -f "$MPV_PATCH_LIST" ]; then
+  while IFS= read -r patch_name; do
+    [ -n "$patch_name" ] || continue
+    patch_file="$MPV_PATCH_DIR/$patch_name"
+    [ -f "$patch_file" ] || { echo "build-mpv.sh: 缺少 mpv 补丁: $patch_file" >&2; exit 1; }
+    patch -d "$WORK" -p1 -N -s -i "$patch_file" \
+      || { echo "build-mpv.sh: mpv 补丁应用失败: $patch_name" >&2; exit 1; }
+    echo "[patch] $patch_name"
+  done < <(sed -e 's/#.*//' "$MPV_PATCH_LIST" | awk 'NF { print $1 }')
+fi
+
 # meson.build_options() 会把 --cross-file 的实参原样写进 libmpv 的 Configuration。
 # 传绝对路径会把构建机目录带进产物;这里把交叉文件放进 WORK,配合下面在 WORK 里
 # 执行的 meson setup 用相对文件名传参,配置字符串里只会留下 meson-cross.ini。
