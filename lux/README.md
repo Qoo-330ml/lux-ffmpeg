@@ -786,6 +786,8 @@ done
   逐项把 URL 的**当前字节**取下来核对,同时核对 `selfstore=` 副本;日志默认写
   `lux/.build/logs/deps-lock-check-<YYYYmmdd>.log`,退出码 0 = 全一致,1 = 有差异/缺失。
   下载缓存放在 `lux/.build/verify/deps-lock/`,不碰 `lux/.build/deps/`。
+- 下载带重试(`--retry 5 --retry-all-errors`):上游偶发 5xx/断流时重试,不会因为一次网络抖动
+  就误报成 hash 不符;真的取不到才算失败。
 - 公共函数在 `lux/build/deps-lock-common.sh`(sha256 计算兼容 `sha256sum` / `shasum`)。
 - 一次完整核对(会联网,约 55 MB):
 

@@ -26,9 +26,11 @@ deps_lock_selfstore() {
 }
 
 # deps_lock_curl <url> <dest> -> 下载到 dest;失败时删掉半成品并返回非零
+# --retry-all-errors:上游偶尔 5xx/断流(savannah、GitHub codeload 都遇到过),重试而不是直接判失败。
 deps_lock_curl() {
   local url=$1 dest=$2
-  if ! curl -fsSL --retry 3 --retry-delay 2 --connect-timeout 30 --max-time 900 -o "$dest" "$url"; then
+  if ! curl -fsSL --retry 5 --retry-delay 3 --retry-all-errors --retry-connrefused \
+      --connect-timeout 30 --max-time 900 -o "$dest" "$url"; then
     rm -f "$dest"
     return 1
   fi
