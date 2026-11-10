@@ -54,15 +54,20 @@ BUILD="$BUILD_ROOT/$target"
 LOGDIR="$BUILD_ROOT/logs"
 
 INSTALL="$BUILD/install"
-ff_configure_opts "$target" "$INSTALL" || die "cannot resolve configure opts for '$target'"
 
-# libdav1d(唯一的外部库)只能通过 pkg-config 被发现:指向该目标的 deps 前缀。
-# 与 build-deps.sh 同一口径——只搜这一个前缀、清空 PKG_CONFIG_PATH,避免 Homebrew/系统库混进来。
-DAV1D_PREFIX="$BUILD_ROOT/deps/$target/install"
-[ -f "$DAV1D_PREFIX/lib/pkgconfig/dav1d.pc" ] \
-    || die "缺少 $DAV1D_PREFIX/lib/pkgconfig/dav1d.pc — 先跑 ./lux/build/build-deps.sh $target dav1d"
-export PKG_CONFIG_LIBDIR="$DAV1D_PREFIX/lib/pkgconfig:$DAV1D_PREFIX/share/pkgconfig"
+# 外部依赖(dav1d / zlib / OpenSSL)统一装在 lux/.build/deps/<target>/install。
+# ffmpeg-ios.conf 用 LUX_DEPS_PREFIX 生成 -I/-L(zlib 的探测不走 pkg-config);
+# pkg-config 只搜这一个前缀、清空 PKG_CONFIG_PATH,避免 Homebrew/系统库混进来。
+DEPS_PREFIX="$BUILD_ROOT/deps/$target/install"
+export LUX_DEPS_PREFIX="$DEPS_PREFIX"
+for pc in dav1d zlib openssl; do
+    [ -f "$DEPS_PREFIX/lib/pkgconfig/$pc.pc" ] \
+        || die "缺少 $DEPS_PREFIX/lib/pkgconfig/$pc.pc — 先跑 ./lux/build/build-deps.sh $target dav1d zlib openssl"
+done
+export PKG_CONFIG_LIBDIR="$DEPS_PREFIX/lib/pkgconfig:$DEPS_PREFIX/share/pkgconfig"
 export PKG_CONFIG_PATH=""
+
+ff_configure_opts "$target" "$INSTALL" || die "cannot resolve configure opts for '$target'"
 
 log "target      : $target ($FF_HOST_OS_LABEL)"
 log "sdk         : $FF_SDK_NAME $FF_SDK_VERSION -> $FF_SDK_PATH"

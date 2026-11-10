@@ -96,11 +96,16 @@ build_target() {
     ff_framework_configure_opts "$target" "$install" || die "cannot resolve configure opts for '$target'"
     ff_target_setup "$target" || die "unknown target '$target'"
 
-    # libdav1d 与 build-ffmpeg.sh 同口径:只指向该目标的 deps 前缀,清空 PKG_CONFIG_PATH。
-    local dav1d_prefix="$REPO/lux/.build/deps/$target/install"
-    [ -f "$dav1d_prefix/lib/pkgconfig/dav1d.pc" ] \
-        || die "缺少 $dav1d_prefix/lib/pkgconfig/dav1d.pc — 先跑 ./lux/build/build-deps.sh $target dav1d"
-    export PKG_CONFIG_LIBDIR="$dav1d_prefix/lib/pkgconfig:$dav1d_prefix/share/pkgconfig"
+    # 外部依赖(dav1d / zlib / OpenSSL)与 build-ffmpeg.sh 同口径:只指向该目标的
+    # deps 前缀,清空 PKG_CONFIG_PATH;LUX_DEPS_PREFIX 让 ffmpeg-ios.conf 生成 -I/-L
+    # (zlib 的探测不走 pkg-config,不指前缀会静默命中 SDK 里的系统 zlib)。
+    local deps_prefix="$REPO/lux/.build/deps/$target/install"
+    export LUX_DEPS_PREFIX="$deps_prefix"
+    for pc in dav1d zlib openssl; do
+        [ -f "$deps_prefix/lib/pkgconfig/$pc.pc" ] \
+            || die "缺少 $deps_prefix/lib/pkgconfig/$pc.pc — 先跑 ./lux/build/build-deps.sh $target dav1d zlib openssl"
+    done
+    export PKG_CONFIG_LIBDIR="$deps_prefix/lib/pkgconfig:$deps_prefix/share/pkgconfig"
     export PKG_CONFIG_PATH=""
 
     # 与 build-ffmpeg.sh 相同的许可自检:参数里不能夹带 GPL/nonfree。
