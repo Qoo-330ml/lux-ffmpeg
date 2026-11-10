@@ -173,14 +173,19 @@ RESULT: PASS
   实际编进产物的补丁只有两部分:§6.1 的 GPL 守卫(2 处源码改动)+ §6.2 从 jellyfin 补丁系列
   移植的 14 个补丁。上游源码树是 **LGPL/GPL 混合**:`libavfilter` 下有 50 个文件是 GPL,
   `libavcodec/aarch64/ac3dsp_*` 与 `libavutil/aarch64/crc.S` 也是 GPL。本构建**只启用 LGPL 部分**。
-- `configure` 输出:`License: LGPL version 3 or later`(因为 `--disable-gpl --disable-nonfree
-  --enable-version3`);`config.h` 里 `CONFIG_GPL 0`、`CONFIG_NONFREE 0`、`CONFIG_VERSION3 1`、
-  `CONFIG_LGPLV3 1`。
+- `configure` 输出:`License: LGPL version 2.1 or later`(因为 `--disable-gpl --disable-nonfree`,
+  且**不写** `--enable-version3`);`config.h` 里 `CONFIG_GPL 0`、`CONFIG_NONFREE 0`、
+  `CONFIG_VERSION3 0`、`CONFIG_LGPLV3 0`。
+- 为什么是 2.1+:D2 决定(2026-11-10,所有者确认)把许可下限降到 LGPL-2.1+,与 MPVKit / mpv /
+  libplacebo 一致,也缩小了与 App Store 条款的张力(法务结论仍需确认)。P0-4 探针证明去掉
+  `--enable-version3` 后启用的组件集合逐项不变,只有 `CONFIG_VERSION3`/`CONFIG_LGPLV3` 和
+  configure 的许可行变了;当前白名单没有 gmp/mbedtls/libopencore-amr 等 version3 外部库,也没有
+  OpenSSL ≥ 3.0。完整理由与「什么情况会被迫加回来」记在 `lux/config/allowlist.md`「许可决定」。
 - 为什么还要额外审计:`CONFIG_GPL 0` 只保证 `#if CONFIG_GPL` 包住的代码不编,**不保证没有 GPL
   源文件被无条件编进去**。F0 就是用第 5 项检查(反查 `.o` 的源文件)抓到了两个这样的文件,
   见下节。GPL 滤镜之所以不会进来,是因为我们根本没编译 avfilter(`--disable-avfilter`),
   而不是因为 `CONFIG_GPL 0`。
-- 静态链接本身的分发合规(LGPLv3 §4 的目标代码/重链接义务)是 F1 要解决的问题:动态
+- 静态链接本身的分发合规(LGPL-2.1 §6 的目标代码/重链接义务)是 F1 要解决的问题:动态
   framework 是正解,F0 的静态 `.a` 只是 spike 产物,**不应直接进 App 包**。
 
 ### 6.1 对上游源码的补丁(`lux:` 提交)
@@ -317,10 +322,11 @@ framework,F0 根本没构建它们,所以**总包体积不可直接相加对比*
   `lux/8.1.3` 分支,提交 `f2e0673`。上游源码树是 **LGPL/GPL 混合**:`libavfilter` 下有 50 个
   文件是 GPL,`libavcodec/aarch64/ac3dsp_*` 与 `libavutil/aarch64/crc.S` 也是 GPL。
 - **本构建只启用 LGPL 部分**:configure 参数见 `lux/config/ffmpeg-ios.conf`,白名单及逐项理由见
-  `lux/config/allowlist.md`;`--disable-gpl --disable-nonfree --enable-version3` 的结果是
-  `LGPL version 3 or later`。GPL 文件要么因为没开对应组件/库而不编译,要么由 6.1 的两个
-  守卫排除,并由 `verify-license.sh` 第 5 项检查持续保证。
-- 产物许可:FFmpeg 部分为 **LGPL-3.0-or-later**(`COPYING.LGPLv3`),对上游文件的两个改动
+  `lux/config/allowlist.md`;`--disable-gpl --disable-nonfree` 且不加 `--enable-version3` 的结果是
+  `LGPL version 2.1 or later`(D2,2026-11-10;理由见 allowlist.md「许可决定」)。GPL 文件要么
+  因为没开对应组件/库而不编译,要么由 6.1 的两个守卫排除,并由 `verify-license.sh` 第 5 项检查
+  持续保证。
+- 产物许可:FFmpeg 部分为 **LGPL-2.1-or-later**(`COPYING.LGPLv2.1`),对上游文件的两个改动
   以 `lux:` 提交记录在本仓库(见 `git log`)。
 - 夹具(`lux/.build/fixtures/*.mkv`)是本机 `ffmpeg` 用 `lavfi` 测试图 + 正弦波现场合成的,
   不含任何第三方素材。
