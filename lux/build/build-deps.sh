@@ -155,6 +155,29 @@ PC
         && make -j"$JOBS" >> "$WORK/zlib.log" 2>&1 \
         && make install >> "$WORK/zlib.log" 2>&1 ) \
         || { tail -30 "$WORK/zlib.log" >&2; return 1; } ;;
+    openssl)
+      # OpenSSL 3.5 LTS(Apache-2.0)。D3 的 TLS 后端:Secure Transport 只到 TLS 1.2,
+      # 连不上只支持 TLS 1.3 的服务端(见 lux/docs/tls-13-probe.md)。
+      # 静态(no-shared / no-module)+ 不构建测试/文档;apps 保留,测试用其中的 s_server。
+      extract openssl-3.5.9.tar.gz openssl
+      local ossl_target ossl_flags
+      case "$TARGET" in
+        macos-arm64)   ossl_target=darwin64-arm64-cc
+                       ossl_flags="-mmacosx-version-min=${DEPS_MIN_VERSION}" ;;
+        ios-arm64)     ossl_target=ios64-xcrun
+                       ossl_flags="-miphoneos-version-min=${DEPS_MIN_VERSION} -isysroot $DEPS_SDK" ;;
+        ios-sim-arm64) ossl_target=iossimulator-xcrun
+                       # Configure 会把不认识的裸词当成第二个 target("-arch arm64" 会被拆开),
+                       # 所以 -arch 由已导出的 CFLAGS(DEPS_CFLAGS)带入,这里只补 SDK/最低版本。
+                       ossl_flags="-mios-simulator-version-min=${DEPS_MIN_VERSION} -isysroot $DEPS_SDK" ;;
+      esac
+      ( cd "$WORK/openssl" \
+        && ./Configure "$ossl_target" no-shared no-module no-tests no-docs \
+             --prefix="$PREFIX" --openssldir="$PREFIX/ssl" $ossl_flags > "$WORK/openssl.log" 2>&1 \
+        && make -j"$JOBS" >> "$WORK/openssl.log" 2>&1 \
+        && make install_sw >> "$WORK/openssl.log" 2>&1 \
+        && make install_ssldirs >> "$WORK/openssl.log" 2>&1 ) \
+        || { tail -40 "$WORK/openssl.log" >&2; return 1; } ;;
     uchardet)
       # 动态库(LGPL-2.1+,选 LGPL 许可),独立 framework 的候选;这里只构建 dylib 版本
       extract uchardet-0.0.8.tar.xz uchardet
@@ -169,5 +192,5 @@ PC
   esac
   echo "[built] $name ($TARGET)"
 }
-if [ $# -eq 0 ]; then set -- freetype harfbuzz fribidi libunibreak lcms2 libass uchardet shaderc libplacebo dav1d zlib; fi
+if [ $# -eq 0 ]; then set -- freetype harfbuzz fribidi libunibreak lcms2 libass uchardet shaderc libplacebo dav1d zlib openssl; fi
 for n in "$@"; do build_one "$n"; done
