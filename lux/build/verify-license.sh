@@ -31,8 +31,10 @@ fail() { printf '  [FAIL] %s\n' "$*"; FAILS=$((FAILS + 1)); }
 warn() { printf '  [warn] %s\n' "$*"; WARNS=$((WARNS + 1)); }
 hdr()  { printf '\n== %s\n' "$*"; }
 
-# 符号表里绝对不允许出现的东西(外部库 / GPL 组件 / 我们没构建的库)
-FORBIDDEN_SYMBOL_RE='x264|x265|fdk|fdkaac|xvid|vidstab|xavs|postproc|mp3lame|libmp3lame|theora|dav1d|svt_|svtav1|libvpx|vpx_codec_|vpx_img_|faac|vo_aacenc|opencore|libass|fribidi|fontconfig|freetype|gnutls|openssl|libvorbis|libopus|zimg|placebo|shaderc|chromaprint|vid\.stab'
+# 符号表里绝对不允许出现的东西(外部库 / GPL 组件 / 我们没构建的库)。
+# theora 只匹配外部 libtheora 的 API;FFmpeg 自带的 ogg_codec 描述符
+# `_ff_theora_codec` 属于 ogg demuxer,不是外部库(ogg demuxer 会无条件编入)。
+FORBIDDEN_SYMBOL_RE='x264|x265|fdk|fdkaac|xvid|vidstab|xavs|postproc|mp3lame|libmp3lame|(^|_)(th_(decode|encode|comment|info|packet|version|granule|setup|clear|merge)|theora_(decode|encode|version|comment|info|packet))|dav1d|svt_|svtav1|libvpx|vpx_codec_|vpx_img_|faac|vo_aacenc|opencore|libass|fribidi|fontconfig|freetype|gnutls|openssl|libvorbis|libopus|zimg|placebo|shaderc|chromaprint|vid\.stab'
 # 符号先落到文件再 grep:直接 `nm ... | grep -q` 会让 grep 提前关闭管道,
 # 在 pipefail 下把 nm 的 SIGPIPE 当失败。
 dump_symbols() { # $1 = archive, $2 = 输出文件

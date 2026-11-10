@@ -11,6 +11,73 @@
 3. 任何 `--enable-gpl` / `--enable-nonfree` / 外部 GPL 编码库(x264/x265/fdk-aac/…)一律不开;
 4. `--disable-everything` 之后只按本名单打开,名单之外的东西**一个都不开**。
 
+## P1 D4 原生 LGPL 补齐(2026-11-10)
+
+本节按 `capabilities-mpvkit.json` 与 P1 开始时的白名单做差集。D4 的决定是**以 MPVKit 1.0.0 的能力为基线,
+默认全部保留**,但本步只加入 FFmpeg 自带、无需新增第三方库的组件。分类口径:
+
+- **a) 原生 LGPL**:当前 FFmpeg 8.1.3 自带,本步加入白名单。
+- **b) 需要外部库**:留到 D4 后续步骤,逐条登记在「D4 后续步骤」。
+- **c) 有意不要 / 当前版本不可用**:不加,保留理由与替代路径。
+
+`mlp` 与 `webp` 不在 MPVKit 的导出符号里,但它们**确实存在**于 FFmpeg 8.1.3:
+`configure:3194` 有 `mlp_decoder_select="mlp_parser"`, `configure:3313` 有
+`webp_decoder_select="vp8_decoder"`;`libavcodec/allcodecs.c` 分别注册 `ff_mlp_decoder` 与 `ff_webp_decoder`。
+两项本来就在 P1 白名单里,因此不是 D4 新增项,也不属于 MPVKit 缺口。
+
+### a) 本步新增:demuxer(容器/流)
+
+| 组件 | 理由 |
+| --- | --- |
+| `aac` `ac3` `eac3` `flac` `mp3` `wav` `aiff` `amr` `ape` `ogg` `caf` `loas` | MPVKit 支持的裸音频/单轨容器;用于服务器上的音频文件与分离音轨。原生 LGPL,无外部依赖。 |
+| `av1` `hevc` `h264` `m4v` `vc1` `flv` `live_flv` `mpegvideo` `avi` `asf` `dv` `mpegps` `mpegtsraw` `rm` `kux` `ivr` | MPVKit 的常见视频容器/裸流集合,覆盖 AVI、FLV、ASF/WMV、MPEG-PS、RM、酷狗 KUX、IVR 等历史片源。全部是原生 demuxer。 |
+| `concat` `hls` `rtp` `rtsp` `sdp` `webm_dash_manifest` | 播放列表/网络流入口。`hls` 对应 `.strm`/m3u8,`rtsp`/`rtp`/`sdp` 是 MPVKit 基线的实时流能力;均只依赖 FFmpeg 自身组件。 |
+| `ass` `srt` `webvtt` | 字幕文件 demuxer,与已有字幕 decoder 配对;不是蓝光导航。 |
+
+### a) 本步新增:protocol(传输)
+
+| 组件 | 理由 |
+| --- | --- |
+| `async` `cache` `concat` `concatf` `crypto` `data` `fd` `ffrtmphttp` `md5` `pipe` `subfile` `tee` | 本地/组合/缓存协议,供播放列表、分片与 MPV 播放链使用。`crypto` 是 FFmpeg 内建 AES,不引入 OpenSSL。 |
+| `ftp` `gopher` `gophers` `httpproxy` `icecast` `ipfs_gateway` `ipns_gateway` `mmsh` `mmst` `rtmp` `rtmps` `rtmpt` `rtmpts` `rtp` `srtp` `udp` `udplite` `unix` `prompeg` | MPVKit 基线的网络协议集合。除已列在 b 类的加密/DTLS 项外,均由 FFmpeg 原生实现;TLS 继续走 SecureTransport。 |
+
+### a) 本步新增:bitstream filter
+
+| 组件 | 理由 |
+| --- | --- |
+| `apv_metadata` `av1_metadata` `evc_frame_merge` `lcevc_metadata` `h264_metadata` `h264_redundant_pps` `hevc_metadata` `mpeg2_metadata` `opus_metadata` `prores_metadata` `vp9_metadata` `vvc_metadata` | MPVKit 基线的元数据处理/重写 bsf,用于 remux 与格式适配。 |
+| `av1_frame_merge` `av1_frame_split` `vp9_raw_reorder` `vp9_superframe` `vp9_superframe_split` `vvc_mp4toannexb` | AV1/VP9/VVC 的分帧与 Annex B 适配。 |
+| `chomp` `dts2pts` `dump_extradata` `dv_error_marker` `eac3_core` `filter_units` `hapqa_extract` `imx_dump_header` `media100_to_mjpegb` `mjpeg2jpeg` `mjpega_dump_header` `mov2textsub` `mpeg4_unpack_bframes` `pcm_rechunk` `pgs_frame_merge` `remove_extradata` `text2movsub` `truehd_core` | 码流提取、重排与字幕/PCM/PGS 适配 bsf,均为 FFmpeg 原生实现。 |
+| `eia608_to_smpte436m` `smpte436m_to_eia608` | 闭路字幕与 SMPTE 436M 互转。 |
+| `setts` `showinfo` `noise` `trace_headers` | 调试/诊断 bsf。`noise` 在 MPVKit 基线里;仅做码流扰动,不引入依赖。 |
+
+### b) 需要外部库,留待 D4 后续步骤
+
+| 组件 | 外部依赖 / 原因 | 后续处理 |
+| --- | --- | --- |
+| `dash` demuxer | `configure:3868` 要求 `libxml2` | 后续单独评估 libxml2(连同许可/体积)。 |
+| `libdav1d` decoder | `configure:3768` 要求 `libdav1d` | AV1 软解单独成步;原生 `av1` decoder 已保留。 |
+| `libuavs3d` decoder | `configure:3820` 要求 `libuavs3d` | 需要外部 AVS3 解码库,单独评估。 |
+| `ffrtmpcrypt` protocol | `configure:4017` 要求 `gcrypt`/`gmp`/`openssl`/`mbedtls` 之一 | 与 RTMP 加密一起后续评估。 |
+| `rtmpe` protocol | select `ffrtmpcrypt` | 依赖上一项;本轮不开。 |
+| `rtmpte` protocol | select `ffrtmpcrypt` + `ffrtmphttp` | 依赖上一项;本轮不开。 |
+| `dtls` protocol | `configure:4057` 要求 OpenSSL/SChannel/GnuTLS/mbedTLS | 与 D3 TLS 方案一起评估。 |
+
+### c) 有意不要 / 当前版本不可用
+
+| 组件 | 类别 | 理由 |
+| --- | --- | --- |
+| `data` demuxer | 有意不要 | MPVKit 符号表里的调试/数据通道 demuxer,不对应正常媒体文件;正常文件由各容器 demuxer 处理。 |
+| `dvd_nav` parser | 有意不要 | DVD 导航解析不属于文件播放/MPVKit 的流媒体覆盖;保留 `dvdsub` 字幕解码,不引入 DVD 菜单路径。 |
+| `rdt` demuxer | 当前版本不可用 | FFmpeg 8.1.3 的 `configure --list-demuxers` 没有 `rdt`;无法用同名组件补齐。 |
+| `rtp_parse_set_dynamic` protocol | 当前版本不可用 | 这不是 FFmpeg 8.1.3 的 protocol 名(MPVKit 符号表里的内部/派生名);RTP 由 `rtp` 协议覆盖。 |
+| `init_cabac` `init_range` `vpx_init_range` decoder | 当前版本不可用 | 它们是 MPVKit 符号表里的初始化辅助符号,不是 8.1.3 可启用的 decoder;对应能力由 H.264/VP8/VP9 解码器本身提供。 |
+
+### 本轮新增后的 parser 与 decoder
+
+parser/decoder 的逐项理由见下文 D4 小节;两者按同一 a/b/c 口径处理。`mlp` parser、`webp` parser 虽不在
+MPVKit 符号表,但已在 FFmpeg 中存在;`truehd` 会自动 select `mlp` parser,`webp` 会自动 select `vp8` decoder。
+
 ---
 
 ## demuxer
