@@ -83,10 +83,11 @@ P1 白名单里,因此不是 D4 新增项,也不属于 MPVKit 缺口。
 - `lux/test/run.sh`: `RESULT: PASS`。运行时枚举 AV1 解码器得到 `libdav1d` 与 `av1` 两个名字,
   说明解码器确实注册进了 libavcodec。
 - **AV1 解码已实测(2026-11-10,`lux/test/av1_probe.c` + `run.sh` 第 8 段)**:
-  - 样片:`lux/.build/fixtures/lux-av1-fixture.mkv`(320x240、25fps、100 帧、yuv420p、matroska),
-    由系统 ffmpeg 的 **libsvtav1**(SVT-AV1 4.2.0)现场合成,**不依赖外部下载**;sha256
-    `b506fa47ca778f0146668404eaaa673166b192afad56707b00c9b5967fb6c098`,生成命令与来源记在
-    `lux/.build/delegate/av1-fixture.json`。样片不入库(与 H.264/12-bit HEVC 夹具同口径)。
+  - 样片:**入库的测试资产** `lux/test/fixtures/lux-av1-fixture.mkv`(320x240、25fps、100 帧、
+    yuv420p、matroska,111580 B),由 **libsvtav1**(SVT-AV1 4.2.0)生成;sha256
+    `b506fa47ca778f0146668404eaaa673166b192afad56707b00c9b5967fb6c098` 记在
+    `lux/test/fixtures/SHA256SUMS`,`run.sh` 每次运行都校验。运行期不再调用宿主 ffmpeg,
+    没有 libsvtav1 的机器也能跑;重新生成的命令与版本见 `lux/test/fixtures/README.md`。
   - `libdav1d`:解出 **60 帧**(探针上限 60,样片共 100 帧),**320x240、`yuv420p`**,逐帧分辨率/格式
     一致,首帧 Y 平面均值 122.08(证明真的出了像素,不是空帧)。`run.sh` 断言 `frames=60` 且
     `stop=limit`(帧数等于探针上限,不是中途截断),宽高与 `codecpar` 的 320x240 一致。
@@ -97,9 +98,10 @@ P1 白名单里,因此不是 D4 新增项,也不属于 MPVKit 缺口。
     本构建 `LUX_HWACCELS` 只开 `h264_videotoolbox`/`hevc_videotoolbox`,所有
     `CONFIG_AV1_*_HWACCEL` 均为 0,因此原生 `av1` 在当前产物里**解不出任何 AV1 帧**。
   - 结论:AV1 软解只有 `libdav1d` 一条路径;原生 `av1` 是 hwaccel 入口,不能当软解回退。
-    需要硬件 AV1 解码得另评 `av1_videotoolbox` hwaccel:Apple 只有 **M3 及以后**的芯片支持
-    AV1 硬解,**M1/M2 不支持**(所以在这两类机器上即使开了 hwaccel 也仍然解不出帧),
-    而且会改白名单,本步未动 `ffmpeg-ios.conf`。探针对这种「控制组无法软件解码」的情况输出
+    **本探针只覆盖软件路径**:两个解码器都没有配置 `hw_device_ctx`,所以即使将来打开
+    `av1_videotoolbox`,原生 `av1` 在这里仍会报 `unsupported_sw_decode`——hwaccel 路径
+    **未覆盖**,需要另立项验证(且 Apple 只有 **M3 及以后**支持 AV1 硬解,M1/M2 不支持)。
+    本步未动 `ffmpeg-ios.conf`。探针对这种「控制组无法软件解码」的情况输出
     `av1_result: unsupported_sw_decode` 并说明原因;若将来换成能解的构建,同一段会自动
     改走「两边都完整解出、帧数/宽高/像素格式一致(compare 全 1)」的断言分支。
 - 链接约定:`libavcodec.a` 里的 `libdav1d` 解码器引用 `dav1d_*` 符号,任何链接本构建静态库的程序

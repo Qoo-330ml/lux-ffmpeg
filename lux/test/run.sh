@@ -260,43 +260,49 @@ fi
 # ---------------------------------------------------------------------------
 # 8. AV1 解码实测:libdav1d vs 原生 av1(dav1d 小节的实测证据)
 # ---------------------------------------------------------------------------
-# 样片用系统 ffmpeg 的 libsvtav1 现场合成(本地生成,无外部下载,许可无争议):
-# 320x240 / 25fps / 4s / 100 帧 / yuv420p / mkv。ffmpeg 只用来造样片,不参与链接。
+# 样片是**入库的测试资产** lux/test/fixtures/lux-av1-fixture.mkv
+# (320x240 / 25fps / 100 帧 / yuv420p / mkv,由 libsvtav1 生成,细节见同目录 README.md)。
+# 运行时不下载、不调用宿主 ffmpeg:没有 libsvtav1 的机器也照样能跑。
+# 每次运行都按 SHA256SUMS 校验来源;工作副本先写 .part、校验通过后才改名,
+# 任何一步失败都删掉 .part,不留下半截文件。
 # 原生 `av1` 解码器在 FFmpeg 8.1.3 里是 hwaccel-only(av1dec.c 在 !hwaccel 时返回
 # ENOSYS),本构建 LUX_HWACCELS 只有 h264/hevc 的 VT,所以它解不出帧属于预期;
 # 探针会把它记成 av1_result: unsupported_sw_decode,而不是把整段测试判失败。
+FIXAV1_SRC="$LUX/test/fixtures/lux-av1-fixture.mkv"
+FIXAV1_SUMS="$LUX/test/fixtures/SHA256SUMS"
 FIXAV1="$FIXDIR/lux-av1-fixture.mkv"
-SYS_FFMPEG=$(command -v ffmpeg || true)
-HAVE_SVTAV1=no
-if [ -n "$SYS_FFMPEG" ] && "$SYS_FFMPEG" -hide_banner -h encoder=libsvtav1 2>/dev/null | grep -q 'Encoder libsvtav1'; then
-    HAVE_SVTAV1=yes
-fi
-
-# 与 H.264 夹具同策略:夹具必须存在、且必须能现场生成;两者都不成立就 FAIL,
-# 不允许 [skip] 之后还让脚本 PASS(否则 CI 会静默丢掉 AV1 覆盖)。
 AV1_READY=1
-if [ -s "$FIXAV1" ]; then
-    pass "AV1 夹具已存在: $FIXAV1 ($(stat -f %z "$FIXAV1") bytes)"
-elif [ "$HAVE_SVTAV1" = no ]; then
+
+sha256_of() { shasum -a 256 "$1" 2>/dev/null | awk '{print $1}'; }
+
+AV1_SHA=$(awk '$2 == "lux-av1-fixture.mkv" {print $1}' "$FIXAV1_SUMS" 2>/dev/null)
+
+if [ ! -s "$FIXAV1_SRC" ]; then
     AV1_READY=0
-    cat >&2 <<'AV1MSG'
-[FAIL] 找不到能生成 AV1 样片的 ffmpeg:PATH 里的 ffmpeg 不存在,或没有 libsvtav1 编码器。
-       本段需要带 libsvtav1 的 ffmpeg(例如 Homebrew 的 `brew install ffmpeg`)合成
-       320x240/25fps/100 帧的 AV1 样片,或者预先放好 lux/.build/fixtures/lux-av1-fixture.mkv。
-       与 H.264 夹具不同,这里不提供 [skip]:没有样片就等于没有 AV1 解码实测。
-AV1MSG
-    fail "缺少 AV1 样片且无法现场生成(需要带 libsvtav1 的 ffmpeg)"
+    fail "缺少入库 AV1 夹具: $FIXAV1_SRC(见 lux/test/fixtures/README.md)"
+elif [ -z "$AV1_SHA" ]; then
+    AV1_READY=0
+    fail "lux/test/fixtures/SHA256SUMS 里没有 lux-av1-fixture.mkv 的记录"
+elif [ "$(sha256_of "$FIXAV1_SRC")" != "$AV1_SHA" ]; then
+    AV1_READY=0
+    fail "入库 AV1 夹具 sha256 不符(期望 $AV1_SHA): $FIXAV1_SRC"
 else
-    printf '[run] 合成 AV1 夹具 -> %s\n' "$FIXAV1"
-    if "$SYS_FFMPEG" -hide_banner -loglevel error -y \
-            -f lavfi -i "testsrc2=size=320x240:rate=25:duration=4" \
-            -c:v libsvtav1 -preset 8 -crf 40 -pix_fmt yuv420p -g 25 \
-            -f matroska "$FIXAV1" 2>"$WORK/fixture-av1.log"; then
-        pass "AV1 夹具已生成: $FIXAV1 ($(stat -f %z "$FIXAV1") bytes)"
-    else
+    pass "入库 AV1 夹具校验通过: lux-av1-fixture.mkv (sha256 ${AV1_SHA:0:12}...)"
+    if ! cp "$FIXAV1_SRC" "$FIXAV1.part" 2>"$WORK/fixture-av1.log"; then
         cat "$WORK/fixture-av1.log" >&2
+        rm -f "$FIXAV1.part"
         AV1_READY=0
-        fail "AV1 夹具生成失败"
+        fail "复制 AV1 夹具到 $FIXAV1.part 失败"
+    elif [ "$(sha256_of "$FIXAV1.part")" != "$AV1_SHA" ]; then
+        rm -f "$FIXAV1.part"
+        AV1_READY=0
+        fail "AV1 夹具工作副本(.part)的 sha256 不符"
+    elif ! mv "$FIXAV1.part" "$FIXAV1"; then
+        rm -f "$FIXAV1.part"
+        AV1_READY=0
+        fail "AV1 夹具 .part 改名失败"
+    else
+        pass "AV1 工作副本就绪: $FIXAV1 ($(stat -f %z "$FIXAV1") bytes)"
     fi
 fi
 
