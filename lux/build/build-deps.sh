@@ -38,7 +38,9 @@ build_one() {
   case "$name" in
     freetype)
       extract freetype-2.15.0.tar.xz freetype
-      meson_build freetype "$WORK/freetype" -Dharfbuzz=disabled -Dpng=disabled -Dzlib=disabled -Dbzip2=disabled -Dbrotli=disabled -Dtests=disabled ;;
+      # hvf=disabled:freetype 的 hvf 模块会在 Apple 平台自动探测 /usr/lib/libhvf.dylib,并把 -lhvf 写进 freetype2.pc,
+      # 经 libmpv 变成对 Hypervisor 私有库的链接依赖(非 SDK 库,App 审核风险)。字体栅格化不需要它。
+      meson_build freetype "$WORK/freetype" -Dharfbuzz=disabled -Dpng=disabled -Dzlib=disabled -Dbzip2=disabled -Dbrotli=disabled -Dtests=disabled -Dhvf=disabled ;;
     harfbuzz)
       extract harfbuzz-15.0.0.tar.xz harfbuzz
       meson_build harfbuzz "$WORK/harfbuzz" -Dfreetype=enabled -Dglib=disabled -Dgobject=disabled -Dicu=disabled -Dcairo=disabled -Dtests=disabled -Ddocs=disabled -Dcoretext=enabled ;;
