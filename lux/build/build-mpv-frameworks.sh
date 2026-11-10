@@ -54,6 +54,11 @@ set -euo pipefail
 HERE=$(cd "$(dirname "$0")" && pwd)
 LUX=$(cd "$HERE/.." && pwd)
 BUILD_ROOT="$LUX/.build"
+MPV_PATCH_COUNT=$(sed -e 's/#.*//' "$LUX/config/mpv-patches.txt" 2>/dev/null | awk 'NF' | wc -l | tr -d ' ')
+MPV_PATCH_DIGEST=$(while IFS= read -r p; do
+    [ -n "$p" ] || continue
+    shasum -a 256 "$LUX/patches/mpv/$p" | awk '{ print $1 }'
+done < <(sed -e 's/#.*//' "$LUX/config/mpv-patches.txt" 2>/dev/null | awk 'NF { print $1 }') | shasum -a 256 | awk '{ print $1 }')
 OUT_ROOT="$BUILD_ROOT/mpv-frameworks"
 XCF_ROOT="$BUILD_ROOT/mpv-xcframeworks"
 LOGDIR="$BUILD_ROOT/logs"
@@ -149,7 +154,7 @@ framework_dep_ok() { # $1 = dependency -> 0 表示 @rpath/<known>.framework/<kno
     name=${rest%%.framework/*}
     leaf=${rest#*.framework/}
     [ "$name" = "$leaf" ] || return 1
-    case " Libavutil Libswresample Libavcodec Libswscale Libavfilter Libavformat Libmpv Libplacebo Libfribidi Libuchardet " in
+    case " Libavutil Libswresample Libavcodec Libswscale Libavfilter Libavformat Libmpv Libplacebo Libfribidi Libuchardet LibMoltenVK Libshaderc " in
         *" $name "*) return 0 ;;
         *) return 1 ;;
     esac
@@ -421,6 +426,7 @@ rewrite_deps() { # $1 = framework, $2 = binary
             /usr/lib/*|/System/*) continue ;;
             @rpath/Libavutil.framework/Libavutil|@rpath/Libswresample.framework/Libswresample|@rpath/Libavcodec.framework/Libavcodec|@rpath/Libswscale.framework/Libswscale|@rpath/Libavfilter.framework/Libavfilter|@rpath/Libavformat.framework/Libavformat) continue ;;
             @rpath/Libmpv.framework/Libmpv|@rpath/Libplacebo.framework/Libplacebo|@rpath/Libfribidi.framework/Libfribidi|@rpath/Libuchardet.framework/Libuchardet) continue ;;
+            @rpath/LibMoltenVK.framework/LibMoltenVK|@rpath/Libshaderc.framework/Libshaderc) continue ;;
         esac
         base=${dep##*/}
         case "$base" in
@@ -473,6 +479,8 @@ package_slice() {
     {
         printf 'target=%s\n' "$TARGET"
         printf 'built_at=%s\n' "$(date -u '+%Y-%m-%dT%H:%M:%SZ')"
+        printf 'mpv_patches_count=%s\n' "$MPV_PATCH_COUNT"
+        printf 'mpv_patches_digest=%s\n' "$MPV_PATCH_DIGEST"
         printf '# required-reason API 扫描: nm -u;dSYM: dsymutil,dwarf=yes/no 表示是否含调试信息\n'
     } > "$SLICE/P2-4-INFO.txt"
 

@@ -48,10 +48,15 @@
 lux/README.md                  # 本文件
 lux/config/ffmpeg-ios.conf     # configure 参数的唯一真相(被 build 脚本 source)
 lux/config/allowlist.md        # 白名单逐项理由 + 版本差异 + 上游 GPL 文件发现
-lux/config/patches.txt         # 上游补丁集的顺序(apply-patches.sh 读它)
-lux/patches/*.patch            # 刷新过的移植补丁(事实来源,见 §6.2)
+lux/config/patches.txt         # FFmpeg 补丁集的顺序(apply-patches.sh 读它)
+lux/config/mpv-patches.txt     # mpv 补丁集的顺序(build-mpv.sh 读它)
+lux/patches/*.patch            # 刷新过的 FFmpeg 移植补丁(事实来源,见 §6.2)
+lux/patches/mpv/*.patch        # mpv 源码补丁(iOS MoltenVK 上下文)
 lux/docs/patch-triage.md       # 106 个 jellyfin 补丁的分诊结论
 lux/build/build-ffmpeg.sh      # macos-arm64 | ios-arm64 | ios-sim-arm64 | clean
+lux/build/build-moltenvk.sh    # MoltenVK 1.4.2 静态库 + 共享 dylib
+lux/build/build-host-tools.sh  # host glslc(从锁定的 shaderc 源码)
+lux/build/build-vulkan-frameworks.sh # LibMoltenVK/Libshaderc framework + xcframework
 lux/build/apply-patches.sh     # 补丁集 apply/check/revert/status/digest
 lux/build/verify-license.sh    # 许可 / 符号 / 平台 / 组件对账 / 补丁指纹,失败非零退出
 lux/build/fetch-deps.sh        # 按 deps.lock 取依赖源码,下载后强制校验 sha256(§16)
@@ -63,6 +68,7 @@ lux/release/sources/           # 自存的依赖源码包(git 忽略,只在本�
 lux/test/read_mkv.c            # 最小 C 程序:读 mkv,打印流信息/时长/首关键帧偏移
 lux/test/patch_probe.c         # 补丁公开 API 探针(0001/0005/0006)
 lux/test/hevc12_probe.c        # 12-bit HEVC:VT 候选 + 回退(0004)
+lux/test/vulkan_probe.c        # B+:libavutil 通过 MoltenVK 建 Vulkan device
 lux/test/run.sh                # 合成夹具 → 编译三个 C 程序 → 运行 → 断言
 lux/.build/                    # 全部产物(git 忽略)
 ```
@@ -948,3 +954,61 @@ iOS 切片直接报 `ERROR: dav1d >= 1.0.0 not found using pkg-config`。现在�
   “首次下载即锁定 + 每次重新下载复核”的 TOFU 模型,不是上游签名验证。
 - `requirements-glad.txt` 的 wheel hash 只覆盖 macOS;换平台或换 CPython 版本需要补对应 wheel。
 - 本次没有新增任何依赖,也没有重建/改写 `lux/.build/deps/`(只读它做 `build-src=ok` 对照)。
+
+## 17. B+ — FFmpeg Vulkan 滤镜 + 共享 MoltenVK/shaderc(2026-11-10)
+
+目标:把 FFmpeg 的 17 个 `*_vulkan` 计算滤镜全部打开,同时不复制 MoltenVK/shaderc。
+
+### 17.1 形态
+
+- `LibMoltenVK.framework`(MoltenVK 1.4.2,Apache-2.0):从 `libMoltenVK.a` 合成
+  `libMoltenVK.dylib`(`-shared -all_load`,`@rpath/LibMoltenVK.framework/LibMoltenVK`);
+  FFmpeg 的 `libavutil` 运行期 dlopen 它(`0016` 补丁),`Libmpv` 直接链接它
+  (iOS MoltenVK 上下文需要 5 个 `vk*` 符号)。
+- `Libshaderc.framework`(shaderc 2025.5,Apache-2.0):用 CMake `shaderc_shared`
+  构建(`libshaderc_combined.a` 的符号是 private extern,不能直接拿来做 dylib)。
+  `Libplacebo`、`Libavfilter`、`Libswscale` 动态链接同一份。
+- `Libplacebo.framework` 不再静态包含 MoltenVK/shaderc:macOS 切片从 15.1 MB
+  降到约 1.56 MB,`otool -L` 只保留 `@rpath/Libshaderc.framework/Libshaderc`。
+- FFmpeg:`--enable-vulkan --enable-libshaderc` + 17 个滤镜;`libavfilter.framework`
+  macOS 约 0.94 MB(旧 0.72 MB),`libavutil` 不新增链接依赖。
+
+### 17.2 构建顺序
+
+```sh
+./lux/build/build-moltenvk.sh <target>          # libMoltenVK.{a,dylib}
+./lux/build/build-host-tools.sh                 # 一次;host glslc
+./lux/build/build-deps.sh <target> shaderc libplacebo
+./lux/build/build-frameworks.sh <target>        # FFmpeg 6 framework
+./lux/build/build-vulkan-frameworks.sh <target> # LibMoltenVK/Libshaderc framework
+./lux/build/build-mpv.sh <target>               # libmpv 直接链 LibMoltenVK
+./lux/build/build-mpv-frameworks.sh <target>
+# 打包:xcframeworks / mpv-xcframeworks / vulkan-xcframeworks
+```
+
+### 17.3 校验
+
+| 命令 | 结果 |
+| --- | --- |
+| `verify-license.sh`(三切片) | PASS;15 个 FFmpeg 补丁、62 个滤镜白名单 |
+| `verify-frameworks.sh` | PASS;Libavfilter/Libswscale 允许动态引用 shaderc |
+| `verify-mpv-frameworks.sh` | PASS;Libmpv 依赖 LibMoltenVK,Libplacebo 依赖 Libshaderc |
+| `build-vulkan-frameworks.sh verify all` | PASS(platform/minos/install name/codesign) |
+| `hflip_vulkan` vs 软件 `hflip` | 逐字节一致(`0017` 修复 size-pos-1) |
+| `gblur_vulkan` vs 软件 `gblur` | 抽样 MAD 2.3;`hwupload→hwdownload` 往返 bit-exact |
+
+### 17.4 体积
+
+每个切片:`LibMoltenVK` 4.0 MB + `Libshaderc` 6.1 MB + `Libplacebo` 1.56 MB
+= **11.6 MB**,比 B+ 前 `Libplacebo` 的 15.1 MB 小约 3.5 MB;三个 framework 的
+xcframework zip 合计约 13.1 MB(B+ 前 Libplacebo zip 14.9 MB)。
+
+### 17.5 已知限制
+
+- `libplacebo` 滤镜仍未启用(会让 `Libavfilter` 依赖 `Libplacebo.framework`,二期)。
+- iOS 真机/模拟器的 `gpu-context=moltenvk` 与 Vulkan 滤镜尚未跑过;当前只到
+  编译、framework 打包、`vtool`/`codesign` 静态检查。
+- Vulkan framework 的 dSYM 较大(`Vulkan-dSYMs.zip` 约 136 MB),单独归档。
+- `avgblur/bwdif/scale` 依赖 host `glslc`;`build-host-tools.sh` 从锁定的 shaderc
+  源码构建,不再依赖 Homebrew。
+

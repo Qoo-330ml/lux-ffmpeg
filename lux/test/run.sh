@@ -35,6 +35,14 @@ DAV1D_LIB="$REPO/lux/.build/deps/$TARGET/install/lib/libdav1d.a"
 # libavutil.a 的 random_seed(OpenSSL RAND_bytes)、libavformat.a 的 tls_openssl、
 # libavcodec.a 的 tscc(inflate)都靠这三个库解析。
 DEPS_LIB_DIR="$REPO/lux/.build/deps/$TARGET/install/lib"
+# B+:libavfilter.a / libswscale.a 的 Vulkan 后端动态引用 shaderc;
+# 所有链接这两个归档的探针都要带上它(以及运行时 @rpath)。
+SHADERC_LINK="-L$DEPS_LIB_DIR -lshaderc -lc++ -Wl,-rpath,$DEPS_LIB_DIR"
+mkdir -p "$DEPS_LIB_DIR/Libshaderc.framework" "$DEPS_LIB_DIR/LibMoltenVK.framework"
+ln -sfn ../libshaderc.dylib "$DEPS_LIB_DIR/Libshaderc.framework/Libshaderc"
+ln -sfn ../libMoltenVK.dylib "$DEPS_LIB_DIR/LibMoltenVK.framework/LibMoltenVK"
+# 旧 OpenSSL 前缀里的 openssl.cnf 可能指向已删除的 worktree;优先用系统配置。
+export OPENSSL_CONF="${OPENSSL_CONF:-/etc/ssl/openssl.cnf}"
 WORK="$BUILD/test"
 
 export TMPDIR="$BUILD_ROOT/tmp"
@@ -108,7 +116,7 @@ if ! xcrun --sdk macosx clang -arch arm64 -mmacosx-version-min=14.0 -isysroot "$
         "$DAV1D_LIB" \
         "$INSTALL/lib/libavfilter.a" "$INSTALL/lib/libswscale.a" \
         "$INSTALL/lib/libswresample.a" "$INSTALL/lib/libavutil.a" \
-        -L"$DEPS_LIB_DIR" -lssl -lcrypto -lz \
+        -L"$DEPS_LIB_DIR" -lssl -lcrypto -lz $SHADERC_LINK \
         -framework CoreFoundation -framework CoreVideo -framework CoreMedia \
         -framework VideoToolbox -framework AudioToolbox -framework Security \
         -framework CoreImage \
@@ -185,7 +193,7 @@ if ! xcrun --sdk macosx clang -arch arm64 -mmacosx-version-min=14.0 -isysroot "$
         "$DAV1D_LIB" \
         "$INSTALL/lib/libavfilter.a" "$INSTALL/lib/libswscale.a" \
         "$INSTALL/lib/libswresample.a" "$INSTALL/lib/libavutil.a" \
-        -L"$DEPS_LIB_DIR" -lssl -lcrypto -lz \
+        -L"$DEPS_LIB_DIR" -lssl -lcrypto -lz $SHADERC_LINK \
         -framework CoreFoundation -framework CoreVideo -framework CoreMedia \
         -framework VideoToolbox -framework AudioToolbox -framework Security \
         -framework CoreImage \
@@ -240,7 +248,7 @@ else
             "$DAV1D_LIB" \
             "$INSTALL/lib/libavfilter.a" "$INSTALL/lib/libswscale.a" \
             "$INSTALL/lib/libswresample.a" "$INSTALL/lib/libavutil.a" \
-        -L"$DEPS_LIB_DIR" -lssl -lcrypto -lz \
+        -L"$DEPS_LIB_DIR" -lssl -lcrypto -lz $SHADERC_LINK \
             -framework CoreFoundation -framework CoreVideo -framework CoreMedia \
             -framework VideoToolbox -framework AudioToolbox -framework Security \
         -framework CoreImage \
@@ -327,7 +335,7 @@ if [ "$AV1_READY" = 1 ]; then
             "$DAV1D_LIB" \
             "$INSTALL/lib/libavfilter.a" "$INSTALL/lib/libswscale.a" \
             "$INSTALL/lib/libswresample.a" "$INSTALL/lib/libavutil.a" \
-        -L"$DEPS_LIB_DIR" -lssl -lcrypto -lz \
+        -L"$DEPS_LIB_DIR" -lssl -lcrypto -lz $SHADERC_LINK \
             -framework CoreFoundation -framework CoreVideo -framework CoreMedia \
             -framework VideoToolbox -framework AudioToolbox -framework Security \
             -framework CoreImage \
@@ -441,7 +449,7 @@ else
             "$DAV1D_LIB" \
             "$INSTALL/lib/libavfilter.a" "$INSTALL/lib/libswscale.a" \
             "$INSTALL/lib/libswresample.a" "$INSTALL/lib/libavutil.a" \
-            -L"$DEPS_LIB_DIR" -lssl -lcrypto -lz \
+            -L"$DEPS_LIB_DIR" -lssl -lcrypto -lz $SHADERC_LINK \
             -framework CoreFoundation -framework CoreVideo -framework CoreMedia \
             -framework VideoToolbox -framework AudioToolbox -framework Security \
             -framework CoreImage \
@@ -544,6 +552,9 @@ else
     for fw in Libavcodec Libavfilter Libavformat Libavutil Libswresample Libswscale; do
         ln -sfn "$XCF_ROOT/$fw.xcframework/$TARGET/$fw.framework" "$MPV_STAGE/$fw.framework"
     done
+    for fw in LibMoltenVK Libshaderc; do
+        ln -sfn "$BUILD_ROOT/vulkan-frameworks/$TARGET/slice/$fw.framework" "$MPV_STAGE/$fw.framework"
+    done
 
     if ! xcrun --sdk macosx clang -arch arm64 -mmacosx-version-min=14.0 -isysroot "$SDK" \
             -Wall -Wextra -Wno-unused-parameter -O1 \
@@ -572,6 +583,47 @@ else
             && pass "LUX_MPV 允许项全部被 libmpv 接受" \
             || fail "有允许项被 libmpv 拒绝(见上面 option 行)"
     fi
+fi
+
+# ---------------------------------------------------------------------------
+# 11. B+ Vulkan 设备冒烟:libavutil 通过 @rpath/LibMoltenVK.framework dlopen
+# ---------------------------------------------------------------------------
+if [ -f "$DEPS_LIB_DIR/libMoltenVK.dylib" ]; then
+    printf '[run] 编译 vulkan_probe.c\n'
+    mkdir -p "$DEPS_LIB_DIR/LibMoltenVK.framework"
+    ln -sfn ../libMoltenVK.dylib "$DEPS_LIB_DIR/LibMoltenVK.framework/LibMoltenVK"
+    VKPROBE="$WORK/vulkan_probe"
+    if xcrun --sdk macosx clang -arch arm64 -mmacosx-version-min=14.0 -isysroot "$SDK" \
+            -Wall -Wextra -Wno-unused-parameter -O1 \
+            -I"$INSTALL/include" -I"$DEPS_LIB_DIR/../include" \
+            -o "$VKPROBE" "$LUX/test/vulkan_probe.c" \
+            "$INSTALL/lib/libavutil.a" \
+            -L"$DEPS_LIB_DIR" -lssl -lcrypto -lz $SHADERC_LINK \
+            -Wl,-rpath,"$DEPS_LIB_DIR" \
+            -framework CoreFoundation -framework CoreVideo -framework CoreMedia \
+            -framework VideoToolbox -framework AudioToolbox -framework Security \
+            > "$WORK/vulkan_probe-compile.log" 2>&1; then
+        pass "vulkan_probe 编译链接成功: $VKPROBE"
+        VKOUT="$WORK/vulkan_probe.out"
+        if "$VKPROBE" > "$VKOUT" 2>&1; then
+            pass "Vulkan 设备创建成功"
+            sed 's/^/       /' "$VKOUT"
+        else
+            rc=$?
+            if [ "$rc" -eq 77 ]; then
+                pass "Vulkan 不可用,跳过(本机没有可用的 MoltenVK 设备)"
+                sed 's/^/       /' "$VKOUT"
+            else
+                fail "vulkan_probe 创建设备失败(rc=$rc)"
+                sed 's/^/       /' "$VKOUT"
+            fi
+        fi
+    else
+        cat "$WORK/vulkan_probe-compile.log" >&2
+        fail "vulkan_probe 编译/链接失败"
+    fi
+else
+    pass "跳过 Vulkan 冒烟(deps 前缀没有 libMoltenVK.dylib)"
 fi
 
 # ---------------------------------------------------------------------------

@@ -2,18 +2,36 @@
 
 > 本文件由 `lux/build/make-license-bundle.sh` 生成,只整理源码包、构建产物和链接关系中的事实,不是法律意见,也不对许可适用作结论。标注“待法务确认”的条目需 D5/G4 法务审阅。
 
+## B+ 共享 Vulkan 运行时(2026-11-10)
+
+从本轮起,MoltenVK 与 shaderc 不再是 Libplacebo 内部的静态副本:
+
+- `LibMoltenVK.framework`(MoltenVK 1.4.2,Apache-2.0):由 FFmpeg 的 `libavutil` 运行期
+  `dlopen`,并由 `Libmpv.framework` 直接链接(iOS MoltenVK 上下文需要 5 个 `vk*` 符号)。
+- `Libshaderc.framework`(shaderc 2025.5,Apache-2.0):`Libplacebo`、`Libavfilter`、
+  `Libswscale` 动态链接;FFmpeg 的 17 个 Vulkan 滤镜与 swscale Vulkan 后端共用这一份。
+- `Libplacebo.framework` 不再静态包含 MoltenVK/shaderc;`otool -L` 只保留
+  `@rpath/Libshaderc.framework/Libshaderc`。
+- FFmpeg 新增 17 个 `*_vulkan` 滤镜(`--enable-vulkan --enable-libshaderc`),
+  其中 `avgblur/bwdif/scale` 需要构建期 host `glslc`;`lux/build/build-host-tools.sh`
+  从锁定的 shaderc 源码构建它。
+- 许可边界不变:`CONFIG_GPL=0`、`CONFIG_NONFREE=0`、`CONFIG_VERSION3=0`(LGPL-2.1-or-later)。
+  MoltenVK/shaderc 是 Apache-2.0,动态 framework 分发,许可文本见
+  `licenses/moltenvk/LICENSE` 与 `licenses/shaderc/LICENSE`。
+
 ## 1. 生成范围与源码身份
 
 - 清单范围:FFmpeg 六库 + libmpv 栈(Libmpv/Libplacebo/Libfribidi/Libuchardet)及其非系统依赖
 - 生成脚本:`lux/build/make-license-bundle.sh`
 - 仓库:lux-ffmpeg
-- 源码 HEAD(最近一次触及源码的提交,排除本清单生成物):`5b165cf41b4e6f47750b14f8c37513fe485e9d7d`
+- 源码 HEAD(最近一次触及源码的提交,排除本清单生成物):`922532ed9eeda9aebb0c1bb8a02df86bbf2a22c8`
 - 分支:`tspace/lux-release-package`
 - 提交时间:`2026-11-10T19:06:47+08:00`
 - 提交标题:lux: P2 冒烟(无头播放 / render / 允许项)与出口文档
-- 补丁集:`lux/config/patches.txt` 13 条,sha256 `9f532c1b8144fb212e5bc3bb6c3bfe5f193ca97ada07c64a951bc84de28a056e`
+- mpv 补丁集:`lux/config/mpv-patches.txt` 1 条,sha256 `cffa8a71e232c8fe348612ab53c69629ee78342f12b27211b5251be354802a8d`(补丁 `lux/patches/mpv/0001-ios-moltenvk-context.patch`,LGPL-2.1+)
+- FFmpeg 补丁集:`lux/config/patches.txt` 15 条,sha256 `7cd3380fb939a546fa4293b70a2f4b6678c200306723bf3015c6da0cf6ebf12c`
 - apply-patches digest:`45aeb1df8deddd7abd5d011e32379428536dffb61fb9d63702ed26a224839c52`
-- 构建配置:`lux/config/ffmpeg-ios.conf`,sha256 `e1ce5cc7ee46a3dd6cd425c1c084c6da6531ce093d71399d6b02052ba0143b96`
+- 构建配置:`lux/config/ffmpeg-ios.conf`,sha256 `fd65fe7e2b280b40efa91f516f975a9b90b8fd3aed2f306f5712b4c531bd4a1e`
 - 路径占位符:`$BUILD` = `lux/.build`;`$DEPS` = `lux/.build/deps`;`$REPO` = 仓库根目录。
 
 ## 2. FFmpeg 六库
@@ -125,12 +143,12 @@ otool -L 不显示静态并入的组件。以下为依据构建脚本/符号表�
 | Libmpv | harfbuzz | static | harfbuzz.a 静态链接;nm -gU 可查到 _hb_* 符号 |
 | Libmpv | libunibreak | static | libunibreak.a 静态链接;nm -gU 可查到 _init_linebreak 等符号 |
 | Libplacebo | lcms2 | static | lcms2.a 静态链接;nm -gU 可查到 _cms* 符号 |
-| Libplacebo | moltenvk | static | vulkan.pc 提供 -lMoltenVK;nm -gU 可查到 _vk* 符号 |
-| Libplacebo | shaderc | static | shaderc.pc 提供 -lshaderc_combined;二进制内有 shaderc_util 符号 |
-| Libplacebo | spirv-cross | static-transitive | MoltenVK ExternalDependencies 的 libSPIRVCross.a |
-| Libplacebo | spirv-tools | static-transitive | shaderc_combined 的 SPIRV-Tools 部分 |
-| Libplacebo | spirv-tools-mvk | static-transitive | MoltenVK ExternalDependencies 的 libSPIRVTools.a |
-| Libplacebo | glslang | static-transitive | shaderc_combined 的 glslang 部分 |
+| Libmpv | LibMoltenVK | dynamic | `@rpath/LibMoltenVK.framework/LibMoltenVK`;B+ 起不再由 Libplacebo 静态吞入 |
+| Libplacebo/Libavfilter/Libswscale | Libshaderc | dynamic | `@rpath/Libshaderc.framework/Libshaderc`;shaderc_shared 导出 C API |
+| LibMoltenVK | spirv-cross | static-transitive | MoltenVK ExternalDependencies 的 libSPIRVCross.a |
+| Libshaderc | spirv-tools | static-transitive | shaderc_shared 的 SPIRV-Tools 部分 |
+| LibMoltenVK | spirv-tools-mvk | static-transitive | MoltenVK ExternalDependencies 的 libSPIRVTools.a |
+| Libshaderc | glslang | static-transitive | shaderc_shared 的 glslang 部分 |
 | Libplacebo | spirv-headers | build-time | shaderc 构建期头文件 |
 | Libplacebo | spirv-headers-mvk | build-time | MoltenVK/SPIRV-Tools 构建期头文件 |
 | Libplacebo | vulkan-headers | build-time | libplacebo/MoltenVK 构建期头文件 |

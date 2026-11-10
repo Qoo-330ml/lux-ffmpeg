@@ -47,7 +47,7 @@ EVIDENCE="$BUILD_ROOT/verify/mpv"
 MPV_FRAMEWORKS="Libmpv Libplacebo Libfribidi Libuchardet"
 # Libmpv 必须链接的 8 个:6 个 Libav* + Libplacebo + Libfribidi。
 # Libuchardet 按 §4.2 允许 0 或 1,单独判定,不进这个列表。
-REQUIRED_LIBMPV_DEPS="Libavcodec Libavfilter Libavformat Libavutil Libswresample Libswscale Libplacebo Libfribidi"
+REQUIRED_LIBMPV_DEPS="Libavcodec Libavfilter Libavformat Libavutil Libswresample Libswscale Libplacebo Libfribidi LibMoltenVK"
 
 mkdir -p "$EVIDENCE"
 
@@ -77,7 +77,9 @@ is_allowed_dep() { # $1 = 依赖路径 -> 0 表示在 §4.2 白名单内
         @rpath/Libswscale.framework/Libswscale|\
         @rpath/Libplacebo.framework/Libplacebo|\
         @rpath/Libfribidi.framework/Libfribidi|\
-        @rpath/Libuchardet.framework/Libuchardet)
+        @rpath/Libuchardet.framework/Libuchardet|\
+        @rpath/LibMoltenVK.framework/LibMoltenVK|\
+        @rpath/Libshaderc.framework/Libshaderc)
             return 0 ;;
         *)
             return 1 ;;
@@ -219,6 +221,23 @@ verify_target() {
             else
                 pass "Libmpv: 未链接 Libuchardet(§4.2 允许 0 或 1)"
             fi
+            if [ "$target" != "macos-arm64" ]; then
+                # 不要用 grep -q:pipefail 下 strings 会因 SIGPIPE 被判失败(见 README §8.4)。
+                if strings "$bin" 2>/dev/null | grep -F "iOS/MoltenVK (via Metal)" >/dev/null; then
+                    pass "Libmpv: iOS MoltenVK 上下文已编译(ra_ctx_vulkan_moltenvk)"
+                else
+                    fail "Libmpv: 缺少 iOS MoltenVK 上下文 — 检查 lux/patches/mpv/ 是否应用"
+                fi
+            fi
+        fi
+        if [ "$fw" = "Libplacebo" ]; then
+            # libplacebo 以 -Dvk-proc-addr=disabled 构建,不直接引用 vk* 符号,
+            # 所以只链 Libshaderc;MoltenVK 由 Libmpv 直接链(见 REQUIRED_LIBMPV_DEPS)。
+            if printf '%s\n' "$deps" | grep -qx "@rpath/Libshaderc.framework/Libshaderc"; then
+                pass "Libplacebo: 共享 shaderc 依赖已链接(Libshaderc)"
+            else
+                fail "Libplacebo: 缺少 @rpath/Libshaderc.framework/Libshaderc"
+            fi
         fi
 
         # ------------------------------------------------------------ B. av_ 定义符号
@@ -266,7 +285,9 @@ $deps"
         name=${dep#@rpath/}
         name=${name%%.framework/*}
         if [ -f "$slice/$name.framework/$name" ] || \
-           [ -f "$DIST_ROOT/$name.xcframework/$xsid/$name.framework/$name" ]; then
+           [ -f "$DIST_ROOT/$name.xcframework/$xsid/$name.framework/$name" ] || \
+           [ -f "$BUILD_ROOT/vulkan-frameworks/$target/slice/$name.framework/$name" ] || \
+           [ -f "$BUILD_ROOT/vulkan-xcframeworks/$name.xcframework/$xsid/$name.framework/$name" ]; then
             :
         else
             missing_resolve="$missing_resolve $dep"

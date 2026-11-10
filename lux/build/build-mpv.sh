@@ -110,6 +110,13 @@ export PKG_CONFIG_PATH=""
 # meson 不读 CFLAGS 环境变量,命令行 -Dc_args 会整体替换交叉文件里的默认值,
 # 因此这里必须带上 DEPS_CFLAGS 全量再追加 -g。
 MPV_CFLAGS="$DEPS_CFLAGS -g"
+# B+:libmpv 的 iOS MoltenVK 上下文直接引用 vkGetInstanceProcAddr / vkDestroySurfaceKHR
+# 等 5 个符号;libplacebo 现在动态链 MoltenVK,不再把这些符号导出给 libmpv,
+# 所以这里显式链接同一份共享 libMoltenVK.dylib(不是第二份静态拷贝)。
+# mpv 的 meson 默认带 -Wl,-dead_strip_dylibs + -undefined,dynamic_lookup:
+# 不强制保留时,链接器会把 libMoltenVK.dylib 当未使用依赖丢掉。
+# -needed_library 让 LC_LOAD_DYLIB 一定出现在产物里(libmpv 的 vk* 走 dynamic_lookup)。
+MOLTENVK_LIBS="-Wl,-needed_library,$PREFIX/lib/libMoltenVK.dylib"
 # shaderc 在 mpv 0.41 里只为 win32-desktop 需要;SPIR-V 编译由 libplacebo 完成,这里关闭
 # RemoteIO 子类型只存在于 iOS 的 AudioToolbox;macOS 切片关闭 audiounit(AVFoundation AO 仍可用)
 # coreaudio(ao_coreaudio)只在 macOS 有 AudioDevice API,这里全部关闭;播放走 avfoundation / audiounit
@@ -121,7 +128,7 @@ rm -rf "$WORK/build"
 # 在 WORK 里执行,让 --cross-file=meson-cross.ini 保持相对路径(见上)。
 ( cd "$WORK" && meson setup "$WORK/build" "$WORK" --prefix="$INSTALL_PREFIX" --buildtype=release \
   --default-library=shared $DEPS_MESON_CROSS \
-  -Dc_args="$MPV_CFLAGS" -Dc_link_args="$DEPS_LDFLAGS" \
+  -Dc_args="$MPV_CFLAGS" -Dc_link_args="$DEPS_LDFLAGS $MOLTENVK_LIBS" \
   -Dlibmpv=true -Dcplayer=false -Dgpl=false \
   -Dlua=disabled -Djavascript=disabled -Dlibbluray=disabled -Dlibarchive=disabled \
   -Dvapoursynth=disabled -Dzimg=disabled -Drubberband=disabled -Dlibavdevice=disabled \

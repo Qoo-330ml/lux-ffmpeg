@@ -1,0 +1,24 @@
+From: lux <dev@lux.invalid>
+Subject: [PATCH] vulkan: load MoltenVK from @rpath/LibMoltenVK.framework
+
+B+(2026-11-10):MoltenVK 改为共享 framework 分发。libavutil 在 Apple 上
+dlopen 的候选名里加上 @rpath/LibMoltenVK.framework/LibMoltenVK,放在
+libvulkan* 之前,让 app bundle 的 LC_RPATH 解析到唯一一份共享 MoltenVK。
+
+本补丁为 lux 原创,LGPL-2.1+;不改变非 Apple 平台与 libvulkan 的优先级。
+
+---
+diff --git a/libavutil/hwcontext_vulkan.c b/libavutil/hwcontext_vulkan.c
+index 65e2256..ae06d4c 100644
+--- a/libavutil/hwcontext_vulkan.c
++++ b/libavutil/hwcontext_vulkan.c
+@@ -639,6 +639,9 @@ static int load_libvulkan(AVHWDeviceContext *ctx)
+ #if defined(_WIN32)
+         "vulkan-1.dll",
+ #elif defined(__APPLE__)
++        /* lux(B+): MoltenVK is shipped as @rpath/LibMoltenVK.framework.
++         * Try it first so the app bundle's LC_RPATH resolves the shared copy. */
++        "@rpath/LibMoltenVK.framework/LibMoltenVK",
+         "libvulkan.dylib",
+         "libvulkan.1.dylib",
+         "libMoltenVK.dylib",

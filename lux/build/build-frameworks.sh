@@ -104,12 +104,18 @@ build_target() {
     # LUX_DEPS_PREFIX(导出变量在同一个 shell 里残留),把 macos 的头文件喂给 iOS 构建。
     local deps_prefix="$REPO/lux/.build/deps/$target/install"
     export LUX_DEPS_PREFIX="$deps_prefix"
-    for pc in dav1d zlib openssl; do
+    for pc in dav1d zlib openssl vulkan shaderc; do
         [ -f "$deps_prefix/lib/pkgconfig/$pc.pc" ] \
-            || die "缺少 $deps_prefix/lib/pkgconfig/$pc.pc — 先跑 ./lux/build/build-deps.sh $target dav1d zlib openssl"
+            || die "缺少 $deps_prefix/lib/pkgconfig/$pc.pc — 先跑 ./lux/build/build-deps.sh $target dav1d zlib openssl shaderc 与 ./lux/build/build-moltenvk.sh $target"
     done
+    [ -f "$deps_prefix/lib/libMoltenVK.dylib" ] \
+        || die "缺少 $deps_prefix/lib/libMoltenVK.dylib — 先跑 ./lux/build/build-moltenvk.sh $target"
+    [ -f "$deps_prefix/lib/libshaderc.dylib" ] \
+        || die "缺少 $deps_prefix/lib/libshaderc.dylib — 先跑 ./lux/build/build-deps.sh $target shaderc"
     export PKG_CONFIG_LIBDIR="$deps_prefix/lib/pkgconfig:$deps_prefix/share/pkgconfig"
     export PKG_CONFIG_PATH=""
+    export LUX_GLSLC="$BUILD_ROOT/host-tools/install/bin/glslc"
+    [ -x "$LUX_GLSLC" ] || die "缺少 host glslc: $LUX_GLSLC — 先跑 ./lux/build/build-host-tools.sh"
 
     ff_framework_configure_opts "$target" "$install" || die "cannot resolve configure opts for '$target'"
     ff_target_setup "$target" || die "unknown target '$target'"

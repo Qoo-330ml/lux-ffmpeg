@@ -151,7 +151,7 @@ fi
 # ---------------------------------------------------------------------------
 hdr "xcframeworks/checksums.txt"
 CHECKSUMS="$REL/xcframeworks/checksums.txt"
-EXPECTED_ZIPS="Libavcodec Libavformat Libavfilter Libswscale Libswresample Libavutil Libmpv Libplacebo Libfribidi Libuchardet"
+EXPECTED_ZIPS="Libavcodec Libavformat Libavfilter Libswscale Libswresample Libavutil Libmpv Libplacebo Libfribidi Libuchardet LibMoltenVK Libshaderc"
 if [ -f "$CHECKSUMS" ]; then
     : > "$VERIFY/checksums-seen.txt"
     while read -r sum name; do
@@ -171,11 +171,11 @@ if [ -f "$CHECKSUMS" ]; then
     seen=$(LC_ALL=C sort -u "$VERIFY/checksums-seen.txt")
     expected=$(printf '%s\n' $EXPECTED_ZIPS | sed 's/$/.xcframework.zip/' | LC_ALL=C sort)
     if [ "$seen" = "$expected" ]; then
-        pass "checksums.txt 正好覆盖 10 个 zip"
+        pass "checksums.txt 正好覆盖 12 个 zip"
     else
         fail "checksums.txt 覆盖集合不符"
     fi
-    [ "$(wc -l < "$CHECKSUMS" | tr -d ' ')" = "10" ] && pass "checksums.txt 为 10 行" || fail "checksums.txt 不是 10 行"
+    [ "$(wc -l < "$CHECKSUMS" | tr -d ' ')" = "12" ] && pass "checksums.txt 为 12 行" || fail "checksums.txt 不是 12 行"
 else
     fail "缺少 xcframeworks/checksums.txt"
 fi
@@ -343,7 +343,7 @@ hdr "BUILD-INFO"
 BI="$REL/BUILD-INFO.txt"
 if [ -f "$BI" ]; then
     [ "$(info ffmpeg_version)" = "8.1.3" ] && pass "ffmpeg_version=8.1.3" || fail "ffmpeg_version 不是 8.1.3"
-    [ "$(info patches_count)" = "13" ] && pass "patches_count=13" || fail "patches_count 不是 13"
+    [ "$(info patches_count)" = "15" ] && pass "patches_count=15" || fail "patches_count 不是 15"
     want_digest=$("$LUX/build/apply-patches.sh" digest 2>/dev/null || true)
     [ -n "$want_digest" ] && [ "$(info patches_digest)" = "$want_digest" ] \
         && pass "patches_digest 与当前补丁集一致" || fail "patches_digest 与当前补丁集不一致"
@@ -413,8 +413,8 @@ if manifest.get("missing"):
     problems.append("missing 非空")
 if manifest.get("anomalies"):
     problems.append("anomalies 非空")
-if len(manifest.get("components", [])) != 10:
-    problems.append("components 不是 10 个")
+if len(manifest.get("components", [])) != 12:
+    problems.append("components 不是 12 个")
 if problems:
     print("  [FAIL] source-manifest: " + "; ".join(problems))
     raise SystemExit(1)
@@ -438,6 +438,7 @@ if [ -f "$SRC_TAR" ]; then
         "$top/BUILD-INFO.txt" \
         "$top/ffmpeg-8.1.3/libavcodec/avcodec.h" \
         "$top/ffmpeg-8.1.3/LUX-PATCHES.txt" \
+        "$top/MPV-PATCHES.txt" \
         "$top/lux/config/patches.txt" \
         "$top/lux/build/apply-patches.sh"; do
         grep -qxF "$want" "$VERIFY/source-list.txt" && pass "源码包含 $want" || fail "源码包缺 $want"
@@ -452,8 +453,13 @@ if [ -f "$SRC_TAR" ]; then
     else
         pass "源码包不含 __MACOSX / .git"
     fi
-    patch_n=$(grep -c "$top/lux/patches/.*\.patch$" "$VERIFY/source-list.txt" || true)
-    [ "$patch_n" = "15" ] && pass "源码包含 15 个补丁文件" || fail "源码包补丁文件数 $patch_n != 15"
+    patch_n=$(grep -c "$top/lux/patches/[^/]*\.patch$" "$VERIFY/source-list.txt" || true)
+    [ "$patch_n" = "17" ] && pass "源码包含 17 个 FFmpeg 补丁文件" || fail "源码包 FFmpeg 补丁文件数 $patch_n != 17"
+    mpv_patch_n=$(grep -c "$top/lux/patches/mpv/[^/]*\.patch$" "$VERIFY/source-list.txt" || true)
+    [ "$mpv_patch_n" = "1" ] && pass "源码包含 1 个 mpv 补丁文件" || fail "源码包 mpv 补丁文件数 $mpv_patch_n != 1"
+    tar -xzf "$SRC_TAR" -C "$VERIFY/source" "$top/MPV-PATCHES.txt" 2>/dev/null || true
+    grep -q "^mpv_patches_count=1$" "$VERIFY/source/$top/MPV-PATCHES.txt" 2>/dev/null \
+        && pass "MPV-PATCHES.txt 记录 1 条补丁" || fail "MPV-PATCHES.txt 缺失或 count 不是 1"
 
     for selfstore in $(sed -e 's/#.*//' "$LUX/config/deps.lock" | awk 'NF >= 4 { for (i=5; i<=NF; i++) if ($i ~ /^selfstore=/) { sub(/^selfstore=/, "", $i); n=split($i, a, "/"); print a[n] } }'); do
         grep -qxF "$top/lux/release/sources/$selfstore" "$VERIFY/source-list.txt" \
@@ -474,7 +480,7 @@ if [ -f "$SRC_TAR" ]; then
                 fail "FFmpeg 树里补丁未应用: $p"
             fi
         done < <(sed -e 's/#.*//' "$LUX/config/patches.txt" | awk 'NF { print $1 }')
-        [ "$reversed" = "13" ] && pass "FFmpeg 树可逆应用 13 个补丁(即已打齐)" || fail "FFmpeg 树只匹配 $reversed/13 个补丁"
+        [ "$reversed" = "15" ] && pass "FFmpeg 树可逆应用 15 个补丁(即已打齐)" || fail "FFmpeg 树只匹配 $reversed/15 个补丁"
     else
         fail "源码包 FFmpeg 树解压失败"
     fi

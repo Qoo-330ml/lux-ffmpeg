@@ -112,7 +112,7 @@ verify_slice() {
 
         local deps bad
         deps=$(otool -L "$bin" | awk 'NR>2 {print $1}')
-        bad=$(printf '%s\n' "$deps" | grep -Ev '^(@rpath/(Libavutil|Libswresample|Libavcodec|Libswscale|Libavfilter|Libavformat)\.framework/(Libavutil|Libswresample|Libavcodec|Libswscale|Libavfilter|Libavformat)$|/usr/lib/|/System/Library/Frameworks/)')
+        bad=$(printf '%s\n' "$deps" | grep -Ev '^(@rpath/(Libavutil|Libswresample|Libavcodec|Libswscale|Libavfilter|Libavformat)\.framework/(Libavutil|Libswresample|Libavcodec|Libswscale|Libavfilter|Libavformat)$|@rpath/Libshaderc\.framework/Libshaderc$|/usr/lib/|/System/Library/Frameworks/|/System/Library/PrivateFrameworks/)')
         if [ -n "$bad" ]; then
             fail "$fw: 依赖里出现非 @rpath / 非系统库: $(printf '%s ' $bad)"
         else
@@ -150,8 +150,22 @@ verify_slice() {
 
         # ------------------------------------------------------------ 7.4 符号 / 许可
         nm -gj "$bin" 2>/dev/null | sed '/^$/d; s/^_//' > "$VERIFY_ROOT/$target-$fw.symbols"
-        if grep -Eqi "$FORBIDDEN_SYMBOL_RE" "$VERIFY_ROOT/$target-$fw.symbols"; then
-            fail "$fw: 符号表里有禁用的外部/GPL 组件: $(grep -Eoi "$FORBIDDEN_SYMBOL_RE" "$VERIFY_ROOT/$target-$fw.symbols" | sort -u | tr '\n' ' ')"
+        # B+:shaderc 是 Apache-2.0 的运行时 GLSL 编译器,动态链接。
+        # 只有 Libavfilter(Libshaderc 消费者)与 Libswscale(内置 Vulkan 后端)允许引用它;
+        # 其余 framework 仍然按禁用符号处理。
+        local sym_check="$VERIFY_ROOT/$target-$fw.symbols"
+        case "$fw" in
+            Libavfilter|Libswscale)
+                if grep -q '^shaderc_' "$sym_check"; then
+                    pass "$fw: 动态引用 Libshaderc(Apache-2.0,非静态吞入)"
+                else
+                    warn "$fw: 没有 shaderc_* 引用(检查 CONFIG_LIBSHADERC 是否符合预期)"
+                fi
+                grep -v '^shaderc' "$sym_check" > "$sym_check.check" || true
+                sym_check="$sym_check.check" ;;
+        esac
+        if grep -Eqi "$FORBIDDEN_SYMBOL_RE" "$sym_check"; then
+            fail "$fw: 符号表里有禁用的外部/GPL 组件: $(grep -Eoi "$FORBIDDEN_SYMBOL_RE" "$sym_check" | sort -u | tr '\n' ' ')"
         else
             pass "$fw: 没有 x264/x265/fdk 等禁用符号"
         fi

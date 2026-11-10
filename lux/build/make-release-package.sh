@@ -26,7 +26,7 @@
 #
 # 设计:
 #   * 幂等:先删除旧输出目录再重建;不修改任何输入。
-#   * 源码包里的 FFmpeg 树由 `git archive` 的基线树 + 13 个补丁生成,不需要在
+#   * 源码包里的 FFmpeg 树由 `git archive` 的基线树 + 15 个补丁生成,不需要在
 #     工作区里 apply/revert;补丁应用结果与 apply-patches.sh 的补丁集一致。
 #   * 输出默认落在主检出的 lux/.build/release/(worktree 场景),日志写本 worktree
 #     的 lux/.build/logs/。所有临时文件都在 lux/.build/release-work/ 内。
@@ -86,6 +86,7 @@ fi
 
 FF_XCF="$BUILD/xcframeworks"
 MPV_XCF="$BUILD/mpv-xcframeworks"
+VULKAN_XCF="$BUILD/vulkan-xcframeworks"
 WORK="$REPO/lux/.build/release-work"
 STAGE="$WORK/source/$PRODUCT"
 LOG_DIR="$REPO/lux/.build/logs"
@@ -104,6 +105,7 @@ log "log: $LOG"
 # ---------------------------------------------------------------------------
 FF_FRAMEWORKS="Libavcodec Libavformat Libavfilter Libswscale Libswresample Libavutil"
 MPV_FRAMEWORKS="Libmpv Libplacebo Libfribidi Libuchardet"
+VULKAN_FRAMEWORKS="LibMoltenVK Libshaderc"
 TARGETS="macos-arm64 ios-arm64 ios-sim-arm64"
 
 for fw in $FF_FRAMEWORKS; do
@@ -114,6 +116,12 @@ for fw in $MPV_FRAMEWORKS; do
 done
 [ -f "$FF_XCF/checksums.txt" ] || die "缺少 $FF_XCF/checksums.txt"
 [ -f "$MPV_XCF/checksums.txt" ] || die "缺少 $MPV_XCF/checksums.txt"
+[ -d "$VULKAN_XCF" ] || die "缺少 $VULKAN_XCF — 先跑 ./lux/build/build-vulkan-frameworks.sh all/package"
+for fw in $VULKAN_FRAMEWORKS; do
+    [ -f "$VULKAN_XCF/$fw.xcframework.zip" ] || die "缺少 $VULKAN_XCF/$fw.xcframework.zip"
+done
+[ -f "$VULKAN_XCF/checksums.txt" ] || die "缺少 $VULKAN_XCF/checksums.txt"
+[ -f "$VULKAN_XCF/dSYMs.zip" ] || die "缺少 $VULKAN_XCF/dSYMs.zip"
 [ -f "$FF_XCF/dSYMs.zip" ] || die "缺少 $FF_XCF/dSYMs.zip"
 [ -f "$MPV_XCF/dSYMs.zip" ] || die "缺少 $MPV_XCF/dSYMs.zip"
 [ -f "$LUX/release/NOTICE.md" ] || die "缺少 lux/release/NOTICE.md"
@@ -125,8 +133,14 @@ done
 
 PATCH_COUNT=$("$LUX/build/apply-patches.sh" count) || die "无法读取补丁条数"
 PATCH_DIGEST=$("$LUX/build/apply-patches.sh" digest) || die "无法读取补丁集 digest"
-[ "$PATCH_COUNT" = "13" ] || die "补丁条数是 $PATCH_COUNT,期望 13"
+[ "$PATCH_COUNT" = "15" ] || die "补丁条数是 $PATCH_COUNT,期望 15"
 PATCH_LIST_SHA=$(shasum -a 256 "$LUX/config/patches.txt" | awk '{ print $1 }')
+MPV_PATCH_COUNT=$(sed -e 's/#.*//' "$LUX/config/mpv-patches.txt" 2>/dev/null | awk 'NF' | wc -l | tr -d ' ')
+MPV_PATCH_DIGEST=$(while IFS= read -r p; do
+    [ -n "$p" ] || continue
+    shasum -a 256 "$LUX/patches/mpv/$p" | awk '{ print $1 }'
+done < <(sed -e 's/#.*//' "$LUX/config/mpv-patches.txt" 2>/dev/null | awk 'NF { print $1 }') | shasum -a 256 | awk '{ print $1 }')
+MPV_PATCH_LIST_SHA=$(shasum -a 256 "$LUX/config/mpv-patches.txt" 2>/dev/null | awk '{ print $1 }')
 CONFIG_SHA=$(shasum -a 256 "$LUX/config/ffmpeg-ios.conf" | awk '{ print $1 }')
 
 if gitx rev-parse --verify --quiet p1-allowlist >/dev/null; then
@@ -220,21 +234,26 @@ for fw in $MPV_FRAMEWORKS; do
     check_source_checksum "$MPV_XCF/checksums.txt" "$fw.xcframework.zip" "$MPV_XCF/$fw.xcframework.zip"
     cp -p "$MPV_XCF/$fw.xcframework.zip" "$OUT/xcframeworks/"
 done
+for fw in $VULKAN_FRAMEWORKS; do
+    check_source_checksum "$VULKAN_XCF/checksums.txt" "$fw.xcframework.zip" "$VULKAN_XCF/$fw.xcframework.zip"
+    cp -p "$VULKAN_XCF/$fw.xcframework.zip" "$OUT/xcframeworks/"
+done
 
 {
-    for fw in $FF_FRAMEWORKS $MPV_FRAMEWORKS; do
+    for fw in $FF_FRAMEWORKS $MPV_FRAMEWORKS $VULKAN_FRAMEWORKS; do
         shasum -a 256 "$OUT/xcframeworks/$fw.xcframework.zip" |
             awk -v n="$fw.xcframework.zip" '{ print $1 "  " n }'
     done
 } | LC_ALL=C sort -k2,2 > "$OUT/xcframeworks/checksums.txt"
-[ "$(wc -l < "$OUT/xcframeworks/checksums.txt" | tr -d ' ')" = "10" ] || die "合并后的 checksums.txt 不是 10 行"
-log "checksums.txt: 10 个 zip"
+[ "$(wc -l < "$OUT/xcframeworks/checksums.txt" | tr -d ' ')" = "12" ] || die "合并后的 checksums.txt 不是 12 行"
+log "checksums.txt: 12 个 zip"
 
 # ---------------------------------------------------------------------------
 # 2. dSYM + dSYM-INFO / framework UUID
 # ---------------------------------------------------------------------------
 cp -p "$FF_XCF/dSYMs.zip" "$OUT/dSYMs/FFmpeg-dSYMs.zip"
 cp -p "$MPV_XCF/dSYMs.zip" "$OUT/dSYMs/MPV-dSYMs.zip"
+cp -p "$VULKAN_XCF/dSYMs.zip" "$OUT/dSYMs/Vulkan-dSYMs.zip"
 
 META="$WORK/framework-meta.txt"
 : > "$META"
@@ -301,6 +320,9 @@ log "dSYM-INFO: $(wc -l < "$OUT/dSYMs/dSYM-INFO.txt" | tr -d ' ') 行"
     printf 'patches_count=%s\n' "$PATCH_COUNT"
     printf 'patches_digest=%s\n' "$PATCH_DIGEST"
     printf 'patches_txt_sha256=%s\n' "$PATCH_LIST_SHA"
+    printf 'mpv_patches_count=%s\n' "$MPV_PATCH_COUNT"
+    printf 'mpv_patches_digest=%s\n' "$MPV_PATCH_DIGEST"
+    printf 'mpv_patches_txt_sha256=%s\n' "$MPV_PATCH_LIST_SHA"
     printf 'configure_sha256=%s\n' "$CONFIG_SHA"
     printf 'configure_file=lux/config/ffmpeg-ios.conf\n'
     printf 'targets=%s\n' "$TARGETS"
@@ -363,6 +385,19 @@ printf 'dependency.count=%s\n' "$DEP_COUNT" >> "$OUT/BUILD-INFO.txt"
 # 4. 许可文本 / NOTICE / source-manifest
 # ---------------------------------------------------------------------------
 log "复制许可文本"
+# mpv 补丁清单(与 FFmpeg 的 LUX-PATCHES.txt 分开,避免两套补丁集混在一起)
+{
+    printf 'mpv_version=0.41.0\n'
+    printf 'mpv_patches_count=%s\n' "$MPV_PATCH_COUNT"
+    printf 'mpv_patches_digest=%s\n' "$MPV_PATCH_DIGEST"
+    printf 'mpv_patches_txt_sha256=%s\n' "$MPV_PATCH_LIST_SHA"
+    printf '# 由 lux/build/make-release-package.sh 从 lux/config/mpv-patches.txt 生成\n'
+    while IFS= read -r p; do
+        [ -n "$p" ] || continue
+        printf 'patch %s  %s\n' "$p" "$(shasum -a 256 "$LUX/patches/mpv/$p" | awk '{ print $1 }')"
+    done < <(sed -e 's/#.*//' "$LUX/config/mpv-patches.txt" | awk 'NF { print $1 }')
+} > "$STAGE/MPV-PATCHES.txt"
+
 for f in COPYING.GPLv2 COPYING.GPLv3 COPYING.LGPLv2.1 COPYING.LGPLv3 LICENSE.md; do
     [ -f "$REPO/$f" ] && cp -p "$REPO/$f" "$OUT/$f"
 done
@@ -415,6 +450,7 @@ if manifest.get("anomalies"):
 expected_components = {
     "Libavcodec", "Libavformat", "Libavfilter", "Libswscale", "Libswresample", "Libavutil",
     "Libmpv", "Libplacebo", "Libfribidi", "Libuchardet",
+    "LibMoltenVK", "Libshaderc",
 }
 components = {c.get("name"): c for c in (manifest.get("components") or [])}
 if set(components) != expected_components:
@@ -434,8 +470,8 @@ for raw in open(build_info_path, encoding="utf-8"):
         k, v = raw.split("=", 1)
         info[k] = v
 ff = manifest.get("ffmpeg", {}).get("source", {})
-if ff.get("patches_count") != 13:
-    missing.append(f"manifest.ffmpeg.patches_count={ff.get('patches_count')} != 13")
+if ff.get("patches_count") != 15:
+    missing.append(f"manifest.ffmpeg.patches_count={ff.get('patches_count')} != 15")
 if ff.get("patches_digest") != info.get("patches_digest"):
     missing.append("manifest.ffmpeg.patches_digest 与 BUILD-INFO 不一致")
 if ff.get("patches_txt_sha256") != info.get("patches_txt_sha256"):
@@ -555,6 +591,19 @@ while IFS= read -r p; do
     log "source: applied $p"
 done < <(sed -e 's/#.*//' "$LUX/config/patches.txt" | awk 'NF { print $1 }')
 
+# mpv 补丁清单(与 FFmpeg 的 LUX-PATCHES.txt 分开,避免两套补丁集混在一起)
+{
+    printf 'mpv_version=0.41.0\n'
+    printf 'mpv_patches_count=%s\n' "$MPV_PATCH_COUNT"
+    printf 'mpv_patches_digest=%s\n' "$MPV_PATCH_DIGEST"
+    printf 'mpv_patches_txt_sha256=%s\n' "$MPV_PATCH_LIST_SHA"
+    printf '# 由 lux/build/make-release-package.sh 从 lux/config/mpv-patches.txt 生成\n'
+    while IFS= read -r p; do
+        [ -n "$p" ] || continue
+        printf 'patch %s  %s\n' "$p" "$(shasum -a 256 "$LUX/patches/mpv/$p" | awk '{ print $1 }')"
+    done < <(sed -e 's/#.*//' "$LUX/config/mpv-patches.txt" | awk 'NF { print $1 }')
+} > "$STAGE/MPV-PATCHES.txt"
+
 for f in COPYING.GPLv2 COPYING.GPLv3 COPYING.LGPLv2.1 COPYING.LGPLv3 LICENSE.md; do
     [ -f "$REPO/$f" ] && cp -p "$REPO/$f" "$STAGE/$f"
 done
@@ -576,8 +625,9 @@ $PRODUCT/
   lux/                              本仓库 lux/ 全部内容(不含 lux/.build)
     build/, config/, patches/, test/, docs/, release/licenses/ ...
     release/sources/                依赖源码包(见 SOURCES-INDEX.txt)
-  ffmpeg-$FFMPEG_VERSION/           FFmpeg 基线树 + 13 个补丁已应用
-    LUX-PATCHES.txt                 补丁清单与 sha256
+  ffmpeg-$FFMPEG_VERSION/           FFmpeg 基线树 + 15 个补丁已应用
+    LUX-PATCHES.txt                 FFmpeg 补丁清单与 sha256
+  MPV-PATCHES.txt                   mpv 补丁清单与 sha256
 \`\`\`
 
 ## 元数据

@@ -7,9 +7,9 @@ set -euo pipefail
 REPO="$(cd "$(dirname "$0")/../.." && pwd)"
 TARGET="${1:?target required}"
 case "$TARGET" in
-  macos-arm64) PLATFORM="macOS"; SCHEME_OS="macOS"; MVK_TARGET="MoltenVK-macOS"; SDK="macosx" ;;
-  ios-arm64) PLATFORM="iOS"; SCHEME_OS="iOS"; MVK_TARGET="MoltenVK-iOS"; SDK="iphoneos" ;;
-  ios-sim-arm64) PLATFORM="iOS Simulator"; SCHEME_OS="iOS"; MVK_TARGET="MoltenVK-iOS"; SDK="iphonesimulator" ;;
+  macos-arm64) PLATFORM="macOS"; SCHEME_OS="macOS"; MVK_TARGET="MoltenVK-macOS"; SDK="macosx"; MINFLAG="-mmacosx-version-min=14.0" ;;
+  ios-arm64) PLATFORM="iOS"; SCHEME_OS="iOS"; MVK_TARGET="MoltenVK-iOS"; SDK="iphoneos"; MINFLAG="-miphoneos-version-min=17.0" ;;
+  ios-sim-arm64) PLATFORM="iOS Simulator"; SCHEME_OS="iOS"; MVK_TARGET="MoltenVK-iOS"; SDK="iphonesimulator"; MINFLAG="-mios-simulator-version-min=17.0" ;;
   *) echo "build-moltenvk.sh: $TARGET not implemented yet" >&2; exit 2 ;;
 esac
 SRC="$REPO/lux/.build/deps/src"
@@ -87,26 +87,36 @@ MVK_SDK_ARG=()
 LIB="$(find "$DD/products-$TARGET" -name libMoltenVK.a -not -path '*XCFrameworkStaging*' | head -1)"
 [ -f "$LIB" ] || { echo "libMoltenVK.a not produced" >&2; exit 1; }
 
-# 5. 安装到前缀:静态库 + Vulkan 头文件 + vulkan.pc(供 libplacebo 找到头文件与 MoltenVK)
+# 5. 安装到前缀:静态库 + 共享 dylib + Vulkan 头文件 + vulkan.pc
+#    B+ 方案让 libplacebo / libmpv / FFmpeg 共用同一份 libMoltenVK.dylib;
+#    静态库保留给需要显式静态链接的旧调用方。
 cp "$LIB" "$PREFIX/lib/libMoltenVK.a"
-mkdir -p "$PREFIX/include/vulkan"
-cp -R "$MVK/External/Vulkan-Headers/include/vulkan/." "$PREFIX/include/vulkan/"
-cp -R "$MVK/External/Vulkan-Headers/include/vk_video" "$PREFIX/include/" 2>/dev/null || true
 # MoltenVK 依赖的系统框架:macOS 需要 AppKit/IOKit,iOS 需要 UIKit
 if [ "$SDK" = "macosx" ]; then
   VK_FRAMEWORKS="-framework Metal -framework IOSurface -framework QuartzCore -framework IOKit -framework CoreGraphics -framework Foundation -framework AppKit"
 else
   VK_FRAMEWORKS="-framework Metal -framework IOSurface -framework QuartzCore -framework CoreGraphics -framework Foundation -framework UIKit"
 fi
+# 静态 archive 里是一个 prelink object,直接 --all_load 合成 dylib;
+# install_name 走 @rpath/LibMoltenVK.framework/LibMoltenVK,build-vulkan-frameworks.sh 按 framework 打包。
+xcrun --sdk "$SDK" clang -shared -all_load "$LIB" \
+  -o "$PREFIX/lib/libMoltenVK.dylib" \
+  -arch arm64 "$MINFLAG" -isysroot "$(xcrun --sdk "$SDK" --show-sdk-path)" \
+  -lc++ $VK_FRAMEWORKS \
+  -install_name "@rpath/LibMoltenVK.framework/LibMoltenVK" \
+  || { echo "libMoltenVK.dylib link failed" >&2; exit 1; }
+mkdir -p "$PREFIX/include/vulkan"
+cp -R "$MVK/External/Vulkan-Headers/include/vulkan/." "$PREFIX/include/vulkan/"
+cp -R "$MVK/External/Vulkan-Headers/include/vk_video" "$PREFIX/include/" 2>/dev/null || true
 mkdir -p "$PREFIX/lib/pkgconfig"
 cat > "$PREFIX/lib/pkgconfig/vulkan.pc" <<PC
 prefix=$PREFIX
 includedir=\${prefix}/include
 libdir=\${prefix}/lib
 Name: Vulkan
-Description: Vulkan API (MoltenVK 1.4.2, static)
+Description: Vulkan API (MoltenVK 1.4.2, shared dylib + static fallback)
 Version: 1.4.357
 Cflags: -I\${includedir}
-Libs: -L\${libdir} -lMoltenVK $VK_FRAMEWORKS
+Libs: -L\${libdir} -lMoltenVK -lc++ $VK_FRAMEWORKS
 PC
-echo "[built] moltenvk 1.4.2 ($TARGET) -> $PREFIX/lib/libMoltenVK.a"
+echo "[built] moltenvk 1.4.2 ($TARGET) -> $PREFIX/lib/libMoltenVK.{a,dylib}"

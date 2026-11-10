@@ -1,0 +1,50 @@
+From: lux <dev@lux.invalid>
+Subject: [PATCH] vulkan: fix off-by-one in flip/transpose shaders
+
+FFmpeg 8.1.3 的 flip 滤镜用 ivec2(size.x - pos.x, ...) 取源像素,
+pos=0 时读到 size.x(越界),整幅图实际偏移 1 像素;transpose 的
+ccw/clock 分支同样问题。改为 size - pos - 1。
+
+本补丁为 lux 原创,LGPL-2.1+;实测 hflip_vulkan 与软件 hflip 逐字节一致。
+
+---
+diff --git a/libavfilter/vf_flip_vulkan.c b/libavfilter/vf_flip_vulkan.c
+index 3e2aed0..d4098f8 100644
+--- a/libavfilter/vf_flip_vulkan.c
++++ b/libavfilter/vf_flip_vulkan.c
+@@ -109,13 +109,13 @@ static av_cold int init_filter(AVFilterContext *ctx, AVFrame *in, enum FlipType
+         switch (type)
+         {
+         case FLIP_HORIZONTAL:
+-            GLSLF(2, vec4 res = imageLoad(input_image[%i], ivec2(size.x - pos.x, pos.y)); ,i);
++            GLSLF(2, vec4 res = imageLoad(input_image[%i], ivec2(size.x - pos.x - 1, pos.y)); ,i);
+             break;
+         case FLIP_VERTICAL:
+-            GLSLF(2, vec4 res = imageLoad(input_image[%i], ivec2(pos.x, size.y - pos.y)); ,i);
++            GLSLF(2, vec4 res = imageLoad(input_image[%i], ivec2(pos.x, size.y - pos.y - 1)); ,i);
+             break;
+         case FLIP_BOTH:
+-            GLSLF(2, vec4 res = imageLoad(input_image[%i], ivec2(size.xy - pos.xy));,      i);
++            GLSLF(2, vec4 res = imageLoad(input_image[%i], ivec2(size.xy - pos.xy - ivec2(1)));,      i);
+             break;
+         default:
+             GLSLF(2, vec4 res = imageLoad(input_image[%i], pos);                          ,i);
+diff --git a/libavfilter/vf_transpose_vulkan.c b/libavfilter/vf_transpose_vulkan.c
+index 3fe2d11..fb5c291 100644
+--- a/libavfilter/vf_transpose_vulkan.c
++++ b/libavfilter/vf_transpose_vulkan.c
+@@ -106,11 +106,11 @@ static av_cold int init_filter(AVFilterContext *ctx, AVFrame *in)
+         GLSLF(1, size = imageSize(output_images[%i]);                ,i);
+         GLSLC(1, if (IS_WITHIN(pos, size)) {                           );
+         if (s->dir == TRANSPOSE_CCLOCK)
+-            GLSLF(2, vec4 res = imageLoad(input_images[%i], ivec2(size.y - pos.y, pos.x)); ,i);
++            GLSLF(2, vec4 res = imageLoad(input_images[%i], ivec2(size.y - pos.y - 1, pos.x)); ,i);
+         else if (s->dir == TRANSPOSE_CLOCK_FLIP || s->dir == TRANSPOSE_CLOCK) {
+-            GLSLF(2, vec4 res = imageLoad(input_images[%i], ivec2(size.yx - pos.yx));      ,i);
++            GLSLF(2, vec4 res = imageLoad(input_images[%i], ivec2(size.yx - pos.yx - ivec2(1)));      ,i);
+             if (s->dir == TRANSPOSE_CLOCK)
+-                GLSLC(2, pos = ivec2(pos.x, size.y - pos.y);           );
++                GLSLC(2, pos = ivec2(pos.x, size.y - pos.y - 1);       );
+         } else
+             GLSLF(2, vec4 res = imageLoad(input_images[%i], pos.yx);  ,i);
+         GLSLF(2,     imageStore(output_images[%i], pos, res);        ,i);

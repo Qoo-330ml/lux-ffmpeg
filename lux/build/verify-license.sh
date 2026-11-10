@@ -258,7 +258,21 @@ EOF
     for archive in "$install/lib"/*.a; do
         lib=$(basename "$archive")
         dump_symbols "$archive" "$symdir/$lib.txt"
-        hits=$(grep -Ei -e "$FORBIDDEN_SYMBOL_RE" "$symdir/$lib.txt" | sort -u)
+        local symfile="$symdir/$lib.txt"
+        # B+:libavfilter / libswscale 的 Vulkan 后端动态引用 shaderc(Apache-2.0)。
+        # 这里只检查该库本身,不把 shaderc_* 当成静态吞入;正向确认引用确实存在。
+        case "$lib" in
+            libavfilter.a|libswscale.a)
+                if grep -q '^_shaderc_compile_into_spv$' "$symfile"; then
+                    pass "$lib: 动态引用 shaderc(Apache-2.0,非静态并入)"
+                else
+                    fail "$lib: 找不到 shaderc_compile_into_spv 引用(CONFIG_LIBSHADERC 异常)"
+                    symbols_ok=0
+                fi
+                grep -v 'shaderc' "$symfile" > "$symfile.check" || true
+                symfile="$symfile.check" ;;
+        esac
+        hits=$(grep -Ei -e "$FORBIDDEN_SYMBOL_RE" "$symfile" | sort -u)
         if [ -n "$hits" ]; then
             fail "$lib 符号表含禁用符号: $(printf '%s ' $hits)"
             symbols_ok=0

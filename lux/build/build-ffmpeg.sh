@@ -60,12 +60,18 @@ INSTALL="$BUILD/install"
 # pkg-config 只搜这一个前缀、清空 PKG_CONFIG_PATH,避免 Homebrew/系统库混进来。
 DEPS_PREFIX="$BUILD_ROOT/deps/$target/install"
 export LUX_DEPS_PREFIX="$DEPS_PREFIX"
-for pc in dav1d zlib openssl; do
+for pc in dav1d zlib openssl vulkan shaderc; do
     [ -f "$DEPS_PREFIX/lib/pkgconfig/$pc.pc" ] \
-        || die "缺少 $DEPS_PREFIX/lib/pkgconfig/$pc.pc — 先跑 ./lux/build/build-deps.sh $target dav1d zlib openssl"
+        || die "缺少 $DEPS_PREFIX/lib/pkgconfig/$pc.pc — 先跑 ./lux/build/build-deps.sh $target dav1d zlib openssl shaderc 与 ./lux/build/build-moltenvk.sh $target"
 done
+[ -f "$DEPS_PREFIX/lib/libMoltenVK.dylib" ] \
+    || die "缺少 $DEPS_PREFIX/lib/libMoltenVK.dylib — 先跑 ./lux/build/build-moltenvk.sh $target"
+[ -f "$DEPS_PREFIX/lib/libshaderc.dylib" ] \
+    || die "缺少 $DEPS_PREFIX/lib/libshaderc.dylib — 先跑 ./lux/build/build-deps.sh $target shaderc"
 export PKG_CONFIG_LIBDIR="$DEPS_PREFIX/lib/pkgconfig:$DEPS_PREFIX/share/pkgconfig"
 export PKG_CONFIG_PATH=""
+export LUX_GLSLC="$BUILD_ROOT/host-tools/install/bin/glslc"
+[ -x "$LUX_GLSLC" ] || die "缺少 host glslc: $LUX_GLSLC — 先跑 ./lux/build/build-host-tools.sh"
 
 ff_configure_opts "$target" "$INSTALL" || die "cannot resolve configure opts for '$target'"
 

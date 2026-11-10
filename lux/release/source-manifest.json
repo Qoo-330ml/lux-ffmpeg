@@ -28,16 +28,16 @@
     "gpl_or_nonfree_terms": true,
     "source": {
       "repository": "lux-ffmpeg",
-      "head_commit": "5b165cf41b4e6f47750b14f8c37513fe485e9d7d",
-      "head_commit_date": "2026-11-10T19:06:47+08:00",
-      "head_commit_subject": "lux: P2 冒烟(无头播放 / render / 允许项)与出口文档",
-      "branch": "tspace/lux-release-package",
+      "head_commit": "922532ed9eeda9aebb0c1bb8a02df86bbf2a22c8",
+      "head_commit_date": "2026-11-10T21:27:24+08:00",
+      "head_commit_subject": "lux: build-mpv.sh 在配置前应用 mpv 补丁清单",
+      "branch": "p1-allowlist",
       "patches_txt": "lux/config/patches.txt",
-      "patches_txt_sha256": "9f532c1b8144fb212e5bc3bb6c3bfe5f193ca97ada07c64a951bc84de28a056e",
-      "patches_digest": "45aeb1df8deddd7abd5d011e32379428536dffb61fb9d63702ed26a224839c52",
-      "patches_count": 13,
+      "patches_txt_sha256": "7cd3380fb939a546fa4293b70a2f4b6678c200306723bf3015c6da0cf6ebf12c",
+      "patches_digest": "dcb7d4b747e00a3336953264a73791307d7c4aa633b8906e81c0ff71b70d655f",
+      "patches_count": 15,
       "configure_file": "lux/config/ffmpeg-ios.conf",
-      "configure_sha256": "e1ce5cc7ee46a3dd6cd425c1c084c6da6531ce093d71399d6b02052ba0143b96",
+      "configure_sha256": "fd65fe7e2b280b40efa91f516f975a9b90b8fd3aed2f306f5712b4c531bd4a1e",
       "patches": [
         {
           "name": "0001-videotoolbox-hwaccel-low-priority.patch",
@@ -90,6 +90,14 @@
         {
           "name": "0014-vf-bwdif-videotoolbox.patch",
           "sha256": "7df88c80e3df2f20fd12d5900d47d2f312747b59993b7e6a892be73fd8f1fadd"
+        },
+        {
+          "name": "0016-vulkan-moltenvk-framework.patch",
+          "sha256": "6a16ee2ea6f483cd91089c90d350f4263b6f3cc4b98aab7737f701113ac8fbc9"
+        },
+        {
+          "name": "0017-vulkan-flip-transpose-offbyone.patch",
+          "sha256": "76050db97240afd0633f43ab335eeaaac859a7550194e9dfe720d290614c3121"
         }
       ]
     },
@@ -1601,7 +1609,20 @@
         "framework_dependency": "Libuchardet",
         "license": "MPL-1.1 或 GPL-2.0-or-later 或 LGPL-2.1-or-later(待法务确认)"
       }
-    ]
+    ],
+    "source": {
+      "version": "0.41.0",
+      "patches_txt": "lux/config/mpv-patches.txt",
+      "patches_txt_sha256": "cffa8a71e232c8fe348612ab53c69629ee78342f12b27211b5251be354802a8d",
+      "patches_count": 1,
+      "patches_digest": "3ff559aee31d754316325030179f87b0ebde5fa46c955f5cfdb8565aa291daf7",
+      "patches": [
+        {
+          "name": "0001-ios-moltenvk-context.patch",
+          "sha256": "0ddc7bffa3724ead7159497c079b6d8fdc24127e55884f9a298299e6f540874b"
+        }
+      ]
+    }
   },
   "components": [
     {
@@ -2302,27 +2323,6 @@
           }
         },
         {
-          "name": "moltenvk",
-          "kind": "static",
-          "evidence": "vulkan.pc 提供 -lMoltenVK;nm -gU 可查到 _vk* 符号",
-          "symbol_evidence": {
-            "macos-arm64": [
-              "Libplacebo:_vkCreateInstance"
-            ],
-            "ios-arm64": [
-              "Libplacebo:_vkCreateInstance"
-            ],
-            "ios-sim-arm64": [
-              "Libplacebo:_vkCreateInstance"
-            ]
-          }
-        },
-        {
-          "name": "shaderc",
-          "kind": "static",
-          "evidence": "shaderc.pc 提供 -lshaderc_combined;二进制内有 shaderc_util 符号"
-        },
-        {
           "name": "spirv-cross",
           "kind": "static-transitive",
           "evidence": "MoltenVK ExternalDependencies 的 libSPIRVCross.a"
@@ -2484,6 +2484,98 @@
         }
       },
       "statically_linked": []
+    },
+    {
+      "name": "LibMoltenVK",
+      "kind": "vulkan-framework",
+      "license": "Apache-2.0",
+      "license_status": "identified",
+      "license_files": [
+        "licenses/moltenvk/LICENSE"
+      ],
+      "notes": "B+ 共享 Vulkan 运行时;framework 由 lux/build/build-vulkan-frameworks.sh 生成",
+      "source_dependency": "moltenvk",
+      "targets": {
+        "macos-arm64": {
+          "binary": "lux/.build/vulkan-frameworks/macos-arm64/slice/LibMoltenVK.framework/LibMoltenVK",
+          "binary_kind": "framework",
+          "otool_command": "otool -L lux/.build/vulkan-frameworks/macos-arm64/slice/LibMoltenVK.framework/LibMoltenVK",
+          "dynamic_dependencies": [],
+          "system_dependencies": [],
+          "non_system_dependencies": [],
+          "source_dependency": "moltenvk",
+          "license": "Apache-2.0",
+          "license_status": "identified"
+        },
+        "ios-arm64": {
+          "binary": "lux/.build/vulkan-frameworks/ios-arm64/slice/LibMoltenVK.framework/LibMoltenVK",
+          "binary_kind": "framework",
+          "otool_command": "otool -L lux/.build/vulkan-frameworks/ios-arm64/slice/LibMoltenVK.framework/LibMoltenVK",
+          "dynamic_dependencies": [],
+          "system_dependencies": [],
+          "non_system_dependencies": [],
+          "source_dependency": "moltenvk",
+          "license": "Apache-2.0",
+          "license_status": "identified"
+        },
+        "ios-sim-arm64": {
+          "binary": "lux/.build/vulkan-frameworks/ios-sim-arm64/slice/LibMoltenVK.framework/LibMoltenVK",
+          "binary_kind": "framework",
+          "otool_command": "otool -L lux/.build/vulkan-frameworks/ios-sim-arm64/slice/LibMoltenVK.framework/LibMoltenVK",
+          "dynamic_dependencies": [],
+          "system_dependencies": [],
+          "non_system_dependencies": [],
+          "source_dependency": "moltenvk",
+          "license": "Apache-2.0",
+          "license_status": "identified"
+        }
+      }
+    },
+    {
+      "name": "Libshaderc",
+      "kind": "vulkan-framework",
+      "license": "Apache-2.0",
+      "license_status": "identified",
+      "license_files": [
+        "licenses/shaderc/LICENSE"
+      ],
+      "notes": "B+ 共享 Vulkan 运行时;framework 由 lux/build/build-vulkan-frameworks.sh 生成",
+      "source_dependency": "shaderc",
+      "targets": {
+        "macos-arm64": {
+          "binary": "lux/.build/vulkan-frameworks/macos-arm64/slice/Libshaderc.framework/Libshaderc",
+          "binary_kind": "framework",
+          "otool_command": "otool -L lux/.build/vulkan-frameworks/macos-arm64/slice/Libshaderc.framework/Libshaderc",
+          "dynamic_dependencies": [],
+          "system_dependencies": [],
+          "non_system_dependencies": [],
+          "source_dependency": "shaderc",
+          "license": "Apache-2.0",
+          "license_status": "identified"
+        },
+        "ios-arm64": {
+          "binary": "lux/.build/vulkan-frameworks/ios-arm64/slice/Libshaderc.framework/Libshaderc",
+          "binary_kind": "framework",
+          "otool_command": "otool -L lux/.build/vulkan-frameworks/ios-arm64/slice/Libshaderc.framework/Libshaderc",
+          "dynamic_dependencies": [],
+          "system_dependencies": [],
+          "non_system_dependencies": [],
+          "source_dependency": "shaderc",
+          "license": "Apache-2.0",
+          "license_status": "identified"
+        },
+        "ios-sim-arm64": {
+          "binary": "lux/.build/vulkan-frameworks/ios-sim-arm64/slice/Libshaderc.framework/Libshaderc",
+          "binary_kind": "framework",
+          "otool_command": "otool -L lux/.build/vulkan-frameworks/ios-sim-arm64/slice/Libshaderc.framework/Libshaderc",
+          "dynamic_dependencies": [],
+          "system_dependencies": [],
+          "non_system_dependencies": [],
+          "source_dependency": "shaderc",
+          "license": "Apache-2.0",
+          "license_status": "identified"
+        }
+      }
     }
   ],
   "dependencies": [
@@ -2884,16 +2976,30 @@
       "gpl_or_nonfree_terms": false,
       "linkage": [
         {
-          "kind": "static",
+          "kind": "dynamic",
           "into": [
-            "Libplacebo"
+            "Libplacebo",
+            "Libavfilter",
+            "Libswscale"
           ],
           "targets": [
             "macos-arm64",
             "ios-arm64",
             "ios-sim-arm64"
           ],
-          "evidence": "shaderc.pc 提供 -lshaderc_combined;二进制内有 shaderc_util 符号"
+          "evidence": "@rpath/Libshaderc.framework/Libshaderc;shaderc_shared 导出 shaderc_* C API"
+        },
+        {
+          "kind": "framework-source",
+          "into": [
+            "Libshaderc"
+          ],
+          "targets": [
+            "macos-arm64",
+            "ios-arm64",
+            "ios-sim-arm64"
+          ],
+          "evidence": "Libshaderc.framework 的二进制来自 shaderc 2025.5 shaderc_shared"
         }
       ]
     },
@@ -3037,16 +3143,28 @@
       "gpl_or_nonfree_terms": false,
       "linkage": [
         {
-          "kind": "static",
+          "kind": "dynamic",
           "into": [
-            "Libplacebo"
+            "Libmpv"
           ],
           "targets": [
             "macos-arm64",
             "ios-arm64",
             "ios-sim-arm64"
           ],
-          "evidence": "vulkan.pc 提供 -lMoltenVK;nm -gU 可查到 _vk* 符号"
+          "evidence": "@rpath/LibMoltenVK.framework/LibMoltenVK;iOS MoltenVK 上下文直接引用 vkGetInstanceProcAddr"
+        },
+        {
+          "kind": "framework-source",
+          "into": [
+            "LibMoltenVK"
+          ],
+          "targets": [
+            "macos-arm64",
+            "ios-arm64",
+            "ios-sim-arm64"
+          ],
+          "evidence": "LibMoltenVK.framework 的二进制来自 MoltenVK 1.4.2 libMoltenVK.a"
         }
       ]
     },

@@ -413,7 +413,12 @@ P1 D4 只补了 demuxer/protocol/decoder/parser/bsf,没有动 filter。本步以
 | `w3fdif` | 可选 | W3C 去隔行算法,另一种画质取向。 |
 | `yadif` | 必须 | mpv 默认去隔行器(`--deinterlace` 的 yadif 路径)。 |
 
-### b) 需要外部库 / GPU 工具链,本步不加(12)
+### b) 需要外部库 / GPU 工具链(2026-11-10 B+ 起 Vulkan 滤镜已加入)
+
+> **B+ 更新**:下表是 B+ 之前的取舍记录。现在 17 个 `*_vulkan` 滤镜已全部启用
+> (`--enable-vulkan --enable-libshaderc`),其中 14 个走运行时 shaderc,
+> `avgblur/bwdif/scale` 走构建期 host `glslc`。`libplacebo` 滤镜仍未启用:
+> 它会让 `Libavfilter` 依赖 `Libplacebo.framework`,留到二期。
 
 | 组件 | 外部依赖 / 原因 | 后续处理 |
 | --- | --- | --- |

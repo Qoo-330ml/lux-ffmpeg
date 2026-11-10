@@ -102,6 +102,14 @@ build_one() {
         || { tail -30 "$WORK/shaderc.log" >&2; return 1; }
       cp "$WORK/shaderc/build-$TARGET/libshaderc_combined.a" "$PREFIX/lib/" 2>/dev/null \
         || find "$WORK/shaderc/build-$TARGET" -name 'libshaderc_combined.a' -exec cp {} "$PREFIX/lib/" \;
+      # B+:shaderc_shared 是唯一会导出 shaderc_* C API 的产物。
+      # 直接拿 shaderc_combined.a 链 dylib 时符号是 private external,导不出去。
+      cmake --build "$WORK/shaderc/build-$TARGET" --target shaderc_shared -j"$JOBS" >> "$WORK/shaderc.log" 2>&1 \
+        || { tail -30 "$WORK/shaderc.log" >&2; return 1; }
+      SHARED_LIB=$(find "$WORK/shaderc/build-$TARGET" -name 'libshaderc_shared*.dylib' -not -name 'libshaderc_shared.dylib' | sort | head -1)
+      [ -n "$SHARED_LIB" ] || { echo "libshaderc_shared dylib not produced" >&2; return 1; }
+      cp "$SHARED_LIB" "$PREFIX/lib/libshaderc.dylib"
+      install_name_tool -id "@rpath/Libshaderc.framework/Libshaderc" "$PREFIX/lib/libshaderc.dylib"
       mkdir -p "$PREFIX/include"; cp -R "$WORK/shaderc/libshaderc/include/shaderc" "$PREFIX/include/"
       mkdir -p "$PREFIX/lib/pkgconfig"
       cat > "$PREFIX/lib/pkgconfig/shaderc.pc" <<PC
@@ -109,14 +117,15 @@ prefix=$PREFIX
 includedir=\${prefix}/include
 libdir=\${prefix}/lib
 Name: shaderc
-Description: shaderc (static combined library, Apache-2.0)
+Description: shaderc (shared dylib, Apache-2.0)
 Version: 2025.5
 Cflags: -I\${includedir}
-Libs: -L\${libdir} -lshaderc_combined -lc++
+Libs: -L\${libdir} -lshaderc -lc++
 PC
       ;;
     libplacebo)
-      # 动态库(LGPL-2.1+),含 MoltenVK 静态库与 shaderc 静态库(由 pkg-config 提供)。
+      # 动态库(LGPL-2.1+)。B+:MoltenVK 与 shaderc 都走共享 dylib
+      # (vulkan.pc / shaderc.pc 提供),libplacebo 不再把两者静态吞进自己。
       extract libplacebo-v7.360.1.tar.gz libplacebo
       # glad 头文件已入库(vendor/glad-2.0.8,见其 README.md)。替换 glad 的构建期生成步骤,
       # 只保留它提供的 glad_dep;加载函数由宿主通过 get_proc_address 提供,因此关闭内置加载器。
