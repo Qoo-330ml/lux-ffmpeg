@@ -1,0 +1,378 @@
+/*
+ * lux/test/av1_probe.c — AV1 软解实测(dav1d 1.5.4 与原生 av1 解码器对照)
+ *
+ * 背景:allowlist 的 dav1d 小节此前只验证到「解码器注册 + 构建/许可」,
+ * 没有任何 AV1 样片跑过解码。本探针补上解码实测:
+ *
+ *   1. 用 libavformat 打开样片,找 AV1 视频流;
+ *   2. 按名字取 `libdav1d`(静态编入 libavcodec 的 dav1d 1.5.4)解码前 N 帧;
+ *   3. 换原生 `av1` 解码器对同一样片重复一遍,作为对照;
+ *   4. 比较两边解出的帧数、分辨率与像素格式。
+ *
+ * 关于原生 `av1`(重要,实测结论):
+ *   FFmpeg 8.1.3 的 `av1` 解码器(libavcodec/av1dec.c)**没有软件解码路径**,它只做
+ *   OBU 解析,真正的解码必须由 hwaccel 完成;get_pixel_format() 在 !avctx->hwaccel 时
+ *   直接返回 AVERROR(ENOSYS),源码注释也写明 "the av1 decoder doesn't support native
+ *   decode"。本构建的 LUX_HWACCELS 只开 h264/hevc 的 VideoToolbox,所有
+ *   CONFIG_AV1_*_HWACCEL 均为 0,因此原生 `av1` 在这个构建里解不出任何帧。
+ *   探针把这种情况记为 `av1_result: unsupported_sw_decode`(而不是失败),同时保留
+ *   「若将来 av1 真能解出帧就按相同标准比对」的分支。
+ *
+ * 两个解码器都不挂 hw_device_ctx,走纯软件路径。
+ *
+ * 用法: av1_probe <file> [max_frames]    (max_frames 默认 60,N 至少 30)
+ *
+ * 输出(供 run.sh 断言):
+ *   stream: index=0 codec=av1 width=320 height=240 pix_fmt=yuv420p
+ *   decoder libdav1d: avail=1 open=1 impl="dav1d AV1 decoder by VideoLAN"
+ *   libdav1d: frames=60 width=320 height=240 pix_fmt=yuv420p consistent=1 stop=limit luma_avg=...
+ *   decoder av1: avail=1 open=1 impl="Alliance for Open Media AV1"
+ *   av1: frames=0 width=0 height=0 pix_fmt=? consistent=0 stop=error
+ *   av1_result: unsupported_sw_decode
+ *   compare: frames_match=na dims_match=na pixfmt_match=na
+ *   RESULT: PASS|FAIL
+ *
+ * 构建与运行见 lux/test/run.sh。链接时必须按 run.sh 的 DAV1D_LIB 追加 libdav1d.a。
+ */
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
+#include <libavcodec/avcodec.h>
+#include <libavformat/avformat.h>
+#include <libavutil/error.h>
+#include <libavutil/pixdesc.h>
+
+#define DEFAULT_MAX_FRAMES 60
+#define MIN_FRAMES         30
+
+typedef struct RunResult {
+    int opened;                  /* 解码器找到并 avcodec_open2 成功 */
+    int failed;                  /* 解码过程中出现非预期错误 */
+    int enosys;                  /* 解码路径明确返回 ENOSYS(av1 无软件解码) */
+    int frames;                  /* 实际解出的帧数 */
+    int width;
+    int height;
+    enum AVPixelFormat pix_fmt;  /* 第一帧的格式 */
+    int consistent;              /* 后续帧的分辨率/格式是否与第一帧一致 */
+    double luma_avg;             /* 第一帧 Y 平面均值(证明真的出了像素) */
+    const char *stop;            /* "limit" / "eof" / "error" */
+} RunResult;
+
+static void print_error(const char *what, int err)
+{
+    char buf[AV_ERROR_MAX_STRING_SIZE] = { 0 };
+    av_strerror(err, buf, sizeof(buf));
+    fprintf(stderr, "%s: %s (%d)\n", what, buf, err);
+}
+
+static const char *pix_name(enum AVPixelFormat fmt)
+{
+    const char *name = av_get_pix_fmt_name(fmt);
+    return name ? name : "?";
+}
+
+/* 第一帧的 Y 平面均值:testsrc2 这类彩条图案不会是纯黑,可以证明解码出了真实像素。 */
+static double luma_average(const AVFrame *frame)
+{
+    if (!frame->data[0] || frame->height <= 0)
+        return -1.0;
+    unsigned long long sum = 0;
+    for (int y = 0; y < frame->height; y++) {
+        const uint8_t *row = frame->data[0] + (size_t)y * frame->linesize[0];
+        for (int x = 0; x < frame->width; x++)
+            sum += row[x];
+    }
+    return (double)sum / ((double)frame->width * frame->height);
+}
+
+static void account_frame(RunResult *r, const AVFrame *frame)
+{
+    if (r->frames == 0) {
+        r->width = frame->width;
+        r->height = frame->height;
+        r->pix_fmt = (enum AVPixelFormat)frame->format;
+        r->consistent = 1;
+        r->luma_avg = luma_average(frame);
+    } else if (frame->width != r->width || frame->height != r->height ||
+               frame->format != (int)r->pix_fmt) {
+        r->consistent = 0;
+    }
+    r->frames++;
+}
+
+/*
+ * 用一个指定的解码器把样片从头解到 max_frames 帧(或 EOF),结果写进 *r。
+ * 每次调用都重新 open 一遍输入,这样两个解码器从完全相同的起点开始。
+ */
+static int probe_decoder(const char *path, const char *decoder_name, int max_frames, RunResult *r)
+{
+    int ret;
+    AVFormatContext *fmt = NULL;
+    AVCodecContext *dec = NULL;
+    AVPacket *pkt = NULL;
+    AVFrame *frame = NULL;
+    int stream_index = -1;
+
+    memset(r, 0, sizeof(*r));
+    r->stop = "error";
+    r->pix_fmt = AV_PIX_FMT_NONE;   /* memset 的 0 是 YUV420P,不能当「没有帧」 */
+    r->luma_avg = -1.0;
+
+    ret = avformat_open_input(&fmt, path, NULL, NULL);
+    if (ret < 0) {
+        print_error("avformat_open_input", ret);
+        r->failed = 1;
+        return -1;
+    }
+    ret = avformat_find_stream_info(fmt, NULL);
+    if (ret < 0) {
+        print_error("avformat_find_stream_info", ret);
+        avformat_close_input(&fmt);
+        r->failed = 1;
+        return -1;
+    }
+
+    for (unsigned i = 0; i < fmt->nb_streams; i++) {
+        const AVCodecParameters *par = fmt->streams[i]->codecpar;
+        if (par->codec_type == AVMEDIA_TYPE_VIDEO && par->codec_id == AV_CODEC_ID_AV1) {
+            stream_index = (int)i;
+            break;
+        }
+    }
+    if (stream_index < 0) {
+        fprintf(stderr, "no AV1 video stream in %s\n", path);
+        avformat_close_input(&fmt);
+        r->failed = 1;
+        return -1;
+    }
+
+    const AVCodec *codec = avcodec_find_decoder_by_name(decoder_name);
+    if (!codec) {
+        printf("decoder %s: avail=0 open=0\n", decoder_name);
+        fprintf(stderr, "decoder '%s' not registered in this build\n", decoder_name);
+        avformat_close_input(&fmt);
+        r->failed = 1;
+        return -1;
+    }
+
+    dec = avcodec_alloc_context3(codec);
+    if (!dec) {
+        fprintf(stderr, "avcodec_alloc_context3 failed\n");
+        avformat_close_input(&fmt);
+        r->failed = 1;
+        return -1;
+    }
+    ret = avcodec_parameters_to_context(dec, fmt->streams[stream_index]->codecpar);
+    if (ret < 0) {
+        print_error("avcodec_parameters_to_context", ret);
+        goto fail;
+    }
+    dec->pkt_timebase = fmt->streams[stream_index]->time_base;
+    /* 纯软件解码:不设置 hw_device_ctx / get_format,拿到解码器的原生输出格式。 */
+    ret = avcodec_open2(dec, codec, NULL);
+    printf("decoder %s: avail=1 open=%d impl=\"%s\"\n",
+           decoder_name, ret >= 0, codec->long_name ? codec->long_name : codec->name);
+    if (ret < 0) {
+        print_error("avcodec_open2", ret);
+        goto fail;
+    }
+    r->opened = 1;
+
+    pkt = av_packet_alloc();
+    frame = av_frame_alloc();
+    if (!pkt || !frame) {
+        fprintf(stderr, "av_packet_alloc/av_frame_alloc failed\n");
+        goto fail;
+    }
+
+    while (r->frames < max_frames) {
+        ret = av_read_frame(fmt, pkt);
+        if (ret == AVERROR_EOF) {
+            r->stop = "eof";
+            break;
+        }
+        if (ret < 0) {
+            print_error("av_read_frame", ret);
+            goto fail;
+        }
+        if (pkt->stream_index != stream_index) {
+            av_packet_unref(pkt);
+            continue;
+        }
+
+        ret = avcodec_send_packet(dec, pkt);
+        av_packet_unref(pkt);
+        if (ret == AVERROR(ENOSYS)) {
+            /* 原生 av1:没有软件解码路径,get_pixel_format 明确返回 ENOSYS。 */
+            r->enosys = 1;
+            r->stop = "error";
+            goto done;
+        }
+        if (ret < 0 && ret != AVERROR(EAGAIN)) {
+            print_error("avcodec_send_packet", ret);
+            goto fail;
+        }
+
+        while (r->frames < max_frames) {
+            ret = avcodec_receive_frame(dec, frame);
+            if (ret == AVERROR(EAGAIN) || ret == AVERROR_EOF)
+                break;
+            if (ret == AVERROR(ENOSYS)) {
+                r->enosys = 1;
+                r->stop = "error";
+                goto done;
+            }
+            if (ret < 0) {
+                print_error("avcodec_receive_frame", ret);
+                goto fail;
+            }
+            account_frame(r, frame);
+            av_frame_unref(frame);
+        }
+        if (r->frames >= max_frames)
+            r->stop = "limit";
+    }
+
+    /* 到达 EOF 时把解码器里缓冲的帧冲出来(受 max_frames 限制)。 */
+    if (r->frames < max_frames && strcmp(r->stop, "eof") == 0) {
+        avcodec_send_packet(dec, NULL);
+        while (r->frames < max_frames) {
+            ret = avcodec_receive_frame(dec, frame);
+            if (ret == AVERROR(EAGAIN) || ret == AVERROR_EOF)
+                break;
+            if (ret < 0) {
+                print_error("avcodec_receive_frame (flush)", ret);
+                goto fail;
+            }
+            account_frame(r, frame);
+            av_frame_unref(frame);
+        }
+    }
+
+done:
+    av_frame_free(&frame);
+    av_packet_free(&pkt);
+    avcodec_free_context(&dec);
+    avformat_close_input(&fmt);
+    return 0;
+
+fail:
+    r->failed = 1;
+    av_frame_free(&frame);
+    av_packet_free(&pkt);
+    avcodec_free_context(&dec);
+    avformat_close_input(&fmt);
+    return -1;
+}
+
+int main(int argc, char **argv)
+{
+    if (argc < 2 || argc > 3) {
+        fprintf(stderr, "usage: %s <av1-file> [max_frames]\n", argv[0]);
+        return 2;
+    }
+
+    int max_frames = DEFAULT_MAX_FRAMES;
+    if (argc == 3) {
+        max_frames = atoi(argv[2]);
+        if (max_frames < MIN_FRAMES) {
+            fprintf(stderr, "max_frames 至少 %d(收到 %d)\n", MIN_FRAMES, max_frames);
+            return 2;
+        }
+    }
+
+    av_log_set_level(AV_LOG_ERROR);
+
+    printf("av1_probe: input=%s max_frames=%d\n", argv[1], max_frames);
+    printf("decoder_order: libdav1d av1\n");
+
+    /* 流信息只打一次,方便断言样片本身是 AV1 / 320x240。 */
+    {
+        AVFormatContext *fmt = NULL;
+        if (avformat_open_input(&fmt, argv[1], NULL, NULL) < 0 ||
+            avformat_find_stream_info(fmt, NULL) < 0) {
+            fprintf(stderr, "cannot open %s\n", argv[1]);
+            if (fmt)
+                avformat_close_input(&fmt);
+            return 2;
+        }
+        for (unsigned i = 0; i < fmt->nb_streams; i++) {
+            const AVCodecParameters *par = fmt->streams[i]->codecpar;
+            if (par->codec_type != AVMEDIA_TYPE_VIDEO || par->codec_id != AV_CODEC_ID_AV1)
+                continue;
+            printf("stream: index=%u codec=av1 width=%d height=%d pix_fmt=%s\n",
+                   i, par->width, par->height, pix_name((enum AVPixelFormat)par->format));
+            break;
+        }
+        avformat_close_input(&fmt);
+    }
+
+    RunResult dav1d, native;
+    int fails = 0;
+
+    probe_decoder(argv[1], "libdav1d", max_frames, &dav1d);
+    printf("libdav1d: frames=%d width=%d height=%d pix_fmt=%s consistent=%d stop=%s luma_avg=%.2f\n",
+           dav1d.frames, dav1d.width, dav1d.height, pix_name(dav1d.pix_fmt),
+           dav1d.consistent, dav1d.stop, dav1d.luma_avg);
+
+    probe_decoder(argv[1], "av1", max_frames, &native);
+    printf("av1: frames=%d width=%d height=%d pix_fmt=%s consistent=%d stop=%s luma_avg=%.2f\n",
+           native.frames, native.width, native.height, pix_name(native.pix_fmt),
+           native.consistent, native.stop, native.luma_avg);
+
+    int dav1d_ok = dav1d.opened && !dav1d.failed && dav1d.frames >= MIN_FRAMES &&
+                   dav1d.consistent && dav1d.width > 0 && dav1d.height > 0;
+    int native_decoded = native.opened && !native.failed && native.frames >= MIN_FRAMES;
+    int native_unsupported = native.opened && !native.failed && native.enosys &&
+                             native.frames == 0;
+
+    if (!dav1d_ok) {
+        if (!dav1d.opened)
+            printf("[FAIL] libdav1d 解码器不可用或打开失败\n");
+        else if (dav1d.frames < MIN_FRAMES)
+            printf("[FAIL] libdav1d 只解出 %d 帧(< %d)\n", dav1d.frames, MIN_FRAMES);
+        else
+            printf("[FAIL] libdav1d 输出帧的分辨率/格式前后不一致\n");
+        fails++;
+    } else if (dav1d.luma_avg <= 0.0) {
+        printf("[FAIL] libdav1d 第一帧的 Y 均值是 0,疑似没出真实像素\n");
+        fails++;
+    }
+
+    if (native_decoded) {
+        printf("av1_result: decoded\n");
+        if (native.width != dav1d.width || native.height != dav1d.height) {
+            printf("[FAIL] 两个解码器解出的分辨率不一致: %dx%d vs %dx%d\n",
+                   dav1d.width, dav1d.height, native.width, native.height);
+            fails++;
+        }
+        if (native.pix_fmt != dav1d.pix_fmt) {
+            printf("[FAIL] 两个解码器的像素格式不一致: %s vs %s\n",
+                   pix_name(dav1d.pix_fmt), pix_name(native.pix_fmt));
+            fails++;
+        }
+    } else if (native_unsupported) {
+        printf("av1_result: unsupported_sw_decode\n");
+        printf("note: 原生 av1 解码器没有软件解码路径(av1dec.c 在 !hwaccel 时返回 ENOSYS),"
+               "本构建设有编译任何 AV1 hwaccel,所以它解不出帧;dav1d 是唯一可用的 AV1 软解。\n");
+    } else if (!native.opened) {
+        printf("av1_result: unavailable\n");
+        printf("[FAIL] 原生 av1 解码器不可用或打开失败\n");
+        fails++;
+    } else {
+        printf("av1_result: broken\n");
+        printf("[FAIL] 原生 av1 打开成功但解码异常(解出 %d 帧,stop=%s)\n",
+               native.frames, native.stop);
+        fails++;
+    }
+
+    printf("compare: frames_match=%s dims_match=%s pixfmt_match=%s\n",
+           native_decoded ? (native.frames == dav1d.frames ? "1" : "0") : "na",
+           native_decoded ? (native.width == dav1d.width && native.height == dav1d.height ? "1" : "0") : "na",
+           native_decoded ? (native.pix_fmt == dav1d.pix_fmt ? "1" : "0") : "na");
+
+    printf("failures: %d\n", fails);
+    printf("RESULT: %s\n", fails ? "FAIL" : "PASS");
+    return fails ? 1 : 0;
+}

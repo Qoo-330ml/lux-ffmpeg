@@ -67,7 +67,7 @@ P1 白名单里,因此不是 D4 新增项,也不属于 MPVKit 缺口。
 | 许可 | **BSD-2-Clause**,以上游源码包内 `COPYING` 为准(`Copyright © 2018-2026, VideoLAN and dav1d authors`;两条条款 + 免责声明)。与 LGPL-2.1+ 兼容,不改变本构建的 LGPL 结论。 |
 | 来源 | `https://downloads.videolan.org/pub/videolan/dav1d/1.5.4/dav1d-1.5.4.tar.xz`;sha256 `686616b7c69eb88d44459391ab25cac13b6647a3b288835c5784e71c1514a5c5`,与上游随包的 `.sha256` 文件一致。 |
 | 形态 | 静态库 `libdav1d.a`,由 `lux/build/build-deps.sh dav1d` 装到 `lux/.build/deps/<target>/install`,链接期并入 `libavcodec`(FFmpeg 的 .a/.dylib 内);**不单独做 `Libdav1d.framework`**(计划 §4.2 允许两种形式,取依赖面更小的一种)。 |
-| 理由 | D4 决定「以 MPVKit 基线的编解码覆盖为准,默认全保留」;AV1 是当前片源的主力编码之一,dav1d 是 FFmpeg 之外最成熟的 AV1 软解实现,解码速度与 10-bit/HDR 支持都优于 FFmpeg 原生 `av1` 解码器。原生 `av1` 保留作回退。 |
+| 理由 | D4 决定「以 MPVKit 基线的编解码覆盖为准,默认全保留」;AV1 是当前片源的主力编码之一,dav1d 是最成熟的 AV1 软解实现,10-bit/HDR 路径由 dav1d 自带(本步只实测了 8-bit 4:2:0)。FFmpeg 自带的 `av1` 解码器**不是**软件解码器(只解析 OBU,解码交给 hwaccel,见下方实测定论),所以**不能当作 dav1d 的回退**;它继续留在白名单里只是保留 hwaccel 接入口。 |
 | 许可检查 | `verify-license.sh` 的禁用符号表不再匹配 `dav1d`(`dav1d_*` / `libdav1d`);其余外部库/GPL 规则不变。 |
 
 构建细节:`build-deps.sh` 用 `deps-target.sh` 生成的 meson cross 文件,`-Denable_tools=false
@@ -82,8 +82,23 @@ P1 白名单里,因此不是 D4 新增项,也不属于 MPVKit 缺口。
 - 三个切片的 `verify-license.sh` 均 0 failures、1 warning(唯一 warning 是 Metal Toolchain 未安装)。
 - `lux/test/run.sh`: `RESULT: PASS`。运行时枚举 AV1 解码器得到 `libdav1d` 与 `av1` 两个名字,
   说明解码器确实注册进了 libavcodec。
-- **AV1 解码未实测**:仓库与 `lux/.build/fixtures` 里没有 AV1 样片(`run.sh` 只合成 H.264/AAC 与
-  12-bit HEVC),按任务书要求不临时造样片,因此本步只验证到「编解码器注册 + 构建/许可」层面。
+- **AV1 解码已实测(2026-11-10,`lux/test/av1_probe.c` + `run.sh` 第 8 段)**:
+  - 样片:`lux/.build/fixtures/lux-av1-fixture.mkv`(320x240、25fps、100 帧、yuv420p、matroska),
+    由系统 ffmpeg 的 **libsvtav1**(SVT-AV1 4.2.0)现场合成,**不依赖外部下载**;sha256
+    `b506fa47ca778f0146668404eaaa673166b192afad56707b00c9b5967fb6c098`,生成命令与来源记在
+    `lux/.build/delegate/av1-fixture.json`。样片不入库(与 H.264/12-bit HEVC 夹具同口径)。
+  - `libdav1d`:解出 **60 帧**(探针上限 60,样片共 100 帧),**320x240、`yuv420p`**,逐帧分辨率/格式
+    一致,首帧 Y 平面均值 122.08(证明真的出了像素,不是空帧)。这是 AV1 软解可用的直接证据。
+  - 原生 `av1`:**0 帧**。FFmpeg 8.1.3 的 `av1` 解码器没有软件解码路径——
+    `libavcodec/av1dec.c` 的 `get_pixel_format()` 在 `!avctx->hwaccel` 时直接返回
+    `AVERROR(ENOSYS)`,源码注释写明 "the av1 decoder doesn't support native decode"。
+    本构建 `LUX_HWACCELS` 只开 `h264_videotoolbox`/`hevc_videotoolbox`,所有
+    `CONFIG_AV1_*_HWACCEL` 均为 0,因此原生 `av1` 在当前产物里**解不出任何 AV1 帧**。
+  - 结论:AV1 软解只有 `libdav1d` 一条路径;原生 `av1` 是 hwaccel 入口,不能当软解回退。
+    需要硬件 AV1 解码得另评 `av1_videotoolbox` hwaccel(M 系列芯片支持,但会改白名单,
+    本步未动 `ffmpeg-ios.conf`)。探针对这种「控制组无法软件解码」的情况输出
+    `av1_result: unsupported_sw_decode` 并说明原因;若将来换成能解的构建,同一段会自动
+    改走「两边都 ≥30 帧、分辨率/像素格式一致」的断言分支。
 - 链接约定:`libavcodec.a` 里的 `libdav1d` 解码器引用 `dav1d_*` 符号,任何链接本构建静态库的程序
   都要在 `libavcodec.a` 之后追加 `lux/.build/deps/<target>/install/lib/libdav1d.a`
   (`lux/test/run.sh` 已按此修改);动态 framework 构建时由 configure 的 EXTRALIBS 自动带上。
@@ -142,7 +157,7 @@ P1 白名单里,因此不是 D4 新增项,也不属于 MPVKit 缺口。
 | `pcm_alaw` `pcm_bluray` `pcm_dvd` `pcm_f16le` `pcm_f24le` `pcm_f32be` `pcm_f32le` `pcm_f64be` `pcm_f64le` `pcm_lxf` `pcm_mulaw` `pcm_s16be` `pcm_s16be_planar` `pcm_s16le` `pcm_s16le_planar` `pcm_s24be` `pcm_s24daud` `pcm_s24le` `pcm_s24le_planar` `pcm_s32be` `pcm_s32le` `pcm_s32le_planar` `pcm_s64be` `pcm_s64le` `pcm_s8` `pcm_s8_planar` `pcm_sga` `pcm_u16be` `pcm_u16le` `pcm_u24be` `pcm_u24le` `pcm_u32be` `pcm_u32le` `pcm_u8` `pcm_vidc` | MPVKit 基线的 PCM 全格式覆盖,含 Blu-ray/DVD PCM、视频容器里的 PCM 与浮点 PCM。全部是 FFmpeg 原生实现。 |
 | `adpcm_4xm` `adpcm_adx` `adpcm_afc` `adpcm_agm` `adpcm_aica` `adpcm_argo` `adpcm_ct` `adpcm_dtk` `adpcm_ea` `adpcm_ea_maxis_xa` `adpcm_ea_r1` `adpcm_ea_r2` `adpcm_ea_r3` `adpcm_ea_xas` `adpcm_g722` `adpcm_g726` `adpcm_g726le` `adpcm_ima_acorn` `adpcm_ima_alp` `adpcm_ima_amv` `adpcm_ima_apc` `adpcm_ima_apm` `adpcm_ima_cunning` `adpcm_ima_dat4` `adpcm_ima_dk3` `adpcm_ima_dk4` `adpcm_ima_ea_eacs` `adpcm_ima_ea_sead` `adpcm_ima_iss` `adpcm_ima_moflex` `adpcm_ima_mtf` `adpcm_ima_oki` `adpcm_ima_qt` `adpcm_ima_rad` `adpcm_ima_smjpeg` `adpcm_ima_ssi` `adpcm_ima_wav` `adpcm_ima_ws` `adpcm_ima_xbox` `adpcm_ms` `adpcm_mtaf` `adpcm_psx` `adpcm_sanyo` `adpcm_sbpro_2` `adpcm_sbpro_3` `adpcm_sbpro_4` `adpcm_swf` `adpcm_thp` `adpcm_thp_le` `adpcm_vima` `adpcm_xa` `adpcm_xmd` `adpcm_yamaha` `adpcm_zork` | MPVKit 基线的游戏/相机/广播 ADPCM 族。主要出现在 AVI、MOV、MKV 的老片源与游戏录像;FFmpeg 原生,无外部库。 |
 | `mp1` `mp1float` `mp2` `mp2float` `mp3` `mp3adu` `mp3adufloat` `mp3float` `mp3on4` `mp3on4float` | MP1/MP2/MP3 及其浮点/ADU/MP3on4 变体。覆盖老旧音频与 MP4 中的 MP3 轨道。 |
-| `av1` `dxv` `ffv1` `ffvhuff` `flv` `h263` `h263i` `h263p` `hap` `huffyuv` `indeo5` `ipu` `media100` `mjpegb` `mpeg1video` `mpeg2video` `mpeg4` `mpegvideo` `msmpeg4v1` `msmpeg4v2` `msmpeg4v3` `mts2` `prores` `rv10` `rv20` `rv30` `rv40` `snow` `sonic` `svq3` `vc1` `vp6` `vp6a` `vp6f` `vp7` `vp8` `vp9` `wmv1` `wmv2` `wmv3` | MPVKit 基线的视频解码覆盖:AV1 原生软解、Motion JPEG/ProRes/VC-1/WMV/RV/VP6-9/MPEG-1/2/4 等。D4 决定默认保留;AV1 同时有原生 `av1` 与 `libdav1d` 两条软解路径,`libuavs3d`/`tscc` 见 b 类。 |
+| `av1` `dxv` `ffv1` `ffvhuff` `flv` `h263` `h263i` `h263p` `hap` `huffyuv` `indeo5` `ipu` `media100` `mjpegb` `mpeg1video` `mpeg2video` `mpeg4` `mpegvideo` `msmpeg4v1` `msmpeg4v2` `msmpeg4v3` `mts2` `prores` `rv10` `rv20` `rv30` `rv40` `snow` `sonic` `svq3` `vc1` `vp6` `vp6a` `vp6f` `vp7` `vp8` `vp9` `wmv1` `wmv2` `wmv3` | MPVKit 基线的视频解码覆盖:AV1(`av1` 只是 OBU 解析 + hwaccel 入口)、Motion JPEG/ProRes/VC-1/WMV/RV/VP6-9/MPEG-1/2/4 等。D4 决定默认保留;AV1 的**软件**解码只有 `libdav1d` 一条路径(2026-11-10 实测,见「外部依赖:dav1d」),`libuavs3d`/`tscc` 见 b 类。 |
 | `aac_fixed` `aac_latm` `ac3_fixed` | AAC/AC-3 的定点与 LATM 变体;与主 decoder 共享 DSP,用于低功耗与广播流。 |
 | `alac` `amrnb` `amrwb` `ape` `cook` `dolby_e` `tta` `wmalossless` `wmapro` `wmav1` `wmav2` `wmavoice` `xma1` `xma2` | MPVKit 基线的无损/语音/WMA/XMA 音频族,覆盖 ALAC、APE、RealAudio Cook、Dolby E、TTA、WMA 与 Xbox XMA。 |
 | `ccaption` `dvbsub` `dvdsub` `movtext` `mpl2` `srt` `ssa` `xsub` | MPVKit 基线的字幕解码:CEA-608、DVB/DVD 字幕、mov_text、MPL2、SubRip/SSA、XSUB。渲染仍由外部 libass 负责。 |
@@ -435,4 +450,4 @@ P1 D4 之前,`mlp` parser、`vp9_superframe` bsf、`vp8` decoder 会由 `_select
 - `zlib`:仍 `--disable-zlib`。是否需要由 F2-3 的 libmpv 链接/运行结果决定;没有证据之前不开。
 - `avdevice`:仍 `--disable-avdevice`。Homebrew 的 mpv.pc 把 libavdevice 列入 Requires.private,但那是 Homebrew 构建的特性集合,不能证明 mpv 0.41 在 MPVKit 式的最小配置下必须它。**UNVERIFIED**,由 F2-3 第一天用 mpv 的 meson feature 表确认。
 - `libdav1d`:已不再禁止。P1 D4 后续步骤按所有者决定纳入(静态并入 libavcodec),见「外部依赖:dav1d」;
-  AV1 同时保留 FFmpeg 原生 `av1` 解码器作为回退。
+  原生 `av1` 解码器仍在白名单里,但它只做 OBU 解析 + hwaccel,不是软解回退(2026-11-10 实测,同上)。

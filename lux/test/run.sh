@@ -7,6 +7,11 @@
 #   3. 用 lux/.build/macos-arm64/install/ 里的静态库编译并运行 lux/test/read_mkv.c;
 #   4. 断言输出里出现 H.264/AAC 流信息、时长、关键帧偏移、包计数,失败返回非零。
 #
+# 后续追加的段:
+#   6. 补丁集公开 API 探针(patch_probe)
+#   7. 12-bit HEVC:VT 候选 + 硬解失败回退(hevc12_probe)
+#   8. AV1 解码实测:libdav1d vs 原生 av1(av1_probe,dav1d 小节的实测证据)
+#
 # 产物全部写在 lux/.build/ 内。
 #
 set -uo pipefail
@@ -249,6 +254,101 @@ else
             fail "12-bit 一帧都没解出来"
         fi
         sed 's/^/       /' "$O12"
+    fi
+fi
+
+# ---------------------------------------------------------------------------
+# 8. AV1 解码实测:libdav1d vs 原生 av1(dav1d 小节的实测证据)
+# ---------------------------------------------------------------------------
+# 样片用系统 ffmpeg 的 libsvtav1 现场合成(本地生成,无外部下载,许可无争议):
+# 320x240 / 25fps / 4s / 100 帧 / yuv420p / mkv。ffmpeg 只用来造样片,不参与链接。
+# 原生 `av1` 解码器在 FFmpeg 8.1.3 里是 hwaccel-only(av1dec.c 在 !hwaccel 时返回
+# ENOSYS),本构建 LUX_HWACCELS 只有 h264/hevc 的 VT,所以它解不出帧属于预期;
+# 探针会把它记成 av1_result: unsupported_sw_decode,而不是把整段测试判失败。
+FIXAV1="$FIXDIR/lux-av1-fixture.mkv"
+SYS_FFMPEG=$(command -v ffmpeg || true)
+HAVE_SVTAV1=no
+if [ -n "$SYS_FFMPEG" ] && "$SYS_FFMPEG" -hide_banner -h encoder=libsvtav1 2>/dev/null | grep -q 'Encoder libsvtav1'; then
+    HAVE_SVTAV1=yes
+fi
+
+if [ ! -s "$FIXAV1" ] && [ "$HAVE_SVTAV1" = no ]; then
+    printf '[skip] 系统 ffmpeg 没有 libsvtav1,跳过 AV1 解码实测\n'
+else
+    if [ -s "$FIXAV1" ]; then
+        pass "AV1 夹具已存在: $FIXAV1 ($(stat -f %z "$FIXAV1") bytes)"
+    else
+        printf '[run] 合成 AV1 夹具 -> %s\n' "$FIXAV1"
+        if "$SYS_FFMPEG" -hide_banner -loglevel error -y \
+                -f lavfi -i "testsrc2=size=320x240:rate=25:duration=4" \
+                -c:v libsvtav1 -preset 8 -crf 40 -pix_fmt yuv420p -g 25 \
+                -f matroska "$FIXAV1" 2>"$WORK/fixture-av1.log"; then
+            pass "AV1 夹具已生成: $FIXAV1 ($(stat -f %z "$FIXAV1") bytes)"
+        else
+            cat "$WORK/fixture-av1.log" >&2
+            fail "AV1 夹具生成失败"
+        fi
+    fi
+
+    AV1BIN="$WORK/av1_probe"
+    printf '[run] 编译 av1_probe.c\n'
+    if ! xcrun --sdk macosx clang -arch arm64 -mmacosx-version-min=14.0 -isysroot "$SDK" \
+            -Wall -Wextra -Wno-unused-parameter -O1 \
+            -I"$INSTALL/include" \
+            -o "$AV1BIN" "$LUX/test/av1_probe.c" \
+            "$INSTALL/lib/libavformat.a" "$INSTALL/lib/libavcodec.a" \
+            "$DAV1D_LIB" \
+            "$INSTALL/lib/libavfilter.a" "$INSTALL/lib/libswscale.a" \
+            "$INSTALL/lib/libswresample.a" "$INSTALL/lib/libavutil.a" \
+            -framework CoreFoundation -framework CoreVideo -framework CoreMedia \
+            -framework VideoToolbox -framework AudioToolbox -framework Security \
+            -framework CoreImage \
+            > "$WORK/av1_probe-compile.log" 2>&1; then
+        cat "$WORK/av1_probe-compile.log" >&2
+        fail "av1_probe 编译/链接失败"
+    else
+        pass "av1_probe 编译链接成功: $AV1BIN"
+
+        AOUT="$WORK/av1_probe.out"
+        if "$AV1BIN" "$FIXAV1" 60 > "$AOUT" 2>"$WORK/av1_probe.err"; then
+            pass "AV1 解码探针通过(libdav1d 解出 >=30 帧)"
+        else
+            cat "$WORK/av1_probe.err" >&2
+            fail "AV1 解码探针失败"
+        fi
+        sed 's/^/       /' "$AOUT"
+
+        grep -q '^stream: .*codec=av1 width=320 height=240 pix_fmt=yuv420p' "$AOUT" \
+            && pass "样片是 320x240 yuv420p 的 AV1" || fail "样片流信息不符合预期"
+        grep -q '^decoder libdav1d: avail=1 open=1' "$AOUT" \
+            && pass "libdav1d 解码器已注册且能打开" || fail "libdav1d 解码器不可用"
+
+        n_av1=$(sed -n 's/^libdav1d: frames=\([0-9]*\).*/\1/p' "$AOUT")
+        if [ -n "$n_av1" ] && [ "$n_av1" -ge 30 ] 2>/dev/null; then
+            pass "dav1d 解出 $n_av1 帧(>= 30)"
+        else
+            fail "dav1d 解出帧数不足: '$n_av1'"
+        fi
+        grep -q '^libdav1d: .*pix_fmt=yuv420p consistent=1' "$AOUT" \
+            && pass "dav1d 输出 320x240 yuv420p 且逐帧一致" || fail "dav1d 输出格式不符合预期"
+        lum_av1=$(sed -n 's/^libdav1d: .*luma_avg=\([0-9.]*\).*/\1/p' "$AOUT")
+        if [ -n "$lum_av1" ] && awk -v v="$lum_av1" 'BEGIN{exit !(v>1)}'; then
+            pass "dav1d 第一帧 Y 均值 $lum_av1(确实解出了像素,不是空帧)"
+        else
+            fail "dav1d 第一帧 Y 均值异常: '$lum_av1'"
+        fi
+
+        grep -q '^decoder av1: avail=1 open=1' "$AOUT" \
+            && pass "原生 av1 解码器已注册" || fail "原生 av1 解码器不可用"
+        if grep -q '^av1_result: decoded$' "$AOUT"; then
+            pass "原生 av1 也解出 >= 30 帧(对照路径可用)"
+            grep -q '^compare: .*dims_match=1' "$AOUT" \
+                && pass "两种解码器分辨率一致" || fail "两种解码器分辨率不一致"
+        elif grep -q '^av1_result: unsupported_sw_decode$' "$AOUT"; then
+            pass "原生 av1 = hwaccel-only,本构建无 AV1 hwaccel(对照结论已记录)"
+        else
+            fail "原生 av1 状态异常"
+        fi
     fi
 fi
 
