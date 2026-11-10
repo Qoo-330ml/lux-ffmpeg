@@ -25,7 +25,7 @@ while [ $# -gt 0 ]; do
     --offline) OFFLINE=1 ;;
     --src) SRC="${2:?--src 需要参数}"; shift ;;
     --src=*) SRC="${1#--src=}" ;;
-    -h|--help) sed -n '2,14p' "$0"; exit 0 ;;
+    -h|--help) sed -n '2,11p' "$0"; exit 0 ;;
     -*) echo "fetch-deps.sh: 未知选项 $1" >&2; exit 2 ;;
     *) want+=("$1") ;;
   esac

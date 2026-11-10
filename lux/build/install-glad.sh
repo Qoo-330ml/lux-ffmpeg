@@ -20,7 +20,7 @@ while [ $# -gt 0 ]; do
     --target=*) TARGET="${1#--target=}" ;;
     --force) FORCE=1 ;;
     --dry-run) DRY=1 ;;
-    -h|--help) sed -n '2,10p' "$0"; exit 0 ;;
+    -h|--help) sed -n '2,9p' "$0"; exit 0 ;;
     *) echo "install-glad.sh: 未知选项 $1" >&2; exit 2 ;;
   esac
   shift
