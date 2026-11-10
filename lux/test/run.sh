@@ -104,7 +104,7 @@ pass "read_mkv 编译链接成功: $BIN"
 if ! xcrun --sdk macosx vtool -show-build "$BIN" 2>/dev/null | grep -q "platform MACOS"; then
     fail "read_mkv 不是 macOS 可执行文件"
 fi
-grep -q "LGPL version 3 or later" <(strings "$INSTALL/lib/libavutil.a") \
+grep -q "LGPL version 2.1 or later" <(strings "$INSTALL/lib/libavutil.a") \
     && pass "链接进二进制的 libavutil 是 LGPL 版本" || fail "二进制里没有 LGPL 许可字符串"
 
 # ---------------------------------------------------------------------------

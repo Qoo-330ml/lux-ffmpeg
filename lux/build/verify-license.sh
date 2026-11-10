@@ -175,8 +175,8 @@ EOF
         fi
     else
         # 交叉编译的产物不能在本机运行:改为检查归档里嵌入的许可标识
-        # (avutil_license() 返回的 "LGPL version 3 or later" 会以
-        #  "libavutil license: LGPL version 3 or later" 的形式留在 .o 里)
+        # (avutil_license() 返回的 "LGPL version 2.1 or later" 会以
+        #  "libavutil license: LGPL version 2.1 or later" 的形式留在 .o 里)
         local lic_strings lic_lower
         lic_strings=$(strings -a "$install/lib/libavutil.a" |
                       grep -iE 'license:.*(lgpl|gpl|nonfree)' | sort -u)
