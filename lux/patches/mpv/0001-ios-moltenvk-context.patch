@@ -1,0 +1,416 @@
+From: lux <dev@lux.invalid>
+Subject: [PATCH] video/out/vulkan: add an iOS MoltenVK context (moltenvk)
+
+本补丁为 lux 原创,以 LGPL-2.1+ 发布(与 mpv 本体一致)。
+
+背景
+----
+mpv 0.41 只有 macOS 的 Vulkan 上下文 video/out/vulkan/context_mac.m
+(ra_ctx_vulkan_mac,上下文名 macvk),且只在 cocoa + vulkan + swift 同时
+可用时编译。iOS 构建关闭了 cocoa/swift,因此既没有 macvk,也没有任何面向
+iOS 的 MoltenVK 上下文:gpu-api=vulkan 与 gpu-context=moltenvk 都会被拒绝。
+
+改动
+----
+* meson.build:用 TargetConditionals.h 识别 iOS(设备与模拟器),新增
+  features['ios'](config.h 里的 HAVE_IOS),并在 vulkan 可用时编译
+  video/out/vulkan/context_ios_moltenvk.m。
+* video/out/vulkan/common.h:HAVE_IOS 时也定义 VK_USE_PLATFORM_METAL_EXT,
+  让 Vulkan-Headers 暴露 VkMetalSurfaceCreateInfoEXT。
+* video/out/gpu/context.c:注册 ra_ctx_vulkan_moltenvk(type=vulkan,
+  name=moltenvk)。
+* video/out/vulkan/utils.c:HAVE_IOS 时给 pl_vk_inst_create 显式传
+  vkGetInstanceProcAddr。lux 的 libplacebo 以 -Dvk-proc-addr=disabled 构建
+  (避免把静态 MoltenVK 强行拖进每个 libplacebo 使用方),不传就会在
+  "Failed initializing vulkan instance" 处失败;传的指针来自 libplacebo
+  已经链接/导出的同一份 MoltenVK,实例与 surface 不会跨 loader。
+* video/out/vulkan/context_ios_moltenvk.m(新增):不创建任何 UI,把
+  `wid` 当作 CAMetalLayer 指针;校验类型、按 bounds * contentsScale 维护
+  drawableSize、通过 libplacebo 实例的 vkGetInstanceProcAddr 解析
+  vkCreateMetalSurfaceEXT(避免把第二份 MoltenVK 静态链进 libmpv),再用
+  ra_vk_ctx_init 建立 Vulkan swapchain。HDR 只跟随 embedder 对 CAMetalLayer
+  的配置(pixelFormat + wantsExtendedDynamicRangeContent),不新增 mpv 选项。
+
+限制
+----
+本补丁只增加 iOS 的上下文;macOS 仍使用上游 macvk(需要 cocoa + swift),
+本补丁不改变 macOS 行为。
+
+---
+diff --git a/meson.build b/meson.build
+--- a/meson.build
++++ b/meson.build
+@@ -320,6 +320,17 @@
+ features += {'posix': posix}
+ features += {'dos-paths': win32, 'win32': win32}
+ 
++# iOS (device and simulator) is a Darwin target without Cocoa. Its only
++# window-system integration for vo_gpu-next is MoltenVK over a CAMetalLayer
++# supplied by the embedder.
++ios = darwin and cc.compiles('''
++    #include <TargetConditionals.h>
++    #if !TARGET_OS_IPHONE
++    #error not an iOS target
++    #endif
++''', name: 'iOS target')
++features += {'ios': ios}
++
+ mswin_flags = ['-D_WIN32_WINNT=0x0A00', '-DWINVER=0x0A00', '-DUNICODE',
+                '-DCOBJMACROS', '-DINITGUID', '-DNOMINMAX',
+                '-D_USE_MATH_DEFINES', '-DWIN32_LEAN_AND_MEAN',
+@@ -1641,6 +1652,9 @@
+                            'video/out/mac/metal_layer.swift')
+     sources += files('video/out/vulkan/context_mac.m')
+ endif
++if features['vulkan'] and features['ios']
++    sources += files('video/out/vulkan/context_ios_moltenvk.m')
++endif
+ 
+ macos_media_player = get_option('macos-media-player').require(
+     features['swift'],
+diff --git a/video/out/gpu/context.c b/video/out/gpu/context.c
+--- a/video/out/gpu/context.c
++++ b/video/out/gpu/context.c
+@@ -50,6 +50,7 @@
+ extern const struct ra_ctx_fns ra_ctx_vulkan_android;
+ extern const struct ra_ctx_fns ra_ctx_vulkan_display;
+ extern const struct ra_ctx_fns ra_ctx_vulkan_mac;
++extern const struct ra_ctx_fns ra_ctx_vulkan_moltenvk;
+ 
+ /* Direct3D 11 */
+ extern const struct ra_ctx_fns ra_ctx_d3d11;
+@@ -96,6 +97,9 @@
+ #if HAVE_COCOA && HAVE_SWIFT
+     &ra_ctx_vulkan_mac,
+ #endif
++#if HAVE_IOS
++    &ra_ctx_vulkan_moltenvk,
++#endif
+ #endif
+ 
+ // OpenGL contexts:
+diff --git a/video/out/vulkan/common.h b/video/out/vulkan/common.h
+--- a/video/out/vulkan/common.h
++++ b/video/out/vulkan/common.h
+@@ -22,7 +22,7 @@
+ #if HAVE_WIN32_DESKTOP
+ #define VK_USE_PLATFORM_WIN32_KHR
+ #endif
+-#if HAVE_COCOA
++#if HAVE_COCOA || HAVE_IOS
+ #define VK_USE_PLATFORM_METAL_EXT
+ #endif
+ 
+diff --git a/video/out/vulkan/utils.c b/video/out/vulkan/utils.c
+--- a/video/out/vulkan/utils.c
++++ b/video/out/vulkan/utils.c
+@@ -16,6 +16,13 @@
+     vk->vkinst = pl_vk_inst_create(vk->pllog, &(struct pl_vk_inst_params) {
+         .debug = ctx->opts.debug,
+         .debug_extra = ctx->opts.debug,
++#if HAVE_IOS
++        // The lux libplacebo build uses -Dvk-proc-addr=disabled so that the
++        // static MoltenVK archive is not force-loaded from every user of
++        // libplacebo. Supply the entry point explicitly from the MoltenVK
++        // copy that libplacebo already links.
++        .get_proc_addr = vkGetInstanceProcAddr,
++#endif
+         .extensions = exts,
+         .num_extensions = MP_ARRAY_SIZE(exts),
+     });
+diff --git a/video/out/vulkan/context_ios_moltenvk.m b/video/out/vulkan/context_ios_moltenvk.m
+new file mode 100644
+--- /dev/null
++++ b/video/out/vulkan/context_ios_moltenvk.m
+@@ -0,0 +1,291 @@
++/*
++ * This file is part of mpv.
++ *
++ * mpv is free software; you can redistribute it and/or
++ * modify it under the terms of the GNU Lesser General Public
++ * License as published by the Free Software Foundation; either
++ * version 2.1 of the License, or (at your option) any later version.
++ *
++ * mpv is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ * GNU Lesser General Public License for more details.
++ *
++ * You should have received a copy of the GNU Lesser General Public
++ * License along with mpv.  If not, see <http://www.gnu.org/licenses/>.
++ */
++
++/*
++ * iOS MoltenVK context.
++ *
++ * Unlike macOS (whose macvk context owns a Cocoa window), this context does
++ * not create any UI. The embedder passes a CAMetalLayer pointer through the
++ * generic `wid` option; mpv renders into that layer through MoltenVK.
++ *
++ * This file is original work written for lux and is released under the same
++ * LGPL-2.1-or-later terms as mpv itself.
++ */
++
++#import <Foundation/Foundation.h>
++#import <objc/runtime.h>
++#import <QuartzCore/QuartzCore.h>
++#import <UIKit/UIKit.h>
++#import <Metal/Metal.h>
++
++#include <math.h>
++
++#include "video/out/gpu/context.h"
++
++#include "common.h"
++#include "context.h"
++#include "utils.h"
++
++struct priv {
++    struct mpvk_ctx vk;
++    // The embedder owns the layer; the context keeps its own reference so the
++    // Vulkan surface stays valid even if the embedder drops the view first.
++    CAMetalLayer *layer;
++};
++
++static void ios_mvk_release_layer(struct priv *p)
++{
++    if (p->layer) {
++        [p->layer release];
++        p->layer = nil;
++    }
++}
++
++static CAMetalLayer *ios_mvk_layer_from_wid(struct ra_ctx *ctx)
++{
++    int64_t wid = ctx->vo->opts ? ctx->vo->opts->WinID : 0;
++    if (wid <= 0) {
++        MP_ERR(ctx, "moltenvk: no wid set; expected a CAMetalLayer pointer\n");
++        return nil;
++    }
++
++    id obj = (id)(void *)(intptr_t)wid;
++    if (![obj isKindOfClass:[CALayer class]]) {
++        MP_ERR(ctx, "moltenvk: wid %lld is not a CALayer\n", (long long)wid);
++        return nil;
++    }
++    if (![obj isKindOfClass:[CAMetalLayer class]]) {
++        MP_ERR(ctx, "moltenvk: wid %lld is a %s, not a CAMetalLayer\n",
++               (long long)wid, class_getName(object_getClass(obj)));
++        return nil;
++    }
++
++    return (CAMetalLayer *)obj;
++}
++
++static bool ios_mvk_layer_size(struct ra_ctx *ctx, int *width, int *height)
++{
++    struct priv *p = ctx->priv;
++    CGSize bounds = p->layer.bounds.size;
++    CGFloat scale = p->layer.contentsScale > 0 ? p->layer.contentsScale : 1.0;
++    CGFloat w = bounds.width * scale;
++    CGFloat h = bounds.height * scale;
++
++    if (!(w >= 1) || !(h >= 1)) {
++        MP_ERR(ctx, "moltenvk: CAMetalLayer has zero size "
++               "(%.2fx%.2f points, contentsScale %.2f)\n",
++               bounds.width, bounds.height, scale);
++        return false;
++    }
++
++    *width = (int)lround(w);
++    *height = (int)lround(h);
++    return true;
++}
++
++static bool ios_mvk_update_drawable_size(struct ra_ctx *ctx, int width, int height)
++{
++    struct priv *p = ctx->priv;
++    CGSize size = CGSizeMake(width, height);
++
++    if (!CGSizeEqualToSize(size, p->layer.drawableSize)) {
++        MP_VERBOSE(ctx, "moltenvk: drawableSize %.0fx%.0f -> %.0fx%.0f\n",
++                   p->layer.drawableSize.width, p->layer.drawableSize.height,
++                   size.width, size.height);
++        p->layer.drawableSize = size;
++    }
++    return true;
++}
++
++static int ios_mvk_color_depth(struct ra_ctx *ctx)
++{
++    struct priv *p = ctx->priv;
++
++    switch (p->layer.pixelFormat) {
++    case MTLPixelFormatBGRA8Unorm:
++    case MTLPixelFormatBGRA8Unorm_sRGB:
++        return 8;
++    case MTLPixelFormatRGB10A2Unorm:
++    case MTLPixelFormatBGR10A2Unorm:
++        return 10;
++    case MTLPixelFormatRGBA16Float:
++        return 16;
++    default:
++        return -1;
++    }
++}
++
++// HDR is an embedder decision: the layer has to use a wide pixel format and
++// enable extended dynamic range content. We only report the resulting target
++// to vo_gpu_next; no extra mpv option is introduced.
++static bool ios_mvk_layer_is_hdr(struct priv *p)
++{
++    switch (p->layer.pixelFormat) {
++    case MTLPixelFormatRGB10A2Unorm:
++    case MTLPixelFormatBGR10A2Unorm:
++    case MTLPixelFormatRGBA16Float:
++        break;
++    default:
++        return false;
++    }
++
++#pragma clang diagnostic push
++#pragma clang diagnostic ignored "-Wdeprecated-declarations"
++    return p->layer.wantsExtendedDynamicRangeContent;
++#pragma clang diagnostic pop
++}
++
++static pl_color_space_t ios_mvk_preferred_csp(struct ra_ctx *ctx)
++{
++    struct priv *p = ctx->priv;
++
++    if (ios_mvk_layer_is_hdr(p)) {
++        return (pl_color_space_t) {
++            .primaries = PL_COLOR_PRIM_BT_2020,
++            .transfer = PL_COLOR_TRC_PQ,
++            .hdr = {
++                .max_luma = 1000,
++                .min_luma = 0.005,
++            },
++        };
++    }
++
++    return (pl_color_space_t) {
++        .primaries = PL_COLOR_PRIM_BT_709,
++        .transfer = PL_COLOR_TRC_SRGB,
++    };
++}
++
++static bool ios_mvk_reconfig(struct ra_ctx *ctx)
++{
++    int width, height;
++
++    if (!ios_mvk_layer_size(ctx, &width, &height))
++        return false;
++    ios_mvk_update_drawable_size(ctx, width, height);
++
++    return ra_vk_ctx_resize(ctx, width, height);
++}
++
++static int ios_mvk_control(struct ra_ctx *ctx, int *events, int request, void *arg)
++{
++    return VO_NOTIMPL;
++}
++
++static bool ios_mvk_init(struct ra_ctx *ctx)
++{
++    struct priv *p = ctx->priv = talloc_zero(ctx, struct priv);
++    struct mpvk_ctx *vk = &p->vk;
++    int msgl = ctx->opts.probing ? MSGL_V : MSGL_ERR;
++    int width, height;
++
++    CAMetalLayer *layer = ios_mvk_layer_from_wid(ctx);
++    if (!layer)
++        goto error;
++    p->layer = [layer retain];
++
++    // On iOS a CAMetalLayer usually gets MTLCreateSystemDefaultDevice() by
++    // itself, but be explicit: MoltenVK requires a valid device on the layer
++    // before it creates the surface.
++    if (!p->layer.device) {
++        id<MTLDevice> device = MTLCreateSystemDefaultDevice();
++        if (!device) {
++            MP_MSG(ctx, msgl, "moltenvk: no Metal device available\n");
++            goto error;
++        }
++        p->layer.device = device;
++    }
++
++    // Keep the embedder's pixelFormat and colorspace. A 16-bit/10-bit layer
++    // with EDR enabled gets HDR output; the default BGRA8 layer stays SDR.
++    if (p->layer.pixelFormat == MTLPixelFormatInvalid)
++        p->layer.pixelFormat = MTLPixelFormatBGRA8Unorm;
++    if (!(p->layer.contentsScale > 0))
++        p->layer.contentsScale = 1.0;
++
++    if (!ios_mvk_layer_size(ctx, &width, &height))
++        goto error;
++    ios_mvk_update_drawable_size(ctx, width, height);
++
++    if (!mpvk_init(vk, ctx, VK_EXT_METAL_SURFACE_EXTENSION_NAME))
++        goto error;
++
++    // Resolve the entry point through the instance created by libplacebo.
++    // Calling the directly linked vkCreateMetalSurfaceEXT would pull a second
++    // MoltenVK copy into libmpv and could mix objects from two loaders.
++    PFN_vkCreateMetalSurfaceEXT create_surface =
++        (PFN_vkCreateMetalSurfaceEXT)vk->vkinst->get_proc_addr(
++            vk->vkinst->instance, "vkCreateMetalSurfaceEXT");
++    if (!create_surface) {
++        MP_MSG(ctx, msgl, "moltenvk: vkCreateMetalSurfaceEXT is unavailable\n");
++        goto error;
++    }
++
++    VkMetalSurfaceCreateInfoEXT info = {
++        .sType = VK_STRUCTURE_TYPE_METAL_SURFACE_CREATE_INFO_EXT,
++        .pNext = NULL,
++        .flags = 0,
++        .pLayer = p->layer,
++    };
++
++    VkResult res = create_surface(vk->vkinst->instance, &info, NULL, &vk->surface);
++    if (res != VK_SUCCESS) {
++        MP_MSG(ctx, msgl, "moltenvk: failed creating Metal surface (VkResult %d)\n",
++               (int)res);
++        goto error;
++    }
++
++    struct ra_ctx_params params = {
++        .color_depth = ios_mvk_color_depth,
++        .preferred_csp = ios_mvk_preferred_csp,
++    };
++
++    if (!ra_vk_ctx_init(ctx, vk, params, VK_PRESENT_MODE_FIFO_KHR))
++        goto error;
++
++    return true;
++
++error:
++    // ra_vk_ctx_init() cleans up after itself on failure, but the Vulkan
++    // instance and the retained layer are owned by this function.
++    ra_vk_ctx_uninit(ctx);
++    mpvk_uninit(&p->vk);
++    ios_mvk_release_layer(p);
++    return false;
++}
++
++static void ios_mvk_uninit(struct ra_ctx *ctx)
++{
++    struct priv *p = ctx->priv;
++
++    if (!p)
++        return;
++
++    ra_vk_ctx_uninit(ctx);
++    mpvk_uninit(&p->vk);
++    ios_mvk_release_layer(p);
++}
++
++const struct ra_ctx_fns ra_ctx_vulkan_moltenvk = {
++    .type           = "vulkan",
++    .name           = "moltenvk",
++    .description    = "iOS/MoltenVK (via Metal)",
++    .reconfig       = ios_mvk_reconfig,
++    .control        = ios_mvk_control,
++    .init           = ios_mvk_init,
++    .uninit         = ios_mvk_uninit,
++};
