@@ -2,14 +2,15 @@
 # 构建 MoltenVK 1.4.2(Apache-2.0)静态库,并安装到依赖前缀(F2-2b)。
 # 用法: ./lux/build/build-moltenvk.sh <macos-arm64|ios-arm64|ios-sim-arm64>
 # 只用 lux/config/deps.lock 中锁定的源码;所有构建目录都在 lux/.build/ 内。
-# 当前只实现 macos-arm64;iOS 切片待 F2-3 验证 xcodebuild 的 -sdk 路径后补充。
+# 模拟器切片(ios-sim-arm64)用 iphonesimulator SDK 与 "iOS Simulator" 目的地,MoltenVK 目标与设备相同(MoltenVK-iOS)。
 set -euo pipefail
 REPO="$(cd "$(dirname "$0")/../.." && pwd)"
 TARGET="${1:?target required}"
 case "$TARGET" in
   macos-arm64) PLATFORM="macOS"; SCHEME_OS="macOS"; MVK_TARGET="MoltenVK-macOS"; SDK="macosx" ;;
   ios-arm64) PLATFORM="iOS"; SCHEME_OS="iOS"; MVK_TARGET="MoltenVK-iOS"; SDK="iphoneos" ;;
-  *) echo "build-moltenvk.sh: $TARGET not implemented yet (simulator slice: F2-3)" >&2; exit 2 ;;
+  ios-sim-arm64) PLATFORM="iOS Simulator"; SCHEME_OS="iOS"; MVK_TARGET="MoltenVK-iOS"; SDK="iphonesimulator" ;;
+  *) echo "build-moltenvk.sh: $TARGET not implemented yet" >&2; exit 2 ;;
 esac
 SRC="$REPO/lux/.build/deps/src"
 ROOT="$REPO/lux/.build/deps/$TARGET/moltenvk"
