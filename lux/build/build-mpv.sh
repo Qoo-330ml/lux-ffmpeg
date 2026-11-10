@@ -8,6 +8,8 @@ TARGET="${1:?target required}"
 case "$TARGET" in
   macos-arm64) XCF_SLICE="macos-arm64" ;;
   ios-arm64) XCF_SLICE="ios-arm64" ;;
+  # xcframework 里模拟器切片的目录名是 ios-arm64-simulator(不是 ios-sim-arm64)
+  ios-sim-arm64) XCF_SLICE="ios-arm64-simulator" ;;
   *) echo "build-mpv.sh: $TARGET not implemented yet" >&2; exit 2 ;;
 esac
 SRC="$REPO/lux/.build/deps/src"
