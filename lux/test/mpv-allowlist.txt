@@ -1,0 +1,49 @@
+# libmpv 选项冒烟清单(P2-6)
+#
+# 名字来源(只读核对):lux-client 仓库
+#   apple/Packages/LuxKit/Sources/LuxMPV/MPVLaunchOverrides.swift
+#   -> MPVLaunchOverrides.allowedOptionNames(23 项,`LUX_MPV_OPTIONS` 的白名单)
+# 名字一个不多一个不少;下面的取值优先用 LuxMPV 真正传给 libmpv 的值
+# (MPVEngine.options() / metalOptions(),以及 docs/DEVICE-TESTING.md §5.6.3 的 A/B 矩阵);
+# 客户端没有固定取值的项,取本 build `option-info/<name>` 的默认值或 choice 列表里的合法值。
+# 每行 `name=value`,# 之后是注释(失败时原样打印成 hint),空行忽略。
+#
+# 只描述"应用会传什么",不改 libmpv 的任何行为。
+
+# 解码与互操作(颜色排查用)
+hwdec=videotoolbox            # MPVEngine.options():硬件解码开启时的值
+hwdec-codecs=h264,hevc        # 客户端不固定;libmpv 默认值 h264,vc1,hevc,... 的前两项,正好是 VT 硬解覆盖的两种
+gpu-hwdec-interop=videotoolbox # DEVICE-TESTING.md §5.6.3 A/B 第 3 条
+vd-lavc-dr=no                 # A/B 第 6 条(关掉 direct rendering 缓冲)
+vd-lavc-threads=0             # 客户端不固定;option-info 默认值 0(auto)
+vd-lavc-skiploopfilter=default # 客户端不固定;option-info 默认值
+
+# 范围与色彩(颜色排查用)
+video-output-levels=full      # A/B 第 7 条
+# 名字偏差(必须显式记下来,不要悄悄删):lux-client 的 allowedOptionNames 里这一项叫
+# video-colorspace-hint,但 mpv 0.41 的 option list 里没有这个名字,同一个开关的真名是
+# target-colorspace-hint。清单按 mpv 的真名断言(否则 23 项永远少一项);客户端侧改名
+# 属于 lux-client 的待办,记录在 README §15 与 P2 出口报告的 open issues。
+target-colorspace-hint=yes    # A/B 第 8 条(mpv 侧真名;客户端现名 video-colorspace-hint)
+
+# 缩放/抖动/字幕混合
+vf=null                       # 客户端不固定;本 build 的 vf 列表里有 null(空滤镜)
+scale=lanczos                 # 客户端不固定;option-info 默认值
+cscale=lanczos                # 客户端不固定;option-info 的 choice 列表里的合法值
+dither-depth=auto             # 客户端不固定;option-info 默认值
+dither=fruit                  # 客户端不固定;option-info 默认值
+blend-subtitles=no            # 客户端不固定;option-info 默认值
+
+# 显示/色彩管理
+gamma-auto=no                 # 客户端不固定;flag 默认值
+icc-profile-auto=yes          # 2026-11-05-playback-three-track-plan.md §4.6 动态探测:接受
+target-trc=pq                 # 同上
+target-prim=bt.2020           # 同上
+target-peak=1000              # 同上
+tone-mapping=spline           # 同上
+
+# GPU 选项
+opengl-es=auto                # 客户端不固定;option-info 默认值
+gpu-api=auto                  # macOS 切片 HAVE_COCOA=0,没有任何 GPU 上下文,vulkan 会被拒(-7);
+                              # app 的 Metal 取值 vulkan 属于 iOS 切片,不在这个 macOS 冒烟里断言
+gpu-context=auto              # 同上;app 的 moltenvk 属于 iOS 切片

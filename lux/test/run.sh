@@ -12,6 +12,7 @@
 #   7. 12-bit HEVC:VT 候选 + 硬解失败回退(hevc12_probe)
 #   8. AV1 解码实测:libdav1d vs 原生 av1(av1_probe,dav1d 小节的实测证据)
 #   9. TLS 后端:OpenSSL 对 1.3-only 与 1.2-only 服务端的握手 + HTTP 读取(tls_probe)
+#  10. libmpv 冒烟:无头播放夹具到 EOF、software render 上下文、LUX_MPV 允许项(mpv_smoke)
 #
 # 产物全部写在 lux/.build/ 内。
 #
@@ -508,6 +509,68 @@ else
         # 1.3-only 服务端:控制组用 -tls1_2;1.2-only 服务端:控制组用 -tls1_3。
         tls_case tls13-only 8443 "-tls1_3" "-tls1_2"
         tls_case tls12-only 8444 "-tls1_2" "-tls1_3"
+    fi
+fi
+
+# ---------------------------------------------------------------------------
+# 10. libmpv 冒烟(P2-6):无头播放夹具到 EOF、render API 创建/销毁、LUX_MPV 允许项
+# ---------------------------------------------------------------------------
+# 链接的是主检出里由 libmpv.2.dylib 封出来的 Libmpv.framework,不是 dylib 本身:
+# dylib 的 LC_ID_DYLIB 是占位前缀 /lux-install/lib/libmpv.2.dylib(e8c0961 把安装路径
+# 中性化了),直接链接出来的可执行文件在 dyld 阶段找不到库;framework 的 install name
+# 是 @rpath/Libmpv.framework/Libmpv,正是 App 会嵌入的那份产物。
+MPV_FW_ROOT="$BUILD_ROOT/mpv-frameworks/$TARGET"
+XCF_ROOT="$BUILD_ROOT/xcframeworks"
+# mpv 的头文件在 libmpv 的安装前缀里,不在 FFmpeg 的 $INSTALL 里。
+MPV_INC="$BUILD_ROOT/deps/$TARGET/install/include"
+MPV_ALLOW="$LUX/test/mpv-allowlist.txt"
+SMOKE="$WORK/mpv_smoke"
+
+printf '[run] 编译 mpv_smoke.c\n'
+if [ ! -d "$MPV_FW_ROOT/Libmpv.framework" ] || [ ! -f "$MPV_ALLOW" ] \
+        || [ ! -f "$MPV_INC/mpv/client.h" ]; then
+    fail "缺少 libmpv 框架、头文件或允许清单(先跑 lux/build/build-mpv-frameworks.sh $TARGET)"
+elif [ ! -d "$XCF_ROOT/Libavcodec.xcframework/$TARGET/Libavcodec.framework" ]; then
+    fail "缺少 Libav* xcframework 的 $TARGET 切片(先跑 lux/build/build-frameworks.sh)"
+else
+    # 把冒烟要用的 framework 集中到一个目录:链接期 -F、运行期一条 rpath,
+    # 与 App 把 framework 都放进 Frameworks/ 的布局一致。
+    MPV_STAGE="$WORK/mpv-frameworks"
+    rm -rf "$MPV_STAGE"
+    mkdir -p "$MPV_STAGE"
+    for fw in Libmpv Libplacebo Libfribidi Libuchardet; do
+        ln -sfn "$MPV_FW_ROOT/$fw.framework" "$MPV_STAGE/$fw.framework"
+    done
+    for fw in Libavcodec Libavfilter Libavformat Libavutil Libswresample Libswscale; do
+        ln -sfn "$XCF_ROOT/$fw.xcframework/$TARGET/$fw.framework" "$MPV_STAGE/$fw.framework"
+    done
+
+    if ! xcrun --sdk macosx clang -arch arm64 -mmacosx-version-min=14.0 -isysroot "$SDK" \
+            -Wall -Wextra -Wno-unused-parameter -O1 \
+            -I"$MPV_INC" -F"$MPV_STAGE" \
+            -o "$SMOKE" "$LUX/test/mpv_smoke.c" \
+            -framework Libmpv -Wl,-rpath,"$MPV_STAGE" \
+            > "$WORK/mpv_smoke-compile.log" 2>&1; then
+        cat "$WORK/mpv_smoke-compile.log" >&2
+        fail "mpv_smoke 编译/链接失败"
+    else
+        pass "mpv_smoke 编译链接成功: $SMOKE"
+        SOUT="$WORK/mpv_smoke.out"
+        if "$SMOKE" "$FIXTURE" "$MPV_ALLOW" 60 > "$SOUT" 2>"$WORK/mpv_smoke.err"; then
+            pass "mpv_smoke 全过(播放 / render / 允许项)"
+        else
+            [ -s "$WORK/mpv_smoke.err" ] && { echo "--- stderr:"; cat "$WORK/mpv_smoke.err"; }
+            fail "mpv_smoke 有失败项"
+        fi
+        sed 's/^/       /' "$SOUT"
+
+        grep -q '^playback: eof' "$SOUT" \
+            && pass "无头播放到 EOF(vo=null, ao=null)" || fail "无头播放没有走到 EOF"
+        grep -q '^render: sw create=ok$' "$SOUT" && grep -q '^render: sw free=ok$' "$SOUT" \
+            && pass "render API: software 上下文创建/销毁成功" || fail "render API 创建/销毁失败"
+        grep -q '^options_rejected: none' "$SOUT" \
+            && pass "LUX_MPV 允许项全部被 libmpv 接受" \
+            || fail "有允许项被 libmpv 拒绝(见上面 option 行)"
     fi
 fi
 

@@ -730,34 +730,115 @@ done
   自引用方式不适合 framework 的 `-F` 搜索);Libmpv / Libuchardet 的 module map 已用
   `clang -fmodules` 验证。
 
-## 15. P2 出口:调试符号、重建与 mpv xcframework(2026-11-10)
+## 15. P2 出口:调试符号、重建与 mpv xcframework(2026-11-10,基线 `264dc8b`)
 
-- **为什么要改**:P2 之前的 dSYM 只有 UUID,没有 DWARF。`dsymutil` 只能搬运二进制里
-  已有的调试信息,所以 libmpv 与 deps 必须在编译期带 `-g`。FFmpeg 的动态构建本来就有
-  `LUX_FRAMEWORK_CFLAGS=-g`(见 `lux/config/ffmpeg-ios.conf`),这一轮把静态 F0 构建也补齐。
-- **`-g` 改动(只改构建脚本,不改 buildtype / 优化等级)**:
-  - `lux/build/build-deps.sh`:autotools 与 CMake 走 `CFLAGS`/`CXXFLAGS`;
-    meson 不读这两个环境变量,而且命令行 `-Dc_args`/`-Dcpp_args` 会整体替换交叉文件里的
-    `[built-in options]`,所以每个 meson 调用(freetype/harfbuzz/dav1d/fribidi/libplacebo)
-    都传 `DEPS_DEBUG_CFLAGS`(`DEPS_CFLAGS` + `-g`)。
-  - `lux/build/build-mpv.sh`:`-Dc_args="$DEPS_CFLAGS -g"`。
-  - `lux/build/build-ffmpeg.sh`:给 `--extra-cflags` 追加 `-g`(其余 configure 参数仍唯一
-    来自 `lux/config/ffmpeg-ios.conf`)。
-- **重建顺序**:`build-deps.sh <target>`(三切片)→ `build-ffmpeg.sh <target>`(F0 静态,
-  `verify-license.sh` 的输入)→ `build-frameworks.sh all`(F1 三切片 + 6 个 xcframework)
-  → `build-mpv.sh <target>` → `build-mpv-frameworks.sh <target>`。
-  先重建 deps 再编 FFmpeg,dav1d 的 DWARF 才会一起进 libavcodec 的 dSYM。
-- **mpv 栈 xcframework**:`./lux/build/build-mpv-frameworks.sh xcframework` 把三个切片的
-  Libmpv / Libplacebo / Libfribidi / Libuchardet 打成 4 个 xcframework,输出
-  `lux/.build/mpv-xcframeworks/`(与 FFmpeg 的 `lux/.build/xcframeworks/` 分开):
-  `<Name>.xcframework`、`<Name>.xcframework.zip`、`checksums.txt`
-  (`swift package compute-checksum`)、`dSYMs/<target>/` 与 `dSYMs.zip`、
-  `MPV-XCFRAMEWORK-INFO.txt`。切片不全时脚本直接失败,不会产出残缺的 xcframework。
-- **校验路径**:`verify-mpv-frameworks.sh` 现在两处都查 mpv 的 xcframework
-  (优先 `mpv-xcframeworks/`,回退 `xcframeworks/`),`LUX_MPV_XCFRAMEWORK_ROOT` 可覆盖。
-- **修掉一个误报**:`archive_dsym` 原来用 `dwarfdump | grep -q 'DW_TAG'`,在
-  `set -o pipefail` 下 `grep -q` 提前退出会让 dwarfdump 吃 SIGPIPE(141),DWARF 明明
-  存在也会被判成 `dwarf=no`。改成 `grep -c` 并把条目数写进 `P2-4-INFO.txt` / 日志。
+本节是 P2 的收尾,并且是在 `p1-allowlist` **当前 HEAD(`264dc8b`)** 上整套重做的:
+TLS 已切到 OpenSSL 3.5.9、zlib 1.4、tscc/dtls/ffrtmpcrypt/rtmpt 等已启用、AV1 夹具入库,
+配置和上一轮(`tspace/p2-exit-rebuild`,旧基线 `0536831`)已经不是一回事,所以 FFmpeg
+必须按新配置整体重建、libmpv 必须重链。上一轮的两个提交已 cherry-pick 进本分支:
+`585a51a`(`-g` 让 dSYM 带 DWARF)、`a54c1fa`(mpv 栈 xcframework + zip + checksums,
+并修掉 `archive_dsym` 的 pipefail 误报);`c1eac94`(license bundle 刷新)只作参考,未合并。
+
+### 15.1 为什么要有 `-g`
+
+`dsymutil` 只能搬运二进制里已有的调试信息。P2 之前 libmpv 与 deps 都是
+`meson --buildtype=release` 且没有 `-g`,dSYM 里只有 UUID、没有 DWARF。优化等级与
+buildtype 一律不动(release / `-O2`),只补调试信息:
+
+- `lux/build/build-deps.sh`:autotools / CMake 走 `CFLAGS`/`CXXFLAGS`;meson 不读这两个
+  环境变量,而且命令行 `-Dc_args`/`-Dcpp_args` 会整体替换交叉文件里的 `[built-in options]`,
+  所以每个 meson 调用(freetype/harfbuzz/dav1d/fribidi/libplacebo)都传
+  `DEPS_DEBUG_CFLAGS`(`DEPS_CFLAGS` + `-g`)。
+- `lux/build/build-mpv.sh`:`-Dc_args="$DEPS_CFLAGS -g"`。
+- `lux/build/build-ffmpeg.sh`:给静态 F0 的 `--extra-cflags` 追加 `-g`;动态 F1 本来就有
+  `LUX_FRAMEWORK_CFLAGS=-g`(`lux/config/ffmpeg-ios.conf`)。
+- `lux/build/build-mpv-frameworks.sh`:`archive_dsym` 把 `grep -c DW_TAG` 的条目数写进
+  `P2-4-INFO.txt`(`dsym.<Name>=uuid=… dwarf=yes tags=…`),`LUX_MPV_DSYM_REQUIRE_DWARF=1`
+  时缺 DWARF 直接失败。本轮三切片全部 ≥ 1986 条。
+
+### 15.2 worktree 里的依赖前缀怎么摆
+
+`lux/.build/deps/<target>/install` 在本工作树里是一个**本地镜像**,主检出的
+`lux/.build/deps` 全程只读:
+
+- 体积大的只读静态库(`libshaderc_combined.a` 725 MB、`libharfbuzz*.a`、`libdav1d.a`、
+  `libMoltenVK.a` 等 18 个 `.a`)是指向主检出的**符号链接**;
+- 会被重链覆盖的 `dylib`、`pkgconfig/*.pc`、`include/` 是**实体副本**(走符号链接会把
+  主检出的文件一起改掉),`.pc` 里的 `prefix=` 重写到本工作树的本地前缀;
+- `src/`(依赖源码包)与 `pydeps/`(glad2)直接符号链接到主检出,只读。
+
+OpenSSL 3.5.9 与 zlib 1.4 主检出里没有,用 `./lux/build/build-deps.sh <target> zlib openssl`
+构建到上面这个本地前缀,三个切片各一份;libplacebo / fribidi / uchardet 会被重新链接成
+framework,也带 `-g` 重建(`build-deps.sh <target> fribidi uchardet libplacebo`)。dav1d 与
+其余静态库直接复用主检出里已构建的 `.a`(只读符号链接,不重建)。
+
+### 15.3 移植时修掉的一个顺序 bug
+
+`build-frameworks.sh` 原来先算 `ff_framework_configure_opts`、后设 `LUX_DEPS_PREFIX`,
+而 `--extra-cflags/--extra-ldflags` 在解析参数时就把前缀读进去了。后果是
+`build-frameworks.sh all` 里第一个切片拿不到 `-I/-L`(zlib 静默命中 SDK 里的系统 zlib),
+后面每个切片又继承上一个切片的 `LUX_DEPS_PREFIX`(导出变量在同一 shell 里残留),
+iOS 切片直接报 `ERROR: dav1d >= 1.0.0 not found using pkg-config`。现在前缀先设、参数后算,
+三个切片的 `ffbuild/config.log` 里 `extra-cflags` 都是各自 `deps/<target>/install/include`,
+`otool -L` 也没有 `libz/libssl/libcrypto` 动态依赖(静态并入)。
+
+### 15.4 本轮产物
+
+重建顺序:`build-deps.sh <target>`(zlib/openssl + mpv 栈)→ `build-ffmpeg.sh <target>`
+(静态,`verify-license.sh` 的输入)→ `build-frameworks.sh all`(动态三切片 + 6 个 xcframework)
+→ `build-mpv.sh <target>` → `build-mpv-frameworks.sh <target>|xcframework`。
+
+| 产物 | 位置 | 规模 |
+| --- | --- | --- |
+| FFmpeg 静态库(三切片) | `lux/.build/<target>/install/lib` | macOS 69,371,544 B;iOS 68,686,896 B;sim 69,428,128 B |
+| FFmpeg 6 framework | `lux/.build/xcframeworks/` | 切片二进制 macOS 17,827,136 / iOS 17,596,192 / sim 16,947,824 B |
+| FFmpeg xcframework zip + checksum | 同上 `*.xcframework.zip`、`checksums.txt` | Libavcodec 13,664,725 B…Libswscale 3,224,428 B |
+| mpv 4 framework | `lux/.build/mpv-frameworks/<target>/` | 三切片合计 65,346,048 B |
+| mpv xcframework + zip + checksum | `lux/.build/mpv-xcframeworks/` | Libplacebo 14,923,062、Libmpv 5,970,807、Libuchardet 290,347、Libfribidi 233,129 B |
+| dSYM | 两侧各自 `dSYMs/<target>/` + `dSYMs.zip` | FFmpeg 50,783,695 B;mpv 176,699,430 B |
+
+- 每个 framework 都有 `PrivacyInfo.xcprivacy`(按 `nm -u` 命中的 required-reason API 生成):
+  FFmpeg 六个 framework 里 Libavutil / Libavformat 声明 `FileTimestamp`,其余为空清单;
+  mpv 栈里 Libmpv 声明 `FileTimestamp DiskSpace SystemBootTime`、Libplacebo 声明
+  `SystemBootTime`、Libfribidi / Libuchardet 为空清单。
+- checksum 复核(自带命令,`checksums.txt` 与 zip 逐条对齐):
+  `for f in $(awk '{print $2}' lux/.build/xcframeworks/checksums.txt); do swift package compute-checksum lux/.build/xcframeworks/$f; done`
+  mpv 侧同理换目录。本轮两边共 10 条全部一致。
+
+### 15.5 校验命令与本轮结果
+
+| 命令 | 结果 | 日志 |
+| --- | --- | --- |
+| `./lux/build/verify-license.sh`(三切片) | `RESULT: PASS (LGPL-only)`,failures 0 / warnings 3 | `lux/.build/logs/verify-license.log` |
+| `./lux/build/verify-frameworks.sh` | `RESULT: PASS`,failures 0 / warnings 0 | `lux/.build/logs/verify-frameworks.log` |
+| `./lux/build/verify-mpv-frameworks.sh` | `RESULT: PASS`,failures 0 / warnings 0 | `lux/.build/logs/verify-mpv-frameworks.log` |
+| `lux/.build/macos-arm64/test/mpv_smoke <fixture> lux/test/mpv-allowlist.txt` | `mpv_smoke: RESULT: PASS`(23/23 允许项) | `lux/.build/logs/mpv-smoke.log` |
+| `bash lux/test/run.sh` | `RESULT: PASS`(56 个 `[ok]`,0 个 `[FAIL]`) | `lux/.build/logs/run-sh.log` |
+
+`verify-frameworks.sh` 的 8 组检查(含 Case-sensitive APFS 卷上的 canonical/framework
+两种 include 写法)全过;`verify-mpv-frameworks.sh` 的依赖闭包白名单、`av_*` 定义符号为 0
+(Libmpv 仍有 147 个 `av_*` 未定义引用)、三切片解析、`codesign --verify --strict`
+(三切片 × 四个 framework = 12 次)全过。冒烟在 `vo=null ao=null` 下把 12.021 s 的
+`lux-f0-fixture.mkv` 播到 EOF(12.07 s),`mpv_render` 的 software 上下文创建/销毁成功。
+
+### 15.6 已知偏差与限制
+
+- **`video-colorspace-hint`**:lux-client 的 `MPVLaunchOverrides.allowedOptionNames` 里有
+  这个名字,但 mpv 0.41 的选项表里没有它,同一个开关的真名是 `target-colorspace-hint`。
+  冒烟清单按 mpv 的真名断言(23 项),偏差与客户端改名待办写在
+  `lux/test/mpv-allowlist.txt` 的注释里;客户端不改名的话,那一行在运行期会被 libmpv 拒绝。
+- **Metal Toolchain 未安装**:本机 `xcrun metal` 不可用,configure 自动 `--disable-metal`,
+  4 个 `*_videotoolbox` 滤镜未启用;`verify-license.sh` 记 warning(不是 failure)。
+- **iOS 真机**:只产出切片 + ad-hoc `codesign --verify --strict`,没有做真机安装/运行,
+  也没有 Apple 开发者签名。
+- **dav1d 没有 `-g`**:`libdav1d.a` 复用主检出里的旧构建,静态并入 Libavcodec 后
+  dSYM 里没有 dav1d 的源码行号(FFmpeg 自身的 DWARF 齐全,`grep -c DW_TAG` 远大于 0)。
+  要连 dav1d 一起单步调试,需要先按 15.1 重建 dav1d 再重链 FFmpeg。
+- **license bundle 未刷新**:`lux/release/NOTICE.md` 的依赖表仍是 21 项,缺 dav1d(以及
+  zlib / OpenSSL),`make-license-bundle.sh` 的 `LICENSE_FACTS` 也只覆盖部分组件。参考提交
+  `c1eac94` 是这一块的半成品(WIP,failed run),本轮没有沿用,需要单独一轮生成 + 复核;
+  它不影响 `verify-license.sh`(那条线查的是产物本身,本轮 PASS)。
+
 ## 16. P3 依赖源码固定(2026-11-10)
 
 目标:构建用的每一份第三方源码都能按 `lux/config/deps.lock` 复现,PyPI 依赖也要有 hash。
