@@ -2,15 +2,15 @@
   "schema_version": 1,
   "draft": true,
   "draft_notice": "草稿 — 待法务确认",
-  "scope": "FFmpeg 六库 + libmpv 栈(Libmpv/Libplacebo/Libfribidi/Libuchardet)及其非系统依赖",
+  "scope": "FFmpeg 六库 + libmpv 栈(Libmpv/Libplacebo/Libfribidi/Libuchardet) + Vulkan 运行时(LibMoltenVK/Libshaderc)及其非系统依赖",
   "generated_by": "lux/build/make-license-bundle.sh",
   "repository": {
     "name": "lux-ffmpeg",
-    "head_commit": "5b165cf41b4e6f47750b14f8c37513fe485e9d7d",
-    "head_commit_date": "2026-11-10T19:06:47+08:00",
-    "head_commit_subject": "lux: P2 冒烟(无头播放 / render / 允许项)与出口文档",
+    "head_commit": "e086de837ba4571ead1d3e0452514af5019f57f2",
+    "head_commit_date": "2026-11-10T23:26:42+08:00",
+    "head_commit_subject": "lux: B+ 共享 Vulkan 运行时与 17 个 FFmpeg Vulkan 滤镜",
     "head_commit_scope": "最近一次触及源码的提交(排除 lux/release 与本脚本)",
-    "branch": "tspace/lux-release-package"
+    "branch": "main"
   },
   "ffmpeg": {
     "name": "ffmpeg",
@@ -28,10 +28,10 @@
     "gpl_or_nonfree_terms": true,
     "source": {
       "repository": "lux-ffmpeg",
-      "head_commit": "922532ed9eeda9aebb0c1bb8a02df86bbf2a22c8",
-      "head_commit_date": "2026-11-10T21:27:24+08:00",
-      "head_commit_subject": "lux: build-mpv.sh 在配置前应用 mpv 补丁清单",
-      "branch": "p1-allowlist",
+      "head_commit": "e086de837ba4571ead1d3e0452514af5019f57f2",
+      "head_commit_date": "2026-11-10T23:26:42+08:00",
+      "head_commit_subject": "lux: B+ 共享 Vulkan 运行时与 17 个 FFmpeg Vulkan 滤镜",
+      "branch": "main",
       "patches_txt": "lux/config/patches.txt",
       "patches_txt_sha256": "7cd3380fb939a546fa4293b70a2f4b6678c200306723bf3015c6da0cf6ebf12c",
       "patches_digest": "dcb7d4b747e00a3336953264a73791307d7c4aa633b8906e81c0ff71b70d655f",
@@ -125,16 +125,16 @@
             "license": "LGPL-2.1-or-later",
             "license_status": "identified",
             "static_library": "lux/.build/macos-arm64/install/lib/libavcodec.a",
-            "static_library_size": 44866640,
+            "static_library_size": 45557048,
             "framework_binary": "lux/.build/xcframeworks/Libavcodec.xcframework/macos-arm64/Libavcodec.framework/Libavcodec",
-            "framework_binary_size": 8533824
+            "framework_binary_size": 8586864
           },
           {
             "name": "libavformat",
             "license": "LGPL-2.1-or-later",
             "license_status": "identified",
             "static_library": "lux/.build/macos-arm64/install/lib/libavformat.a",
-            "static_library_size": 11568528,
+            "static_library_size": 11564312,
             "framework_binary": "lux/.build/xcframeworks/Libavformat.xcframework/macos-arm64/Libavformat.framework/Libavformat",
             "framework_binary_size": 6401616
           },
@@ -143,25 +143,25 @@
             "license": "LGPL-2.1-or-later",
             "license_status": "identified",
             "static_library": "lux/.build/macos-arm64/install/lib/libavfilter.a",
-            "static_library_size": 4305192,
+            "static_library_size": 9381664,
             "framework_binary": "lux/.build/xcframeworks/Libavfilter.xcframework/macos-arm64/Libavfilter.framework/Libavfilter",
-            "framework_binary_size": 718496
+            "framework_binary_size": 933440
           },
           {
             "name": "libswscale",
             "license": "LGPL-2.1-or-later",
             "license_status": "identified",
             "static_library": "lux/.build/macos-arm64/install/lib/libswscale.a",
-            "static_library_size": 4866008,
+            "static_library_size": 5837688,
             "framework_binary": "lux/.build/xcframeworks/Libswscale.xcframework/macos-arm64/Libswscale.framework/Libswscale",
-            "framework_binary_size": 1252016
+            "framework_binary_size": 1357696
           },
           {
             "name": "libswresample",
             "license": "LGPL-2.1-or-later",
             "license_status": "identified",
             "static_library": "lux/.build/macos-arm64/install/lib/libswresample.a",
-            "static_library_size": 429728,
+            "static_library_size": 429960,
             "framework_binary": "lux/.build/xcframeworks/Libswresample.xcframework/macos-arm64/Libswresample.framework/Libswresample",
             "framework_binary_size": 144160
           },
@@ -170,9 +170,9 @@
             "license": "LGPL-2.1-or-later",
             "license_status": "identified",
             "static_library": "lux/.build/macos-arm64/install/lib/libavutil.a",
-            "static_library_size": 3335448,
+            "static_library_size": 4203920,
             "framework_binary": "lux/.build/xcframeworks/Libavutil.xcframework/macos-arm64/Libavutil.framework/Libavutil",
-            "framework_binary_size": 777024
+            "framework_binary_size": 898416
           }
         ],
         "notes": []
@@ -200,16 +200,16 @@
             "license": "LGPL-2.1-or-later",
             "license_status": "identified",
             "static_library": "lux/.build/ios-arm64/install/lib/libavcodec.a",
-            "static_library_size": 44304624,
+            "static_library_size": 44990544,
             "framework_binary": "lux/.build/xcframeworks/Libavcodec.xcframework/ios-arm64/Libavcodec.framework/Libavcodec",
-            "framework_binary_size": 8336496
+            "framework_binary_size": 8389536
           },
           {
             "name": "libavformat",
             "license": "LGPL-2.1-or-later",
             "license_status": "identified",
             "static_library": "lux/.build/ios-arm64/install/lib/libavformat.a",
-            "static_library_size": 11526000,
+            "static_library_size": 11521776,
             "framework_binary": "lux/.build/xcframeworks/Libavformat.xcframework/ios-arm64/Libavformat.framework/Libavformat",
             "framework_binary_size": 6384512
           },
@@ -218,25 +218,25 @@
             "license": "LGPL-2.1-or-later",
             "license_status": "identified",
             "static_library": "lux/.build/ios-arm64/install/lib/libavfilter.a",
-            "static_library_size": 4260064,
+            "static_library_size": 9332992,
             "framework_binary": "lux/.build/xcframeworks/Libavfilter.xcframework/ios-arm64/Libavfilter.framework/Libavfilter",
-            "framework_binary_size": 702080
+            "framework_binary_size": 917056
           },
           {
             "name": "libswscale",
             "license": "LGPL-2.1-or-later",
             "license_status": "identified",
             "static_library": "lux/.build/ios-arm64/install/lib/libswscale.a",
-            "static_library_size": 4863856,
+            "static_library_size": 5831192,
             "framework_binary": "lux/.build/xcframeworks/Libswscale.xcframework/ios-arm64/Libswscale.framework/Libswscale",
-            "framework_binary_size": 1251936
+            "framework_binary_size": 1374080
           },
           {
             "name": "libswresample",
             "license": "LGPL-2.1-or-later",
             "license_status": "identified",
             "static_library": "lux/.build/ios-arm64/install/lib/libswresample.a",
-            "static_library_size": 422640,
+            "static_library_size": 422856,
             "framework_binary": "lux/.build/xcframeworks/Libswresample.xcframework/ios-arm64/Libswresample.framework/Libswresample",
             "framework_binary_size": 144160
           },
@@ -245,9 +245,9 @@
             "license": "LGPL-2.1-or-later",
             "license_status": "identified",
             "static_library": "lux/.build/ios-arm64/install/lib/libavutil.a",
-            "static_library_size": 3309712,
+            "static_library_size": 4162544,
             "framework_binary": "lux/.build/xcframeworks/Libavutil.xcframework/ios-arm64/Libavutil.framework/Libavutil",
-            "framework_binary_size": 777008
+            "framework_binary_size": 898432
           }
         ],
         "notes": []
@@ -275,54 +275,54 @@
             "license": "LGPL-2.1-or-later",
             "license_status": "identified",
             "static_library": "lux/.build/ios-sim-arm64/install/lib/libavcodec.a",
-            "static_library_size": 44894040,
+            "static_library_size": 45584392,
             "framework_binary": "lux/.build/xcframeworks/Libavcodec.xcframework/ios-arm64-simulator/Libavcodec.framework/Libavcodec",
-            "framework_binary_size": 8533392
+            "framework_binary_size": 8586448
           },
           {
             "name": "libavformat",
             "license": "LGPL-2.1-or-later",
             "license_status": "identified",
             "static_library": "lux/.build/ios-sim-arm64/install/lib/libavformat.a",
-            "static_library_size": 11582016,
+            "static_library_size": 11577824,
             "framework_binary": "lux/.build/xcframeworks/Libavformat.xcframework/ios-arm64-simulator/Libavformat.framework/Libavformat",
-            "framework_binary_size": 5539328
+            "framework_binary_size": 5555744
           },
           {
             "name": "libavfilter",
             "license": "LGPL-2.1-or-later",
             "license_status": "identified",
             "static_library": "lux/.build/ios-sim-arm64/install/lib/libavfilter.a",
-            "static_library_size": 4310416,
+            "static_library_size": 9388576,
             "framework_binary": "lux/.build/xcframeworks/Libavfilter.xcframework/ios-arm64-simulator/Libavfilter.framework/Libavfilter",
-            "framework_binary_size": 718432
+            "framework_binary_size": 933376
           },
           {
             "name": "libswscale",
             "license": "LGPL-2.1-or-later",
             "license_status": "identified",
             "static_library": "lux/.build/ios-sim-arm64/install/lib/libswscale.a",
-            "static_library_size": 4868296,
+            "static_library_size": 5840160,
             "framework_binary": "lux/.build/xcframeworks/Libswscale.xcframework/ios-arm64-simulator/Libswscale.framework/Libswscale",
-            "framework_binary_size": 1251968
+            "framework_binary_size": 1357648
           },
           {
             "name": "libswresample",
             "license": "LGPL-2.1-or-later",
             "license_status": "identified",
             "static_library": "lux/.build/ios-sim-arm64/install/lib/libswresample.a",
-            "static_library_size": 430672,
+            "static_library_size": 430896,
             "framework_binary": "lux/.build/xcframeworks/Libswresample.xcframework/ios-arm64-simulator/Libswresample.framework/Libswresample",
-            "framework_binary_size": 127744
+            "framework_binary_size": 144160
           },
           {
             "name": "libavutil",
             "license": "LGPL-2.1-or-later",
             "license_status": "identified",
             "static_library": "lux/.build/ios-sim-arm64/install/lib/libavutil.a",
-            "static_library_size": 3342688,
+            "static_library_size": 4211416,
             "framework_binary": "lux/.build/xcframeworks/Libavutil.xcframework/ios-arm64-simulator/Libavutil.framework/Libavutil",
-            "framework_binary_size": 776960
+            "framework_binary_size": 898352
           }
         ],
         "notes": []
@@ -346,13 +346,13 @@
               "@rpath/Libplacebo.framework/Libplacebo",
               "@rpath/Libswresample.framework/Libswresample",
               "@rpath/Libswscale.framework/Libswscale",
-              "@rpath/Libuchardet.framework/Libuchardet"
+              "@rpath/Libuchardet.framework/Libuchardet",
+              "@rpath/LibMoltenVK.framework/LibMoltenVK"
             ],
             "system_dependencies": [
               "/System/Library/Frameworks/CoreFoundation.framework/Versions/A/CoreFoundation",
               "/usr/lib/libSystem.B.dylib",
               "/usr/lib/libiconv.2.dylib",
-              "/usr/lib/libhvf.dylib",
               "/System/Library/Frameworks/CoreMedia.framework/Versions/A/CoreMedia",
               "/System/Library/Frameworks/AVFoundation.framework/Versions/A/AVFoundation",
               "/System/Library/Frameworks/Metal.framework/Versions/A/Metal",
@@ -416,6 +416,12 @@
                 "deps_lock_name": "uchardet",
                 "framework": "Libuchardet",
                 "license": "MPL-1.1 或 GPL-2.0-or-later 或 LGPL-2.1-or-later(待法务确认)"
+              },
+              {
+                "raw": "@rpath/LibMoltenVK.framework/LibMoltenVK",
+                "deps_lock_name": "moltenvk",
+                "framework": "LibMoltenVK",
+                "license": "Apache-2.0"
               }
             ],
             "source_dependency": "mpv",
@@ -426,21 +432,21 @@
             "binary": "lux/.build/mpv-frameworks/macos-arm64/Libplacebo.framework/Libplacebo",
             "binary_kind": "framework",
             "otool_command": "otool -L lux/.build/mpv-frameworks/macos-arm64/Libplacebo.framework/Libplacebo",
-            "dynamic_dependencies": [],
-            "system_dependencies": [
-              "/System/Library/Frameworks/Metal.framework/Versions/A/Metal",
-              "/System/Library/Frameworks/IOSurface.framework/Versions/A/IOSurface",
-              "/System/Library/Frameworks/QuartzCore.framework/Versions/A/QuartzCore",
-              "/System/Library/Frameworks/IOKit.framework/Versions/A/IOKit",
-              "/System/Library/Frameworks/CoreGraphics.framework/Versions/A/CoreGraphics",
-              "/System/Library/Frameworks/Foundation.framework/Versions/C/Foundation",
-              "/System/Library/Frameworks/AppKit.framework/Versions/C/AppKit",
-              "/usr/lib/libSystem.B.dylib",
-              "/usr/lib/libc++.1.dylib",
-              "/System/Library/Frameworks/CoreFoundation.framework/Versions/A/CoreFoundation",
-              "/usr/lib/libobjc.A.dylib"
+            "dynamic_dependencies": [
+              "@rpath/Libshaderc.framework/Libshaderc"
             ],
-            "non_system_dependencies": [],
+            "system_dependencies": [
+              "/usr/lib/libc++.1.dylib",
+              "/usr/lib/libSystem.B.dylib"
+            ],
+            "non_system_dependencies": [
+              {
+                "raw": "@rpath/Libshaderc.framework/Libshaderc",
+                "deps_lock_name": "shaderc",
+                "framework": "Libshaderc",
+                "license": "Apache-2.0"
+              }
+            ],
             "source_dependency": "libplacebo",
             "license": "LGPL-2.1-or-later",
             "license_status": "identified"
@@ -489,7 +495,8 @@
               "@rpath/Libplacebo.framework/Libplacebo",
               "@rpath/Libswresample.framework/Libswresample",
               "@rpath/Libswscale.framework/Libswscale",
-              "@rpath/Libuchardet.framework/Libuchardet"
+              "@rpath/Libuchardet.framework/Libuchardet",
+              "@rpath/LibMoltenVK.framework/LibMoltenVK"
             ],
             "system_dependencies": [
               "/System/Library/Frameworks/CoreText.framework/CoreText",
@@ -499,6 +506,7 @@
               "/usr/lib/libiconv.2.dylib",
               "/System/Library/Frameworks/AudioToolbox.framework/AudioToolbox",
               "/System/Library/Frameworks/Metal.framework/Metal",
+              "/System/Library/Frameworks/QuartzCore.framework/QuartzCore",
               "/System/Library/Frameworks/CoreVideo.framework/CoreVideo",
               "/usr/lib/libobjc.A.dylib"
             ],
@@ -556,6 +564,12 @@
                 "deps_lock_name": "uchardet",
                 "framework": "Libuchardet",
                 "license": "MPL-1.1 或 GPL-2.0-or-later 或 LGPL-2.1-or-later(待法务确认)"
+              },
+              {
+                "raw": "@rpath/LibMoltenVK.framework/LibMoltenVK",
+                "deps_lock_name": "moltenvk",
+                "framework": "LibMoltenVK",
+                "license": "Apache-2.0"
               }
             ],
             "source_dependency": "mpv",
@@ -566,20 +580,21 @@
             "binary": "lux/.build/mpv-frameworks/ios-arm64/Libplacebo.framework/Libplacebo",
             "binary_kind": "framework",
             "otool_command": "otool -L lux/.build/mpv-frameworks/ios-arm64/Libplacebo.framework/Libplacebo",
-            "dynamic_dependencies": [],
-            "system_dependencies": [
-              "/System/Library/Frameworks/Metal.framework/Metal",
-              "/System/Library/Frameworks/IOSurface.framework/IOSurface",
-              "/System/Library/Frameworks/QuartzCore.framework/QuartzCore",
-              "/System/Library/Frameworks/CoreGraphics.framework/CoreGraphics",
-              "/System/Library/Frameworks/Foundation.framework/Foundation",
-              "/System/Library/Frameworks/UIKit.framework/UIKit",
-              "/usr/lib/libSystem.B.dylib",
-              "/usr/lib/libc++.1.dylib",
-              "/System/Library/Frameworks/CoreFoundation.framework/CoreFoundation",
-              "/usr/lib/libobjc.A.dylib"
+            "dynamic_dependencies": [
+              "@rpath/Libshaderc.framework/Libshaderc"
             ],
-            "non_system_dependencies": [],
+            "system_dependencies": [
+              "/usr/lib/libc++.1.dylib",
+              "/usr/lib/libSystem.B.dylib"
+            ],
+            "non_system_dependencies": [
+              {
+                "raw": "@rpath/Libshaderc.framework/Libshaderc",
+                "deps_lock_name": "shaderc",
+                "framework": "Libshaderc",
+                "license": "Apache-2.0"
+              }
+            ],
             "source_dependency": "libplacebo",
             "license": "LGPL-2.1-or-later",
             "license_status": "identified"
@@ -628,7 +643,8 @@
               "@rpath/Libplacebo.framework/Libplacebo",
               "@rpath/Libswresample.framework/Libswresample",
               "@rpath/Libswscale.framework/Libswscale",
-              "@rpath/Libuchardet.framework/Libuchardet"
+              "@rpath/Libuchardet.framework/Libuchardet",
+              "@rpath/LibMoltenVK.framework/LibMoltenVK"
             ],
             "system_dependencies": [
               "/System/Library/Frameworks/CoreText.framework/CoreText",
@@ -638,6 +654,7 @@
               "/usr/lib/libiconv.2.dylib",
               "/System/Library/Frameworks/AudioToolbox.framework/AudioToolbox",
               "/System/Library/Frameworks/Metal.framework/Metal",
+              "/System/Library/Frameworks/QuartzCore.framework/QuartzCore",
               "/System/Library/Frameworks/CoreVideo.framework/CoreVideo",
               "/usr/lib/libobjc.A.dylib"
             ],
@@ -695,6 +712,12 @@
                 "deps_lock_name": "uchardet",
                 "framework": "Libuchardet",
                 "license": "MPL-1.1 或 GPL-2.0-or-later 或 LGPL-2.1-or-later(待法务确认)"
+              },
+              {
+                "raw": "@rpath/LibMoltenVK.framework/LibMoltenVK",
+                "deps_lock_name": "moltenvk",
+                "framework": "LibMoltenVK",
+                "license": "Apache-2.0"
               }
             ],
             "source_dependency": "mpv",
@@ -705,20 +728,21 @@
             "binary": "lux/.build/mpv-frameworks/ios-sim-arm64/Libplacebo.framework/Libplacebo",
             "binary_kind": "framework",
             "otool_command": "otool -L lux/.build/mpv-frameworks/ios-sim-arm64/Libplacebo.framework/Libplacebo",
-            "dynamic_dependencies": [],
-            "system_dependencies": [
-              "/System/Library/Frameworks/Metal.framework/Metal",
-              "/System/Library/Frameworks/IOSurface.framework/IOSurface",
-              "/System/Library/Frameworks/QuartzCore.framework/QuartzCore",
-              "/System/Library/Frameworks/CoreGraphics.framework/CoreGraphics",
-              "/System/Library/Frameworks/Foundation.framework/Foundation",
-              "/System/Library/Frameworks/UIKit.framework/UIKit",
-              "/usr/lib/libSystem.B.dylib",
-              "/usr/lib/libc++.1.dylib",
-              "/System/Library/Frameworks/CoreFoundation.framework/CoreFoundation",
-              "/usr/lib/libobjc.A.dylib"
+            "dynamic_dependencies": [
+              "@rpath/Libshaderc.framework/Libshaderc"
             ],
-            "non_system_dependencies": [],
+            "system_dependencies": [
+              "/usr/lib/libc++.1.dylib",
+              "/usr/lib/libSystem.B.dylib"
+            ],
+            "non_system_dependencies": [
+              {
+                "raw": "@rpath/Libshaderc.framework/Libshaderc",
+                "deps_lock_name": "shaderc",
+                "framework": "Libshaderc",
+                "license": "Apache-2.0"
+              }
+            ],
             "source_dependency": "libplacebo",
             "license": "LGPL-2.1-or-later",
             "license_status": "identified"
@@ -783,13 +807,13 @@
               "@rpath/Libplacebo.framework/Libplacebo",
               "@rpath/Libswresample.framework/Libswresample",
               "@rpath/Libswscale.framework/Libswscale",
-              "@rpath/Libuchardet.framework/Libuchardet"
+              "@rpath/Libuchardet.framework/Libuchardet",
+              "@rpath/LibMoltenVK.framework/LibMoltenVK"
             ],
             "system_dependencies": [
               "/System/Library/Frameworks/CoreFoundation.framework/Versions/A/CoreFoundation",
               "/usr/lib/libSystem.B.dylib",
               "/usr/lib/libiconv.2.dylib",
-              "/usr/lib/libhvf.dylib",
               "/System/Library/Frameworks/CoreMedia.framework/Versions/A/CoreMedia",
               "/System/Library/Frameworks/AVFoundation.framework/Versions/A/AVFoundation",
               "/System/Library/Frameworks/Metal.framework/Versions/A/Metal",
@@ -853,6 +877,12 @@
                 "deps_lock_name": "uchardet",
                 "framework": "Libuchardet",
                 "license": "MPL-1.1 或 GPL-2.0-or-later 或 LGPL-2.1-or-later(待法务确认)"
+              },
+              {
+                "raw": "@rpath/LibMoltenVK.framework/LibMoltenVK",
+                "deps_lock_name": "moltenvk",
+                "framework": "LibMoltenVK",
+                "license": "Apache-2.0"
               }
             ],
             "source_dependency": "mpv",
@@ -872,7 +902,8 @@
               "@rpath/Libplacebo.framework/Libplacebo",
               "@rpath/Libswresample.framework/Libswresample",
               "@rpath/Libswscale.framework/Libswscale",
-              "@rpath/Libuchardet.framework/Libuchardet"
+              "@rpath/Libuchardet.framework/Libuchardet",
+              "@rpath/LibMoltenVK.framework/LibMoltenVK"
             ],
             "system_dependencies": [
               "/System/Library/Frameworks/CoreText.framework/CoreText",
@@ -882,6 +913,7 @@
               "/usr/lib/libiconv.2.dylib",
               "/System/Library/Frameworks/AudioToolbox.framework/AudioToolbox",
               "/System/Library/Frameworks/Metal.framework/Metal",
+              "/System/Library/Frameworks/QuartzCore.framework/QuartzCore",
               "/System/Library/Frameworks/CoreVideo.framework/CoreVideo",
               "/usr/lib/libobjc.A.dylib"
             ],
@@ -939,6 +971,12 @@
                 "deps_lock_name": "uchardet",
                 "framework": "Libuchardet",
                 "license": "MPL-1.1 或 GPL-2.0-or-later 或 LGPL-2.1-or-later(待法务确认)"
+              },
+              {
+                "raw": "@rpath/LibMoltenVK.framework/LibMoltenVK",
+                "deps_lock_name": "moltenvk",
+                "framework": "LibMoltenVK",
+                "license": "Apache-2.0"
               }
             ],
             "source_dependency": "mpv",
@@ -958,7 +996,8 @@
               "@rpath/Libplacebo.framework/Libplacebo",
               "@rpath/Libswresample.framework/Libswresample",
               "@rpath/Libswscale.framework/Libswscale",
-              "@rpath/Libuchardet.framework/Libuchardet"
+              "@rpath/Libuchardet.framework/Libuchardet",
+              "@rpath/LibMoltenVK.framework/LibMoltenVK"
             ],
             "system_dependencies": [
               "/System/Library/Frameworks/CoreText.framework/CoreText",
@@ -968,6 +1007,7 @@
               "/usr/lib/libiconv.2.dylib",
               "/System/Library/Frameworks/AudioToolbox.framework/AudioToolbox",
               "/System/Library/Frameworks/Metal.framework/Metal",
+              "/System/Library/Frameworks/QuartzCore.framework/QuartzCore",
               "/System/Library/Frameworks/CoreVideo.framework/CoreVideo",
               "/usr/lib/libobjc.A.dylib"
             ],
@@ -1025,6 +1065,12 @@
                 "deps_lock_name": "uchardet",
                 "framework": "Libuchardet",
                 "license": "MPL-1.1 或 GPL-2.0-or-later 或 LGPL-2.1-or-later(待法务确认)"
+              },
+              {
+                "raw": "@rpath/LibMoltenVK.framework/LibMoltenVK",
+                "deps_lock_name": "moltenvk",
+                "framework": "LibMoltenVK",
+                "license": "Apache-2.0"
               }
             ],
             "source_dependency": "mpv",
@@ -1110,11 +1156,9 @@
         "kind": "libmpv-stack-framework",
         "source_dependency": "libplacebo",
         "license": "LGPL-2.1-or-later",
-        "license_status": "needs-legal-review",
+        "license_status": "identified",
         "license_notes": "LICENSE 为 LGPL-2.1。",
-        "bundled_gpl_review": [
-          "glslang"
-        ],
+        "bundled_gpl_review": [],
         "license_files": [
           "licenses/libplacebo/LICENSE"
         ],
@@ -1123,21 +1167,21 @@
             "binary": "lux/.build/mpv-frameworks/macos-arm64/Libplacebo.framework/Libplacebo",
             "binary_kind": "framework",
             "otool_command": "otool -L lux/.build/mpv-frameworks/macos-arm64/Libplacebo.framework/Libplacebo",
-            "dynamic_dependencies": [],
-            "system_dependencies": [
-              "/System/Library/Frameworks/Metal.framework/Versions/A/Metal",
-              "/System/Library/Frameworks/IOSurface.framework/Versions/A/IOSurface",
-              "/System/Library/Frameworks/QuartzCore.framework/Versions/A/QuartzCore",
-              "/System/Library/Frameworks/IOKit.framework/Versions/A/IOKit",
-              "/System/Library/Frameworks/CoreGraphics.framework/Versions/A/CoreGraphics",
-              "/System/Library/Frameworks/Foundation.framework/Versions/C/Foundation",
-              "/System/Library/Frameworks/AppKit.framework/Versions/C/AppKit",
-              "/usr/lib/libSystem.B.dylib",
-              "/usr/lib/libc++.1.dylib",
-              "/System/Library/Frameworks/CoreFoundation.framework/Versions/A/CoreFoundation",
-              "/usr/lib/libobjc.A.dylib"
+            "dynamic_dependencies": [
+              "@rpath/Libshaderc.framework/Libshaderc"
             ],
-            "non_system_dependencies": [],
+            "system_dependencies": [
+              "/usr/lib/libc++.1.dylib",
+              "/usr/lib/libSystem.B.dylib"
+            ],
+            "non_system_dependencies": [
+              {
+                "raw": "@rpath/Libshaderc.framework/Libshaderc",
+                "deps_lock_name": "shaderc",
+                "framework": "Libshaderc",
+                "license": "Apache-2.0"
+              }
+            ],
             "source_dependency": "libplacebo",
             "license": "LGPL-2.1-or-later",
             "license_status": "identified"
@@ -1146,20 +1190,21 @@
             "binary": "lux/.build/mpv-frameworks/ios-arm64/Libplacebo.framework/Libplacebo",
             "binary_kind": "framework",
             "otool_command": "otool -L lux/.build/mpv-frameworks/ios-arm64/Libplacebo.framework/Libplacebo",
-            "dynamic_dependencies": [],
-            "system_dependencies": [
-              "/System/Library/Frameworks/Metal.framework/Metal",
-              "/System/Library/Frameworks/IOSurface.framework/IOSurface",
-              "/System/Library/Frameworks/QuartzCore.framework/QuartzCore",
-              "/System/Library/Frameworks/CoreGraphics.framework/CoreGraphics",
-              "/System/Library/Frameworks/Foundation.framework/Foundation",
-              "/System/Library/Frameworks/UIKit.framework/UIKit",
-              "/usr/lib/libSystem.B.dylib",
-              "/usr/lib/libc++.1.dylib",
-              "/System/Library/Frameworks/CoreFoundation.framework/CoreFoundation",
-              "/usr/lib/libobjc.A.dylib"
+            "dynamic_dependencies": [
+              "@rpath/Libshaderc.framework/Libshaderc"
             ],
-            "non_system_dependencies": [],
+            "system_dependencies": [
+              "/usr/lib/libc++.1.dylib",
+              "/usr/lib/libSystem.B.dylib"
+            ],
+            "non_system_dependencies": [
+              {
+                "raw": "@rpath/Libshaderc.framework/Libshaderc",
+                "deps_lock_name": "shaderc",
+                "framework": "Libshaderc",
+                "license": "Apache-2.0"
+              }
+            ],
             "source_dependency": "libplacebo",
             "license": "LGPL-2.1-or-later",
             "license_status": "identified"
@@ -1168,20 +1213,21 @@
             "binary": "lux/.build/mpv-frameworks/ios-sim-arm64/Libplacebo.framework/Libplacebo",
             "binary_kind": "framework",
             "otool_command": "otool -L lux/.build/mpv-frameworks/ios-sim-arm64/Libplacebo.framework/Libplacebo",
-            "dynamic_dependencies": [],
-            "system_dependencies": [
-              "/System/Library/Frameworks/Metal.framework/Metal",
-              "/System/Library/Frameworks/IOSurface.framework/IOSurface",
-              "/System/Library/Frameworks/QuartzCore.framework/QuartzCore",
-              "/System/Library/Frameworks/CoreGraphics.framework/CoreGraphics",
-              "/System/Library/Frameworks/Foundation.framework/Foundation",
-              "/System/Library/Frameworks/UIKit.framework/UIKit",
-              "/usr/lib/libSystem.B.dylib",
-              "/usr/lib/libc++.1.dylib",
-              "/System/Library/Frameworks/CoreFoundation.framework/CoreFoundation",
-              "/usr/lib/libobjc.A.dylib"
+            "dynamic_dependencies": [
+              "@rpath/Libshaderc.framework/Libshaderc"
             ],
-            "non_system_dependencies": [],
+            "system_dependencies": [
+              "/usr/lib/libc++.1.dylib",
+              "/usr/lib/libSystem.B.dylib"
+            ],
+            "non_system_dependencies": [
+              {
+                "raw": "@rpath/Libshaderc.framework/Libshaderc",
+                "deps_lock_name": "shaderc",
+                "framework": "Libshaderc",
+                "license": "Apache-2.0"
+              }
+            ],
             "source_dependency": "libplacebo",
             "license": "LGPL-2.1-or-later",
             "license_status": "identified"
@@ -1206,72 +1252,6 @@
                 "Libplacebo:_cmsOpenProfileFromMem"
               ]
             }
-          },
-          {
-            "name": "moltenvk",
-            "kind": "static",
-            "evidence": "vulkan.pc 提供 -lMoltenVK;nm -gU 可查到 _vk* 符号",
-            "symbol_evidence": {
-              "macos-arm64": [
-                "Libplacebo:_vkCreateInstance"
-              ],
-              "ios-arm64": [
-                "Libplacebo:_vkCreateInstance"
-              ],
-              "ios-sim-arm64": [
-                "Libplacebo:_vkCreateInstance"
-              ]
-            }
-          },
-          {
-            "name": "shaderc",
-            "kind": "static",
-            "evidence": "shaderc.pc 提供 -lshaderc_combined;二进制内有 shaderc_util 符号"
-          },
-          {
-            "name": "spirv-cross",
-            "kind": "static-transitive",
-            "evidence": "MoltenVK ExternalDependencies 的 libSPIRVCross.a"
-          },
-          {
-            "name": "spirv-tools",
-            "kind": "static-transitive",
-            "evidence": "shaderc_combined 的 SPIRV-Tools 部分"
-          },
-          {
-            "name": "spirv-tools-mvk",
-            "kind": "static-transitive",
-            "evidence": "MoltenVK ExternalDependencies 的 libSPIRVTools.a"
-          },
-          {
-            "name": "glslang",
-            "kind": "static-transitive",
-            "evidence": "shaderc_combined 的 glslang 部分"
-          },
-          {
-            "name": "spirv-headers",
-            "kind": "build-time",
-            "evidence": "shaderc 构建期头文件"
-          },
-          {
-            "name": "spirv-headers-mvk",
-            "kind": "build-time",
-            "evidence": "MoltenVK/SPIRV-Tools 构建期头文件"
-          },
-          {
-            "name": "vulkan-headers",
-            "kind": "build-time",
-            "evidence": "libplacebo/MoltenVK 构建期头文件"
-          },
-          {
-            "name": "volk",
-            "kind": "build-time",
-            "evidence": "MoltenVK 构建期 Vulkan 加载器源码/头文件"
-          },
-          {
-            "name": "cereal",
-            "kind": "build-time",
-            "evidence": "MoltenVK 构建期头文件"
           },
           {
             "name": "fast_float",
@@ -1466,6 +1446,22 @@
         "license": "MPL-1.1 或 GPL-2.0-or-later 或 LGPL-2.1-or-later(待法务确认)"
       },
       {
+        "target": "macos-arm64",
+        "framework": "Libmpv",
+        "raw": "@rpath/LibMoltenVK.framework/LibMoltenVK",
+        "deps_lock_name": "moltenvk",
+        "framework_dependency": "LibMoltenVK",
+        "license": "Apache-2.0"
+      },
+      {
+        "target": "macos-arm64",
+        "framework": "Libplacebo",
+        "raw": "@rpath/Libshaderc.framework/Libshaderc",
+        "deps_lock_name": "shaderc",
+        "framework_dependency": "Libshaderc",
+        "license": "Apache-2.0"
+      },
+      {
         "target": "ios-arm64",
         "framework": "Libmpv",
         "raw": "@rpath/Libfribidi.framework/Libfribidi",
@@ -1538,6 +1534,22 @@
         "license": "MPL-1.1 或 GPL-2.0-or-later 或 LGPL-2.1-or-later(待法务确认)"
       },
       {
+        "target": "ios-arm64",
+        "framework": "Libmpv",
+        "raw": "@rpath/LibMoltenVK.framework/LibMoltenVK",
+        "deps_lock_name": "moltenvk",
+        "framework_dependency": "LibMoltenVK",
+        "license": "Apache-2.0"
+      },
+      {
+        "target": "ios-arm64",
+        "framework": "Libplacebo",
+        "raw": "@rpath/Libshaderc.framework/Libshaderc",
+        "deps_lock_name": "shaderc",
+        "framework_dependency": "Libshaderc",
+        "license": "Apache-2.0"
+      },
+      {
         "target": "ios-sim-arm64",
         "framework": "Libmpv",
         "raw": "@rpath/Libfribidi.framework/Libfribidi",
@@ -1608,21 +1620,345 @@
         "deps_lock_name": "uchardet",
         "framework_dependency": "Libuchardet",
         "license": "MPL-1.1 或 GPL-2.0-or-later 或 LGPL-2.1-or-later(待法务确认)"
+      },
+      {
+        "target": "ios-sim-arm64",
+        "framework": "Libmpv",
+        "raw": "@rpath/LibMoltenVK.framework/LibMoltenVK",
+        "deps_lock_name": "moltenvk",
+        "framework_dependency": "LibMoltenVK",
+        "license": "Apache-2.0"
+      },
+      {
+        "target": "ios-sim-arm64",
+        "framework": "Libplacebo",
+        "raw": "@rpath/Libshaderc.framework/Libshaderc",
+        "deps_lock_name": "shaderc",
+        "framework_dependency": "Libshaderc",
+        "license": "Apache-2.0"
+      }
+    ]
+  },
+  "vulkan_stack": {
+    "targets": {
+      "macos-arm64": {
+        "frameworks": {
+          "LibMoltenVK": {
+            "binary": "lux/.build/vulkan-frameworks/macos-arm64/slice/LibMoltenVK.framework/LibMoltenVK",
+            "binary_kind": "framework",
+            "otool_command": "otool -L lux/.build/vulkan-frameworks/macos-arm64/slice/LibMoltenVK.framework/LibMoltenVK",
+            "dynamic_dependencies": [],
+            "system_dependencies": [
+              "/usr/lib/libc++.1.dylib",
+              "/System/Library/Frameworks/Metal.framework/Versions/A/Metal",
+              "/System/Library/Frameworks/IOSurface.framework/Versions/A/IOSurface",
+              "/System/Library/Frameworks/QuartzCore.framework/Versions/A/QuartzCore",
+              "/System/Library/Frameworks/IOKit.framework/Versions/A/IOKit",
+              "/System/Library/Frameworks/CoreGraphics.framework/Versions/A/CoreGraphics",
+              "/System/Library/Frameworks/Foundation.framework/Versions/C/Foundation",
+              "/System/Library/Frameworks/AppKit.framework/Versions/C/AppKit",
+              "/usr/lib/libSystem.B.dylib",
+              "/System/Library/Frameworks/CoreFoundation.framework/Versions/A/CoreFoundation",
+              "/usr/lib/libobjc.A.dylib"
+            ],
+            "non_system_dependencies": [],
+            "source_dependency": "moltenvk",
+            "license": "Apache-2.0",
+            "license_status": "identified"
+          },
+          "Libshaderc": {
+            "binary": "lux/.build/vulkan-frameworks/macos-arm64/slice/Libshaderc.framework/Libshaderc",
+            "binary_kind": "framework",
+            "otool_command": "otool -L lux/.build/vulkan-frameworks/macos-arm64/slice/Libshaderc.framework/Libshaderc",
+            "dynamic_dependencies": [],
+            "system_dependencies": [
+              "/usr/lib/libc++.1.dylib",
+              "/usr/lib/libSystem.B.dylib"
+            ],
+            "non_system_dependencies": [],
+            "source_dependency": "shaderc",
+            "license": "Apache-2.0",
+            "license_status": "identified"
+          }
+        }
+      },
+      "ios-arm64": {
+        "frameworks": {
+          "LibMoltenVK": {
+            "binary": "lux/.build/vulkan-frameworks/ios-arm64/slice/LibMoltenVK.framework/LibMoltenVK",
+            "binary_kind": "framework",
+            "otool_command": "otool -L lux/.build/vulkan-frameworks/ios-arm64/slice/LibMoltenVK.framework/LibMoltenVK",
+            "dynamic_dependencies": [],
+            "system_dependencies": [
+              "/usr/lib/libc++.1.dylib",
+              "/System/Library/Frameworks/Metal.framework/Metal",
+              "/System/Library/Frameworks/IOSurface.framework/IOSurface",
+              "/System/Library/Frameworks/QuartzCore.framework/QuartzCore",
+              "/System/Library/Frameworks/CoreGraphics.framework/CoreGraphics",
+              "/System/Library/Frameworks/Foundation.framework/Foundation",
+              "/System/Library/Frameworks/UIKit.framework/UIKit",
+              "/usr/lib/libSystem.B.dylib",
+              "/System/Library/Frameworks/CoreFoundation.framework/CoreFoundation",
+              "/usr/lib/libobjc.A.dylib"
+            ],
+            "non_system_dependencies": [],
+            "source_dependency": "moltenvk",
+            "license": "Apache-2.0",
+            "license_status": "identified"
+          },
+          "Libshaderc": {
+            "binary": "lux/.build/vulkan-frameworks/ios-arm64/slice/Libshaderc.framework/Libshaderc",
+            "binary_kind": "framework",
+            "otool_command": "otool -L lux/.build/vulkan-frameworks/ios-arm64/slice/Libshaderc.framework/Libshaderc",
+            "dynamic_dependencies": [],
+            "system_dependencies": [
+              "/usr/lib/libc++.1.dylib",
+              "/usr/lib/libSystem.B.dylib"
+            ],
+            "non_system_dependencies": [],
+            "source_dependency": "shaderc",
+            "license": "Apache-2.0",
+            "license_status": "identified"
+          }
+        }
+      },
+      "ios-sim-arm64": {
+        "frameworks": {
+          "LibMoltenVK": {
+            "binary": "lux/.build/vulkan-frameworks/ios-sim-arm64/slice/LibMoltenVK.framework/LibMoltenVK",
+            "binary_kind": "framework",
+            "otool_command": "otool -L lux/.build/vulkan-frameworks/ios-sim-arm64/slice/LibMoltenVK.framework/LibMoltenVK",
+            "dynamic_dependencies": [],
+            "system_dependencies": [
+              "/usr/lib/libc++.1.dylib",
+              "/System/Library/Frameworks/Metal.framework/Metal",
+              "/System/Library/Frameworks/IOSurface.framework/IOSurface",
+              "/System/Library/Frameworks/QuartzCore.framework/QuartzCore",
+              "/System/Library/Frameworks/CoreGraphics.framework/CoreGraphics",
+              "/System/Library/Frameworks/Foundation.framework/Foundation",
+              "/System/Library/Frameworks/UIKit.framework/UIKit",
+              "/usr/lib/libSystem.B.dylib",
+              "/System/Library/Frameworks/CoreFoundation.framework/CoreFoundation",
+              "/usr/lib/libobjc.A.dylib"
+            ],
+            "non_system_dependencies": [],
+            "source_dependency": "moltenvk",
+            "license": "Apache-2.0",
+            "license_status": "identified"
+          },
+          "Libshaderc": {
+            "binary": "lux/.build/vulkan-frameworks/ios-sim-arm64/slice/Libshaderc.framework/Libshaderc",
+            "binary_kind": "framework",
+            "otool_command": "otool -L lux/.build/vulkan-frameworks/ios-sim-arm64/slice/Libshaderc.framework/Libshaderc",
+            "dynamic_dependencies": [],
+            "system_dependencies": [
+              "/usr/lib/libc++.1.dylib",
+              "/usr/lib/libSystem.B.dylib"
+            ],
+            "non_system_dependencies": [],
+            "source_dependency": "shaderc",
+            "license": "Apache-2.0",
+            "license_status": "identified"
+          }
+        }
+      }
+    },
+    "components": [
+      {
+        "name": "LibMoltenVK",
+        "kind": "vulkan-framework",
+        "source_dependency": "moltenvk",
+        "license": "Apache-2.0",
+        "license_status": "identified",
+        "license_notes": "LICENSE 为 Apache-2.0。",
+        "bundled_gpl_review": [],
+        "license_files": [
+          "licenses/moltenvk/LICENSE"
+        ],
+        "targets": {
+          "macos-arm64": {
+            "binary": "lux/.build/vulkan-frameworks/macos-arm64/slice/LibMoltenVK.framework/LibMoltenVK",
+            "binary_kind": "framework",
+            "otool_command": "otool -L lux/.build/vulkan-frameworks/macos-arm64/slice/LibMoltenVK.framework/LibMoltenVK",
+            "dynamic_dependencies": [],
+            "system_dependencies": [
+              "/usr/lib/libc++.1.dylib",
+              "/System/Library/Frameworks/Metal.framework/Versions/A/Metal",
+              "/System/Library/Frameworks/IOSurface.framework/Versions/A/IOSurface",
+              "/System/Library/Frameworks/QuartzCore.framework/Versions/A/QuartzCore",
+              "/System/Library/Frameworks/IOKit.framework/Versions/A/IOKit",
+              "/System/Library/Frameworks/CoreGraphics.framework/Versions/A/CoreGraphics",
+              "/System/Library/Frameworks/Foundation.framework/Versions/C/Foundation",
+              "/System/Library/Frameworks/AppKit.framework/Versions/C/AppKit",
+              "/usr/lib/libSystem.B.dylib",
+              "/System/Library/Frameworks/CoreFoundation.framework/Versions/A/CoreFoundation",
+              "/usr/lib/libobjc.A.dylib"
+            ],
+            "non_system_dependencies": [],
+            "source_dependency": "moltenvk",
+            "license": "Apache-2.0",
+            "license_status": "identified"
+          },
+          "ios-arm64": {
+            "binary": "lux/.build/vulkan-frameworks/ios-arm64/slice/LibMoltenVK.framework/LibMoltenVK",
+            "binary_kind": "framework",
+            "otool_command": "otool -L lux/.build/vulkan-frameworks/ios-arm64/slice/LibMoltenVK.framework/LibMoltenVK",
+            "dynamic_dependencies": [],
+            "system_dependencies": [
+              "/usr/lib/libc++.1.dylib",
+              "/System/Library/Frameworks/Metal.framework/Metal",
+              "/System/Library/Frameworks/IOSurface.framework/IOSurface",
+              "/System/Library/Frameworks/QuartzCore.framework/QuartzCore",
+              "/System/Library/Frameworks/CoreGraphics.framework/CoreGraphics",
+              "/System/Library/Frameworks/Foundation.framework/Foundation",
+              "/System/Library/Frameworks/UIKit.framework/UIKit",
+              "/usr/lib/libSystem.B.dylib",
+              "/System/Library/Frameworks/CoreFoundation.framework/CoreFoundation",
+              "/usr/lib/libobjc.A.dylib"
+            ],
+            "non_system_dependencies": [],
+            "source_dependency": "moltenvk",
+            "license": "Apache-2.0",
+            "license_status": "identified"
+          },
+          "ios-sim-arm64": {
+            "binary": "lux/.build/vulkan-frameworks/ios-sim-arm64/slice/LibMoltenVK.framework/LibMoltenVK",
+            "binary_kind": "framework",
+            "otool_command": "otool -L lux/.build/vulkan-frameworks/ios-sim-arm64/slice/LibMoltenVK.framework/LibMoltenVK",
+            "dynamic_dependencies": [],
+            "system_dependencies": [
+              "/usr/lib/libc++.1.dylib",
+              "/System/Library/Frameworks/Metal.framework/Metal",
+              "/System/Library/Frameworks/IOSurface.framework/IOSurface",
+              "/System/Library/Frameworks/QuartzCore.framework/QuartzCore",
+              "/System/Library/Frameworks/CoreGraphics.framework/CoreGraphics",
+              "/System/Library/Frameworks/Foundation.framework/Foundation",
+              "/System/Library/Frameworks/UIKit.framework/UIKit",
+              "/usr/lib/libSystem.B.dylib",
+              "/System/Library/Frameworks/CoreFoundation.framework/CoreFoundation",
+              "/usr/lib/libobjc.A.dylib"
+            ],
+            "non_system_dependencies": [],
+            "source_dependency": "moltenvk",
+            "license": "Apache-2.0",
+            "license_status": "identified"
+          }
+        },
+        "statically_linked": [
+          {
+            "name": "spirv-cross",
+            "kind": "static-transitive",
+            "evidence": "MoltenVK ExternalDependencies 的 libSPIRVCross.a"
+          },
+          {
+            "name": "spirv-tools-mvk",
+            "kind": "static-transitive",
+            "evidence": "MoltenVK ExternalDependencies 的 libSPIRVTools.a"
+          },
+          {
+            "name": "spirv-headers-mvk",
+            "kind": "build-time",
+            "evidence": "MoltenVK/SPIRV-Tools 构建期头文件"
+          },
+          {
+            "name": "vulkan-headers",
+            "kind": "build-time",
+            "evidence": "MoltenVK/shaderc 构建期头文件"
+          },
+          {
+            "name": "volk",
+            "kind": "build-time",
+            "evidence": "MoltenVK 构建期 Vulkan 加载器源码/头文件"
+          },
+          {
+            "name": "cereal",
+            "kind": "build-time",
+            "evidence": "MoltenVK 构建期头文件"
+          }
+        ]
+      },
+      {
+        "name": "Libshaderc",
+        "kind": "vulkan-framework",
+        "source_dependency": "shaderc",
+        "license": "Apache-2.0",
+        "license_status": "needs-legal-review",
+        "license_notes": "LICENSE 为 Apache-2.0;third_party 的 glslang/SPIRV-Tools 许可见各自条目。",
+        "bundled_gpl_review": [
+          "glslang"
+        ],
+        "license_files": [
+          "licenses/shaderc/LICENSE"
+        ],
+        "targets": {
+          "macos-arm64": {
+            "binary": "lux/.build/vulkan-frameworks/macos-arm64/slice/Libshaderc.framework/Libshaderc",
+            "binary_kind": "framework",
+            "otool_command": "otool -L lux/.build/vulkan-frameworks/macos-arm64/slice/Libshaderc.framework/Libshaderc",
+            "dynamic_dependencies": [],
+            "system_dependencies": [
+              "/usr/lib/libc++.1.dylib",
+              "/usr/lib/libSystem.B.dylib"
+            ],
+            "non_system_dependencies": [],
+            "source_dependency": "shaderc",
+            "license": "Apache-2.0",
+            "license_status": "identified"
+          },
+          "ios-arm64": {
+            "binary": "lux/.build/vulkan-frameworks/ios-arm64/slice/Libshaderc.framework/Libshaderc",
+            "binary_kind": "framework",
+            "otool_command": "otool -L lux/.build/vulkan-frameworks/ios-arm64/slice/Libshaderc.framework/Libshaderc",
+            "dynamic_dependencies": [],
+            "system_dependencies": [
+              "/usr/lib/libc++.1.dylib",
+              "/usr/lib/libSystem.B.dylib"
+            ],
+            "non_system_dependencies": [],
+            "source_dependency": "shaderc",
+            "license": "Apache-2.0",
+            "license_status": "identified"
+          },
+          "ios-sim-arm64": {
+            "binary": "lux/.build/vulkan-frameworks/ios-sim-arm64/slice/Libshaderc.framework/Libshaderc",
+            "binary_kind": "framework",
+            "otool_command": "otool -L lux/.build/vulkan-frameworks/ios-sim-arm64/slice/Libshaderc.framework/Libshaderc",
+            "dynamic_dependencies": [],
+            "system_dependencies": [
+              "/usr/lib/libc++.1.dylib",
+              "/usr/lib/libSystem.B.dylib"
+            ],
+            "non_system_dependencies": [],
+            "source_dependency": "shaderc",
+            "license": "Apache-2.0",
+            "license_status": "identified"
+          }
+        },
+        "statically_linked": [
+          {
+            "name": "spirv-tools",
+            "kind": "static-transitive",
+            "evidence": "shaderc_shared 的 SPIRV-Tools 部分"
+          },
+          {
+            "name": "glslang",
+            "kind": "static-transitive",
+            "evidence": "shaderc_shared 的 glslang 部分"
+          },
+          {
+            "name": "spirv-headers",
+            "kind": "build-time",
+            "evidence": "shaderc 构建期头文件"
+          },
+          {
+            "name": "vulkan-headers",
+            "kind": "build-time",
+            "evidence": "MoltenVK/shaderc 构建期头文件"
+          }
+        ]
       }
     ],
-    "source": {
-      "version": "0.41.0",
-      "patches_txt": "lux/config/mpv-patches.txt",
-      "patches_txt_sha256": "cffa8a71e232c8fe348612ab53c69629ee78342f12b27211b5251be354802a8d",
-      "patches_count": 1,
-      "patches_digest": "3ff559aee31d754316325030179f87b0ebde5fa46c955f5cfdb8565aa291daf7",
-      "patches": [
-        {
-          "name": "0001-ios-moltenvk-context.patch",
-          "sha256": "0ddc7bffa3724ead7159497c079b6d8fdc24127e55884f9a298299e6f540874b"
-        }
-      ]
-    }
+    "non_system_dependencies": []
   },
   "components": [
     {
@@ -1898,13 +2234,13 @@
             "@rpath/Libplacebo.framework/Libplacebo",
             "@rpath/Libswresample.framework/Libswresample",
             "@rpath/Libswscale.framework/Libswscale",
-            "@rpath/Libuchardet.framework/Libuchardet"
+            "@rpath/Libuchardet.framework/Libuchardet",
+            "@rpath/LibMoltenVK.framework/LibMoltenVK"
           ],
           "system_dependencies": [
             "/System/Library/Frameworks/CoreFoundation.framework/Versions/A/CoreFoundation",
             "/usr/lib/libSystem.B.dylib",
             "/usr/lib/libiconv.2.dylib",
-            "/usr/lib/libhvf.dylib",
             "/System/Library/Frameworks/CoreMedia.framework/Versions/A/CoreMedia",
             "/System/Library/Frameworks/AVFoundation.framework/Versions/A/AVFoundation",
             "/System/Library/Frameworks/Metal.framework/Versions/A/Metal",
@@ -1968,6 +2304,12 @@
               "deps_lock_name": "uchardet",
               "framework": "Libuchardet",
               "license": "MPL-1.1 或 GPL-2.0-or-later 或 LGPL-2.1-or-later(待法务确认)"
+            },
+            {
+              "raw": "@rpath/LibMoltenVK.framework/LibMoltenVK",
+              "deps_lock_name": "moltenvk",
+              "framework": "LibMoltenVK",
+              "license": "Apache-2.0"
             }
           ],
           "source_dependency": "mpv",
@@ -1987,7 +2329,8 @@
             "@rpath/Libplacebo.framework/Libplacebo",
             "@rpath/Libswresample.framework/Libswresample",
             "@rpath/Libswscale.framework/Libswscale",
-            "@rpath/Libuchardet.framework/Libuchardet"
+            "@rpath/Libuchardet.framework/Libuchardet",
+            "@rpath/LibMoltenVK.framework/LibMoltenVK"
           ],
           "system_dependencies": [
             "/System/Library/Frameworks/CoreText.framework/CoreText",
@@ -1997,6 +2340,7 @@
             "/usr/lib/libiconv.2.dylib",
             "/System/Library/Frameworks/AudioToolbox.framework/AudioToolbox",
             "/System/Library/Frameworks/Metal.framework/Metal",
+            "/System/Library/Frameworks/QuartzCore.framework/QuartzCore",
             "/System/Library/Frameworks/CoreVideo.framework/CoreVideo",
             "/usr/lib/libobjc.A.dylib"
           ],
@@ -2054,6 +2398,12 @@
               "deps_lock_name": "uchardet",
               "framework": "Libuchardet",
               "license": "MPL-1.1 或 GPL-2.0-or-later 或 LGPL-2.1-or-later(待法务确认)"
+            },
+            {
+              "raw": "@rpath/LibMoltenVK.framework/LibMoltenVK",
+              "deps_lock_name": "moltenvk",
+              "framework": "LibMoltenVK",
+              "license": "Apache-2.0"
             }
           ],
           "source_dependency": "mpv",
@@ -2073,7 +2423,8 @@
             "@rpath/Libplacebo.framework/Libplacebo",
             "@rpath/Libswresample.framework/Libswresample",
             "@rpath/Libswscale.framework/Libswscale",
-            "@rpath/Libuchardet.framework/Libuchardet"
+            "@rpath/Libuchardet.framework/Libuchardet",
+            "@rpath/LibMoltenVK.framework/LibMoltenVK"
           ],
           "system_dependencies": [
             "/System/Library/Frameworks/CoreText.framework/CoreText",
@@ -2083,6 +2434,7 @@
             "/usr/lib/libiconv.2.dylib",
             "/System/Library/Frameworks/AudioToolbox.framework/AudioToolbox",
             "/System/Library/Frameworks/Metal.framework/Metal",
+            "/System/Library/Frameworks/QuartzCore.framework/QuartzCore",
             "/System/Library/Frameworks/CoreVideo.framework/CoreVideo",
             "/usr/lib/libobjc.A.dylib"
           ],
@@ -2140,6 +2492,12 @@
               "deps_lock_name": "uchardet",
               "framework": "Libuchardet",
               "license": "MPL-1.1 或 GPL-2.0-or-later 或 LGPL-2.1-or-later(待法务确认)"
+            },
+            {
+              "raw": "@rpath/LibMoltenVK.framework/LibMoltenVK",
+              "deps_lock_name": "moltenvk",
+              "framework": "LibMoltenVK",
+              "license": "Apache-2.0"
             }
           ],
           "source_dependency": "mpv",
@@ -2225,11 +2583,9 @@
       "kind": "libmpv-stack-framework",
       "source_dependency": "libplacebo",
       "license": "LGPL-2.1-or-later",
-      "license_status": "needs-legal-review",
+      "license_status": "identified",
       "license_notes": "LICENSE 为 LGPL-2.1。",
-      "bundled_gpl_review": [
-        "glslang"
-      ],
+      "bundled_gpl_review": [],
       "license_files": [
         "licenses/libplacebo/LICENSE"
       ],
@@ -2238,21 +2594,21 @@
           "binary": "lux/.build/mpv-frameworks/macos-arm64/Libplacebo.framework/Libplacebo",
           "binary_kind": "framework",
           "otool_command": "otool -L lux/.build/mpv-frameworks/macos-arm64/Libplacebo.framework/Libplacebo",
-          "dynamic_dependencies": [],
-          "system_dependencies": [
-            "/System/Library/Frameworks/Metal.framework/Versions/A/Metal",
-            "/System/Library/Frameworks/IOSurface.framework/Versions/A/IOSurface",
-            "/System/Library/Frameworks/QuartzCore.framework/Versions/A/QuartzCore",
-            "/System/Library/Frameworks/IOKit.framework/Versions/A/IOKit",
-            "/System/Library/Frameworks/CoreGraphics.framework/Versions/A/CoreGraphics",
-            "/System/Library/Frameworks/Foundation.framework/Versions/C/Foundation",
-            "/System/Library/Frameworks/AppKit.framework/Versions/C/AppKit",
-            "/usr/lib/libSystem.B.dylib",
-            "/usr/lib/libc++.1.dylib",
-            "/System/Library/Frameworks/CoreFoundation.framework/Versions/A/CoreFoundation",
-            "/usr/lib/libobjc.A.dylib"
+          "dynamic_dependencies": [
+            "@rpath/Libshaderc.framework/Libshaderc"
           ],
-          "non_system_dependencies": [],
+          "system_dependencies": [
+            "/usr/lib/libc++.1.dylib",
+            "/usr/lib/libSystem.B.dylib"
+          ],
+          "non_system_dependencies": [
+            {
+              "raw": "@rpath/Libshaderc.framework/Libshaderc",
+              "deps_lock_name": "shaderc",
+              "framework": "Libshaderc",
+              "license": "Apache-2.0"
+            }
+          ],
           "source_dependency": "libplacebo",
           "license": "LGPL-2.1-or-later",
           "license_status": "identified"
@@ -2261,20 +2617,21 @@
           "binary": "lux/.build/mpv-frameworks/ios-arm64/Libplacebo.framework/Libplacebo",
           "binary_kind": "framework",
           "otool_command": "otool -L lux/.build/mpv-frameworks/ios-arm64/Libplacebo.framework/Libplacebo",
-          "dynamic_dependencies": [],
-          "system_dependencies": [
-            "/System/Library/Frameworks/Metal.framework/Metal",
-            "/System/Library/Frameworks/IOSurface.framework/IOSurface",
-            "/System/Library/Frameworks/QuartzCore.framework/QuartzCore",
-            "/System/Library/Frameworks/CoreGraphics.framework/CoreGraphics",
-            "/System/Library/Frameworks/Foundation.framework/Foundation",
-            "/System/Library/Frameworks/UIKit.framework/UIKit",
-            "/usr/lib/libSystem.B.dylib",
-            "/usr/lib/libc++.1.dylib",
-            "/System/Library/Frameworks/CoreFoundation.framework/CoreFoundation",
-            "/usr/lib/libobjc.A.dylib"
+          "dynamic_dependencies": [
+            "@rpath/Libshaderc.framework/Libshaderc"
           ],
-          "non_system_dependencies": [],
+          "system_dependencies": [
+            "/usr/lib/libc++.1.dylib",
+            "/usr/lib/libSystem.B.dylib"
+          ],
+          "non_system_dependencies": [
+            {
+              "raw": "@rpath/Libshaderc.framework/Libshaderc",
+              "deps_lock_name": "shaderc",
+              "framework": "Libshaderc",
+              "license": "Apache-2.0"
+            }
+          ],
           "source_dependency": "libplacebo",
           "license": "LGPL-2.1-or-later",
           "license_status": "identified"
@@ -2283,20 +2640,21 @@
           "binary": "lux/.build/mpv-frameworks/ios-sim-arm64/Libplacebo.framework/Libplacebo",
           "binary_kind": "framework",
           "otool_command": "otool -L lux/.build/mpv-frameworks/ios-sim-arm64/Libplacebo.framework/Libplacebo",
-          "dynamic_dependencies": [],
-          "system_dependencies": [
-            "/System/Library/Frameworks/Metal.framework/Metal",
-            "/System/Library/Frameworks/IOSurface.framework/IOSurface",
-            "/System/Library/Frameworks/QuartzCore.framework/QuartzCore",
-            "/System/Library/Frameworks/CoreGraphics.framework/CoreGraphics",
-            "/System/Library/Frameworks/Foundation.framework/Foundation",
-            "/System/Library/Frameworks/UIKit.framework/UIKit",
-            "/usr/lib/libSystem.B.dylib",
-            "/usr/lib/libc++.1.dylib",
-            "/System/Library/Frameworks/CoreFoundation.framework/CoreFoundation",
-            "/usr/lib/libobjc.A.dylib"
+          "dynamic_dependencies": [
+            "@rpath/Libshaderc.framework/Libshaderc"
           ],
-          "non_system_dependencies": [],
+          "system_dependencies": [
+            "/usr/lib/libc++.1.dylib",
+            "/usr/lib/libSystem.B.dylib"
+          ],
+          "non_system_dependencies": [
+            {
+              "raw": "@rpath/Libshaderc.framework/Libshaderc",
+              "deps_lock_name": "shaderc",
+              "framework": "Libshaderc",
+              "license": "Apache-2.0"
+            }
+          ],
           "source_dependency": "libplacebo",
           "license": "LGPL-2.1-or-later",
           "license_status": "identified"
@@ -2321,51 +2679,6 @@
               "Libplacebo:_cmsOpenProfileFromMem"
             ]
           }
-        },
-        {
-          "name": "spirv-cross",
-          "kind": "static-transitive",
-          "evidence": "MoltenVK ExternalDependencies 的 libSPIRVCross.a"
-        },
-        {
-          "name": "spirv-tools",
-          "kind": "static-transitive",
-          "evidence": "shaderc_combined 的 SPIRV-Tools 部分"
-        },
-        {
-          "name": "spirv-tools-mvk",
-          "kind": "static-transitive",
-          "evidence": "MoltenVK ExternalDependencies 的 libSPIRVTools.a"
-        },
-        {
-          "name": "glslang",
-          "kind": "static-transitive",
-          "evidence": "shaderc_combined 的 glslang 部分"
-        },
-        {
-          "name": "spirv-headers",
-          "kind": "build-time",
-          "evidence": "shaderc 构建期头文件"
-        },
-        {
-          "name": "spirv-headers-mvk",
-          "kind": "build-time",
-          "evidence": "MoltenVK/SPIRV-Tools 构建期头文件"
-        },
-        {
-          "name": "vulkan-headers",
-          "kind": "build-time",
-          "evidence": "libplacebo/MoltenVK 构建期头文件"
-        },
-        {
-          "name": "volk",
-          "kind": "build-time",
-          "evidence": "MoltenVK 构建期 Vulkan 加载器源码/头文件"
-        },
-        {
-          "name": "cereal",
-          "kind": "build-time",
-          "evidence": "MoltenVK 构建期头文件"
         },
         {
           "name": "fast_float",
@@ -2488,20 +2801,33 @@
     {
       "name": "LibMoltenVK",
       "kind": "vulkan-framework",
+      "source_dependency": "moltenvk",
       "license": "Apache-2.0",
       "license_status": "identified",
+      "license_notes": "LICENSE 为 Apache-2.0。",
+      "bundled_gpl_review": [],
       "license_files": [
         "licenses/moltenvk/LICENSE"
       ],
-      "notes": "B+ 共享 Vulkan 运行时;framework 由 lux/build/build-vulkan-frameworks.sh 生成",
-      "source_dependency": "moltenvk",
       "targets": {
         "macos-arm64": {
           "binary": "lux/.build/vulkan-frameworks/macos-arm64/slice/LibMoltenVK.framework/LibMoltenVK",
           "binary_kind": "framework",
           "otool_command": "otool -L lux/.build/vulkan-frameworks/macos-arm64/slice/LibMoltenVK.framework/LibMoltenVK",
           "dynamic_dependencies": [],
-          "system_dependencies": [],
+          "system_dependencies": [
+            "/usr/lib/libc++.1.dylib",
+            "/System/Library/Frameworks/Metal.framework/Versions/A/Metal",
+            "/System/Library/Frameworks/IOSurface.framework/Versions/A/IOSurface",
+            "/System/Library/Frameworks/QuartzCore.framework/Versions/A/QuartzCore",
+            "/System/Library/Frameworks/IOKit.framework/Versions/A/IOKit",
+            "/System/Library/Frameworks/CoreGraphics.framework/Versions/A/CoreGraphics",
+            "/System/Library/Frameworks/Foundation.framework/Versions/C/Foundation",
+            "/System/Library/Frameworks/AppKit.framework/Versions/C/AppKit",
+            "/usr/lib/libSystem.B.dylib",
+            "/System/Library/Frameworks/CoreFoundation.framework/Versions/A/CoreFoundation",
+            "/usr/lib/libobjc.A.dylib"
+          ],
           "non_system_dependencies": [],
           "source_dependency": "moltenvk",
           "license": "Apache-2.0",
@@ -2512,7 +2838,18 @@
           "binary_kind": "framework",
           "otool_command": "otool -L lux/.build/vulkan-frameworks/ios-arm64/slice/LibMoltenVK.framework/LibMoltenVK",
           "dynamic_dependencies": [],
-          "system_dependencies": [],
+          "system_dependencies": [
+            "/usr/lib/libc++.1.dylib",
+            "/System/Library/Frameworks/Metal.framework/Metal",
+            "/System/Library/Frameworks/IOSurface.framework/IOSurface",
+            "/System/Library/Frameworks/QuartzCore.framework/QuartzCore",
+            "/System/Library/Frameworks/CoreGraphics.framework/CoreGraphics",
+            "/System/Library/Frameworks/Foundation.framework/Foundation",
+            "/System/Library/Frameworks/UIKit.framework/UIKit",
+            "/usr/lib/libSystem.B.dylib",
+            "/System/Library/Frameworks/CoreFoundation.framework/CoreFoundation",
+            "/usr/lib/libobjc.A.dylib"
+          ],
           "non_system_dependencies": [],
           "source_dependency": "moltenvk",
           "license": "Apache-2.0",
@@ -2523,31 +2860,80 @@
           "binary_kind": "framework",
           "otool_command": "otool -L lux/.build/vulkan-frameworks/ios-sim-arm64/slice/LibMoltenVK.framework/LibMoltenVK",
           "dynamic_dependencies": [],
-          "system_dependencies": [],
+          "system_dependencies": [
+            "/usr/lib/libc++.1.dylib",
+            "/System/Library/Frameworks/Metal.framework/Metal",
+            "/System/Library/Frameworks/IOSurface.framework/IOSurface",
+            "/System/Library/Frameworks/QuartzCore.framework/QuartzCore",
+            "/System/Library/Frameworks/CoreGraphics.framework/CoreGraphics",
+            "/System/Library/Frameworks/Foundation.framework/Foundation",
+            "/System/Library/Frameworks/UIKit.framework/UIKit",
+            "/usr/lib/libSystem.B.dylib",
+            "/System/Library/Frameworks/CoreFoundation.framework/CoreFoundation",
+            "/usr/lib/libobjc.A.dylib"
+          ],
           "non_system_dependencies": [],
           "source_dependency": "moltenvk",
           "license": "Apache-2.0",
           "license_status": "identified"
         }
-      }
+      },
+      "statically_linked": [
+        {
+          "name": "spirv-cross",
+          "kind": "static-transitive",
+          "evidence": "MoltenVK ExternalDependencies 的 libSPIRVCross.a"
+        },
+        {
+          "name": "spirv-tools-mvk",
+          "kind": "static-transitive",
+          "evidence": "MoltenVK ExternalDependencies 的 libSPIRVTools.a"
+        },
+        {
+          "name": "spirv-headers-mvk",
+          "kind": "build-time",
+          "evidence": "MoltenVK/SPIRV-Tools 构建期头文件"
+        },
+        {
+          "name": "vulkan-headers",
+          "kind": "build-time",
+          "evidence": "MoltenVK/shaderc 构建期头文件"
+        },
+        {
+          "name": "volk",
+          "kind": "build-time",
+          "evidence": "MoltenVK 构建期 Vulkan 加载器源码/头文件"
+        },
+        {
+          "name": "cereal",
+          "kind": "build-time",
+          "evidence": "MoltenVK 构建期头文件"
+        }
+      ]
     },
     {
       "name": "Libshaderc",
       "kind": "vulkan-framework",
+      "source_dependency": "shaderc",
       "license": "Apache-2.0",
-      "license_status": "identified",
+      "license_status": "needs-legal-review",
+      "license_notes": "LICENSE 为 Apache-2.0;third_party 的 glslang/SPIRV-Tools 许可见各自条目。",
+      "bundled_gpl_review": [
+        "glslang"
+      ],
       "license_files": [
         "licenses/shaderc/LICENSE"
       ],
-      "notes": "B+ 共享 Vulkan 运行时;framework 由 lux/build/build-vulkan-frameworks.sh 生成",
-      "source_dependency": "shaderc",
       "targets": {
         "macos-arm64": {
           "binary": "lux/.build/vulkan-frameworks/macos-arm64/slice/Libshaderc.framework/Libshaderc",
           "binary_kind": "framework",
           "otool_command": "otool -L lux/.build/vulkan-frameworks/macos-arm64/slice/Libshaderc.framework/Libshaderc",
           "dynamic_dependencies": [],
-          "system_dependencies": [],
+          "system_dependencies": [
+            "/usr/lib/libc++.1.dylib",
+            "/usr/lib/libSystem.B.dylib"
+          ],
           "non_system_dependencies": [],
           "source_dependency": "shaderc",
           "license": "Apache-2.0",
@@ -2558,7 +2944,10 @@
           "binary_kind": "framework",
           "otool_command": "otool -L lux/.build/vulkan-frameworks/ios-arm64/slice/Libshaderc.framework/Libshaderc",
           "dynamic_dependencies": [],
-          "system_dependencies": [],
+          "system_dependencies": [
+            "/usr/lib/libc++.1.dylib",
+            "/usr/lib/libSystem.B.dylib"
+          ],
           "non_system_dependencies": [],
           "source_dependency": "shaderc",
           "license": "Apache-2.0",
@@ -2569,13 +2958,38 @@
           "binary_kind": "framework",
           "otool_command": "otool -L lux/.build/vulkan-frameworks/ios-sim-arm64/slice/Libshaderc.framework/Libshaderc",
           "dynamic_dependencies": [],
-          "system_dependencies": [],
+          "system_dependencies": [
+            "/usr/lib/libc++.1.dylib",
+            "/usr/lib/libSystem.B.dylib"
+          ],
           "non_system_dependencies": [],
           "source_dependency": "shaderc",
           "license": "Apache-2.0",
           "license_status": "identified"
         }
-      }
+      },
+      "statically_linked": [
+        {
+          "name": "spirv-tools",
+          "kind": "static-transitive",
+          "evidence": "shaderc_shared 的 SPIRV-Tools 部分"
+        },
+        {
+          "name": "glslang",
+          "kind": "static-transitive",
+          "evidence": "shaderc_shared 的 glslang 部分"
+        },
+        {
+          "name": "spirv-headers",
+          "kind": "build-time",
+          "evidence": "shaderc 构建期头文件"
+        },
+        {
+          "name": "vulkan-headers",
+          "kind": "build-time",
+          "evidence": "MoltenVK/shaderc 构建期头文件"
+        }
+      ]
     }
   ],
   "dependencies": [
@@ -2978,16 +3392,14 @@
         {
           "kind": "dynamic",
           "into": [
-            "Libplacebo",
-            "Libavfilter",
-            "Libswscale"
+            "Libplacebo"
           ],
           "targets": [
-            "macos-arm64",
             "ios-arm64",
-            "ios-sim-arm64"
+            "ios-sim-arm64",
+            "macos-arm64"
           ],
-          "evidence": "@rpath/Libshaderc.framework/Libshaderc;shaderc_shared 导出 shaderc_* C API"
+          "evidence": "otool -L ios-arm64:Libplacebo, ios-sim-arm64:Libplacebo, macos-arm64:Libplacebo"
         },
         {
           "kind": "framework-source",
@@ -3032,14 +3444,14 @@
         {
           "kind": "static-transitive",
           "into": [
-            "Libplacebo"
+            "Libshaderc"
           ],
           "targets": [
             "macos-arm64",
             "ios-arm64",
             "ios-sim-arm64"
           ],
-          "evidence": "shaderc_combined 的 glslang 部分"
+          "evidence": "shaderc_shared 的 glslang 部分"
         }
       ]
     },
@@ -3068,14 +3480,14 @@
         {
           "kind": "static-transitive",
           "into": [
-            "Libplacebo"
+            "Libshaderc"
           ],
           "targets": [
             "macos-arm64",
             "ios-arm64",
             "ios-sim-arm64"
           ],
-          "evidence": "shaderc_combined 的 SPIRV-Tools 部分"
+          "evidence": "shaderc_shared 的 SPIRV-Tools 部分"
         }
       ]
     },
@@ -3109,7 +3521,7 @@
         {
           "kind": "build-time",
           "into": [
-            "Libplacebo"
+            "Libshaderc"
           ],
           "targets": [
             "macos-arm64",
@@ -3148,11 +3560,11 @@
             "Libmpv"
           ],
           "targets": [
-            "macos-arm64",
             "ios-arm64",
-            "ios-sim-arm64"
+            "ios-sim-arm64",
+            "macos-arm64"
           ],
-          "evidence": "@rpath/LibMoltenVK.framework/LibMoltenVK;iOS MoltenVK 上下文直接引用 vkGetInstanceProcAddr"
+          "evidence": "otool -L ios-arm64:Libmpv, ios-sim-arm64:Libmpv, macos-arm64:Libmpv"
         },
         {
           "kind": "framework-source",
@@ -3198,14 +3610,15 @@
         {
           "kind": "build-time",
           "into": [
-            "Libplacebo"
+            "LibMoltenVK",
+            "Libshaderc"
           ],
           "targets": [
             "macos-arm64",
             "ios-arm64",
             "ios-sim-arm64"
           ],
-          "evidence": "libplacebo/MoltenVK 构建期头文件"
+          "evidence": "MoltenVK/shaderc 构建期头文件"
         }
       ]
     },
@@ -3244,7 +3657,7 @@
         {
           "kind": "static-transitive",
           "into": [
-            "Libplacebo"
+            "LibMoltenVK"
           ],
           "targets": [
             "macos-arm64",
@@ -3280,7 +3693,7 @@
         {
           "kind": "static-transitive",
           "into": [
-            "Libplacebo"
+            "LibMoltenVK"
           ],
           "targets": [
             "macos-arm64",
@@ -3321,7 +3734,7 @@
         {
           "kind": "build-time",
           "into": [
-            "Libplacebo"
+            "LibMoltenVK"
           ],
           "targets": [
             "macos-arm64",
@@ -3357,7 +3770,7 @@
         {
           "kind": "build-time",
           "into": [
-            "Libplacebo"
+            "LibMoltenVK"
           ],
           "targets": [
             "macos-arm64",
@@ -3396,7 +3809,7 @@
         {
           "kind": "build-time",
           "into": [
-            "Libplacebo"
+            "LibMoltenVK"
           ],
           "targets": [
             "macos-arm64",
@@ -3569,8 +3982,8 @@
       "note": "静态并入含 GPL 文本/选项的组件:freetype"
     },
     {
-      "component": "Libplacebo",
-      "license": "LGPL-2.1-or-later",
+      "component": "Libshaderc",
+      "license": "Apache-2.0",
       "status": "needs-legal-review",
       "note": "静态并入含 GPL 文本/选项的组件:glslang"
     },

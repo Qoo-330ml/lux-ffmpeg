@@ -22,8 +22,8 @@
 
 最终计数(dav1d / zlib / OpenSSL 纳入后):demuxer 40、protocol 38、bsf 49、parser 66、decoder 199;相对 P1 起点
 分别新增 37、33、42、60、182,合计 354 个组件(dav1d / zlib / OpenSSL 见「外部依赖」一节;
-protocol 比 P1 D4 多 2:新增 `dtls`/`ffrtmpcrypt`,`rtmpt`/`rtmpts`/`ffrtmphttp` 保持纳入)。P1 第 5 步再加入 38 个原生滤镜,`LUX_FILTERS`
-到 45 项(见「滤镜(P1 第5步)」)。`ffmpeg-ios.conf` 是唯一真相,本文件的表格是逐项理由。
+protocol 比 P1 D4 多 2:新增 `dtls`/`ffrtmpcrypt`,`rtmpt`/`rtmpts`/`ffrtmphttp` 保持纳入)。P1 第 5 步再加入 38 个原生滤镜,`LUX_FILTERS` 到 45 项;B+ 再追加 17 个 Vulkan 滤镜,
+当前为 62 项(见「滤镜(P1 第5步)」与 B+ 一节)。`ffmpeg-ios.conf` 是唯一真相,本文件的表格是逐项理由。
 
 `mlp` 与 `webp` 不在 MPVKit 的导出符号里,但它们**确实存在**于 FFmpeg 8.1.3:
 `configure:3194` 有 `mlp_decoder_select="mlp_parser"`, `configure:3313` 有
@@ -143,6 +143,26 @@ D3(TLS 后端)与 D4 b 类收口一起决定:纳入 `tscc`(zlib)、`ffrtmpcrypt`
 验证(2026-11-10):三切片 `libz.a`/`libssl.a`/`libcrypto.a` 均为单架构 arm64,平台/最低版本为
 MACOS 14.0 / IOS 17.0 / IOSSIMULATOR 17.0(`vtool -show-build`);`config.h` 的
 `CONFIG_GPL`/`CONFIG_NONFREE`/`CONFIG_VERSION3` 均为 0。
+
+### a) B+ 外部依赖:Vulkan 运行时(LibMoltenVK / Libshaderc,2026-11-10)
+
+B+ 把 MoltenVK 与 shaderc 从 Libplacebo 内部拆成两个独立的共享 framework;
+FFmpeg 只负责调用,不再静态吞入。
+
+| 项 | LibMoltenVK | Libshaderc |
+| --- | --- | --- |
+| 用途 | `libavutil/hwcontext_vulkan` 的 Vulkan 实现;`Libmpv` 的 iOS MoltenVK 上下文 | FFmpeg 17 个 `*_vulkan` 滤镜与 swscale Vulkan 后端的运行时 GLSL 编译 |
+| 版本 | **1.4.2** | **2025.5**(`shaderc_shared`) |
+| 许可 | Apache-2.0 | Apache-2.0;静态内含 glslang(按文件含 GPL-3.0-with-bison-exception,待法务确认) |
+| 来源 | `deps.lock` 的 `moltenvk`(自存源码包) | `deps.lock` 的 `shaderc` + glslang/SPIRV-Tools/SPIRV-Headers(自存源码包) |
+| 形态 | 动态 `LibMoltenVK.framework`(`@rpath/LibMoltenVK.framework/LibMoltenVK`) | 动态 `Libshaderc.framework`(`@rpath/Libshaderc.framework/Libshaderc`) |
+| 消费者 | `Libmpv` 直接链接;`libavutil` 运行期 `dlopen` | `Libplacebo`、`Libavfilter`、`Libswscale` 动态链接 |
+| 构建 | `build-moltenvk.sh <target>` | `build-deps.sh <target> shaderc` |
+| 许可文本 | `lux/release/licenses/moltenvk/LICENSE` | `lux/release/licenses/shaderc/LICENSE` |
+
+FFmpeg 侧开关:`--enable-vulkan` + `--enable-libshaderc`;`CONFIG_VULKAN=1`、
+`CONFIG_LIBSHADERC=1`,`CONFIG_VERSION3` 仍为 0。`avgblur/bwdif/scale` 三个滤镜需要
+构建期 host `glslc`(`build-host-tools.sh`,源码来自锁定的 shaderc),不依赖 Homebrew。
 
 ### b) 需要外部库:已按所有者决定纳入(zlib / OpenSSL)
 
@@ -361,7 +381,7 @@ P1 D4 只补了 demuxer/protocol/decoder/parser/bsf,没有动 filter。本步以
 - **b) 需要外部库或 GPU 工具链(12 项)**:本步不加,逐条登记。
 - **c) 核心内建端点(4 项)**:不属于 configure 白名单,只做说明。
 
-`LUX_FILTERS` 最终为 7(原有)+ 38 = **45 项**;`LUX_FILTERS_METAL` 与补丁集未改动。
+`LUX_FILTERS` 最终为 **62 项**(P1 的 45 项 + B+ 追加的 17 个 Vulkan 滤镜);`LUX_FILTERS_METAL` 的 4 项另计。
 下表「类别」一列取 **必须** / **可选** / **有意不要** 三档;本步 A 类都是必须或可选,
 没有「有意不要」的项(A 类既然要补,就不存在主动放弃的条目)。
 
@@ -425,7 +445,7 @@ P1 D4 只补了 demuxer/protocol/decoder/parser/bsf,没有动 filter。本步以
 | `ass` | `configure:4089` 要求 `libass` | 字幕渲染;播放器侧已由 libass 负责,是否内置到 FFmpeg 单独评估。 |
 | `subtitles` | `configure:4220` 要求 `avformat avcodec` + `libass` | 把字幕烧进视频帧;同上,依赖 libass。 |
 | `libplacebo` | `configure:4155` 要求 `libplacebo` + `vulkan` | GPU 色调映射/缩放,与现有 Metal/VideoToolbox 路径重叠,后续评估。 |
-| `blend_vulkan` | `configure:4095` 要求 `vulkan` + `spirv_library`(shaderc) | Vulkan 计算滤镜;当前 `--disable-vulkan`,GPU 路径由 Metal/VT 承担。 |
+| `blend_vulkan` | `configure:4095` 要求 `vulkan` + `spirv_library`(shaderc) | **已启用**(B+);运行时 shaderc,GPU 路径与 Metal/VT 并存。 |
 | `chromaber_vulkan` | `configure:4103` 同上 | 色差模拟;Vulkan 工具链。 |
 | `flip_vulkan` | `configure:4133` 同上 | Vulkan 翻转。 |
 | `gblur_vulkan` | `configure:4142` 同上 | Vulkan 高斯模糊。 |
@@ -442,12 +462,12 @@ P1 D4 只补了 demuxer/protocol/decoder/parser/bsf,没有动 filter。本步以
 | `asrc:abuffer` / `asink:abuffer` | 音频滤镜图的输入/输出端点,由 libavfilter 核心无条件注册(见 `configure` 的 `print_enabled_components`,filter_list 固定追加 4 个 buffer 端点),没有 `CONFIG_*_FILTER` 开关。 |
 | `vsrc:buffer` / `vsink:buffer` | 视频滤镜图的输入/输出端点,同上。 |
 
-它们不是 `--enable-filter=` 能打开的名字,因此不写入 `LUX_FILTERS`,也不参与 45 项的计数。
+它们不是 `--enable-filter=` 能打开的名字,因此不写入 `LUX_FILTERS`,也不参与 62 项的计数。
 
 ### 本步验证口径(2026-11-10)
 
 - `configure --list-filters` 中 A 类 38 项全部存在(另 5 项原有滤镜也在);`verify-license.sh` 的
-  filter 对账为 45 项全部生效,且没有「额外启用(configure 自动 select)」警告。
+  filter 对账为 62 项全部生效(B+ 之后),且没有「额外启用(configure 自动 select)」警告。
 - `macos-arm64`、`ios-arm64`、`ios-sim-arm64` 三切片:`verify-license.sh` = 0 failures、1 warning
   (仅 Metal Toolchain 未安装,`CONFIG_METAL=0`)。
 - 体积:`libavfilter.a` 相对 76944df 的基线(315208 / 312136 / 315296 字节)增至

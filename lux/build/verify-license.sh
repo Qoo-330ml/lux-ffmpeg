@@ -320,6 +320,19 @@ EOF
         fail "无法从 libavcodec.a 抽出 version.o 做 vtool 检查"
     fi
 
+    # ---------------------------------------------------------------- 6b. B+ Vulkan 运行时开关
+    local cfg_h="$build/config.h"
+    if grep -q '^#define CONFIG_VULKAN 1$' "$cfg_h"; then
+        pass "CONFIG_VULKAN=1"
+    else
+        fail "CONFIG_VULKAN 不是 1(B+ 的 Vulkan 运行时未编入)"
+    fi
+    if grep -q '^#define CONFIG_LIBSHADERC 1$' "$cfg_h"; then
+        pass "CONFIG_LIBSHADERC=1"
+    else
+        fail "CONFIG_LIBSHADERC 不是 1(--enable-libshaderc 未生效)"
+    fi
+
     # ---------------------------------------------------------------- 7. 组件对账
     local cc="$build/config_components.h"
     local kind suffix want enabled_list extra

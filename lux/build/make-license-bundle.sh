@@ -93,6 +93,17 @@ STACK_SOURCE = {
     "Libfribidi": "fribidi",
     "Libuchardet": "uchardet",
 }
+# B+:独立的共享 Vulkan 运行时 framework。它们不从 mpv-frameworks/ 读,
+# 而是 build-vulkan-frameworks.sh 产出到 vulkan-frameworks/<target>/slice/。
+VULKAN_FRAMEWORKS = ["LibMoltenVK", "Libshaderc"]
+VULKAN_STEMS = {
+    "LibMoltenVK": "libMoltenVK",
+    "Libshaderc": "libshaderc",
+}
+VULKAN_SOURCE = {
+    "LibMoltenVK": "moltenvk",
+    "Libshaderc": "shaderc",
+}
 FRAMEWORK_SLICE = {
     "macos-arm64": "macos-arm64",
     "ios-arm64": "ios-arm64",
@@ -259,17 +270,15 @@ STATIC_LINKAGE = {
     "harfbuzz": ("static", ["Libmpv"], "harfbuzz.a 静态链接;nm -gU 可查到 _hb_* 符号"),
     "libunibreak": ("static", ["Libmpv"], "libunibreak.a 静态链接;nm -gU 可查到 _init_linebreak 等符号"),
     "lcms2": ("static", ["Libplacebo"], "lcms2.a 静态链接;nm -gU 可查到 _cms* 符号"),
-    "moltenvk": ("static", ["Libplacebo"], "vulkan.pc 提供 -lMoltenVK;nm -gU 可查到 _vk* 符号"),
-    "shaderc": ("static", ["Libplacebo"], "shaderc.pc 提供 -lshaderc_combined;二进制内有 shaderc_util 符号"),
-    "spirv-cross": ("static-transitive", ["Libplacebo"], "MoltenVK ExternalDependencies 的 libSPIRVCross.a"),
-    "spirv-tools": ("static-transitive", ["Libplacebo"], "shaderc_combined 的 SPIRV-Tools 部分"),
-    "spirv-tools-mvk": ("static-transitive", ["Libplacebo"], "MoltenVK ExternalDependencies 的 libSPIRVTools.a"),
-    "glslang": ("static-transitive", ["Libplacebo"], "shaderc_combined 的 glslang 部分"),
-    "spirv-headers": ("build-time", ["Libplacebo"], "shaderc 构建期头文件"),
-    "spirv-headers-mvk": ("build-time", ["Libplacebo"], "MoltenVK/SPIRV-Tools 构建期头文件"),
-    "vulkan-headers": ("build-time", ["Libplacebo"], "libplacebo/MoltenVK 构建期头文件"),
-    "volk": ("build-time", ["Libplacebo"], "MoltenVK 构建期 Vulkan 加载器源码/头文件"),
-    "cereal": ("build-time", ["Libplacebo"], "MoltenVK 构建期头文件"),
+    "spirv-cross": ("static-transitive", ["LibMoltenVK"], "MoltenVK ExternalDependencies 的 libSPIRVCross.a"),
+    "spirv-tools": ("static-transitive", ["Libshaderc"], "shaderc_shared 的 SPIRV-Tools 部分"),
+    "spirv-tools-mvk": ("static-transitive", ["LibMoltenVK"], "MoltenVK ExternalDependencies 的 libSPIRVTools.a"),
+    "glslang": ("static-transitive", ["Libshaderc"], "shaderc_shared 的 glslang 部分"),
+    "spirv-headers": ("build-time", ["Libshaderc"], "shaderc 构建期头文件"),
+    "spirv-headers-mvk": ("build-time", ["LibMoltenVK"], "MoltenVK/SPIRV-Tools 构建期头文件"),
+    "vulkan-headers": ("build-time", ["LibMoltenVK", "Libshaderc"], "MoltenVK/shaderc 构建期头文件"),
+    "volk": ("build-time", ["LibMoltenVK"], "MoltenVK 构建期 Vulkan 加载器源码/头文件"),
+    "cereal": ("build-time", ["LibMoltenVK"], "MoltenVK 构建期头文件"),
     "fast_float": ("header-only", ["Libplacebo"], "libplacebo 构建期头文件"),
     "dav1d": ("static", ["Libavcodec"], "libdav1d.a 静态链接;nm -g 可查到 _dav1d_* 符号"),
     "zlib": ("static", ["Libavcodec", "Libavformat"], "libz.a 静态链接;nm -g 可查到 _inflate* 符号"),
@@ -718,6 +727,25 @@ def find_stack_binary(
     real = [p for p in candidates if p.is_file() and not p.is_symlink()]
     if real:
         path = real[0]
+        return path, "dylib", f"otool -L {repo_rel(path, lux.parent)}"
+    return None, "missing", ""
+
+
+def find_vulkan_binary(
+    lux: Path, target: str, framework: str, artifact_root: Path | None = None
+) -> tuple[Path | None, str, str]:
+    """B+ Vulkan framework:优先 vulkan-frameworks/<target>/slice,回退 deps dylib。"""
+    roots = [lux / ".build"]
+    if artifact_root is not None and artifact_root != lux / ".build":
+        roots.append(artifact_root)
+    for root in roots:
+        fw_path = root / "vulkan-frameworks" / target / "slice" / f"{framework}.framework" / framework
+        if fw_path.is_file():
+            return fw_path, "framework", f"otool -L {display_path(fw_path, artifact_root or root, lux.parent)}"
+    libdir = lux / ".build" / "deps" / target / "install" / "lib"
+    stem = VULKAN_STEMS[framework]
+    path = libdir / f"{stem}.dylib"
+    if path.is_file():
         return path, "dylib", f"otool -L {repo_rel(path, lux.parent)}"
     return None, "missing", ""
 
@@ -1199,6 +1227,72 @@ def main() -> int:
 
         stack_targets[target] = {"frameworks": frameworks}
 
+    # ---------------------------------------------------------------- Vulkan 运行时
+    vulkan_targets: dict[str, dict] = {}
+    vulkan_missing: list[dict] = []
+    for target in targets:
+        frameworks: dict[str, dict] = {}
+        for fw in VULKAN_FRAMEWORKS:
+            binary, kind, command = find_vulkan_binary(lux, target, fw, artifact_root)
+            entry: dict = {
+                "binary": repo_rel(binary, repo) if binary else None,
+                "binary_kind": kind,
+                "otool_command": command or None,
+                "dynamic_dependencies": [],
+                "system_dependencies": [],
+                "non_system_dependencies": [],
+            }
+            if binary is None:
+                vulkan_missing.append(
+                    {
+                        "kind": "vulkan-binary",
+                        "name": f"{target}:{fw}",
+                        "detail": "vulkan-frameworks/<target>/slice 与 deps/<target>/install/lib 下都没有二进制",
+                    }
+                )
+                frameworks[fw] = entry
+                continue
+
+            deps_paths, err = otool_dependencies(binary)
+            if err:
+                vulkan_missing.append(
+                    {"kind": "otool-failed", "name": f"{target}:{fw}", "detail": err}
+                )
+            for raw in deps_paths:
+                norm = normalize_path(raw, target, repo)
+                if raw.startswith("/usr/lib/") or raw.startswith("/System/"):
+                    entry["system_dependencies"].append(norm)
+                    continue
+                dep_name, framework_name = map_dependency(raw)
+                item = {
+                    "raw": norm,
+                    "deps_lock_name": dep_name,
+                    "framework": framework_name,
+                    "license": (
+                        dep_by_name[dep_name]["license"] if dep_name in dep_by_name else "待法务确认"
+                    ),
+                }
+                entry["non_system_dependencies"].append(item)
+                entry["dynamic_dependencies"].append(norm)
+                if dep_name:
+                    dynamic_into.setdefault(dep_name, set()).add(fw)
+                    dynamic_targets.setdefault(dep_name, set()).add(target)
+                else:
+                    anomalies.append(
+                        {
+                            "kind": "unmapped-dependency",
+                            "name": f"{target}:{fw}",
+                            "detail": f"otool -L 依赖未在 deps.lock 找到来源: {norm}",
+                        }
+                    )
+            source_name = VULKAN_SOURCE[fw]
+            source_dep = dep_by_name.get(source_name, {})
+            entry["source_dependency"] = source_name
+            entry["license"] = source_dep.get("license", "待法务确认")
+            entry["license_status"] = source_dep.get("license_status", "needs-legal-review")
+            frameworks[fw] = entry
+        vulkan_targets[target] = {"frameworks": frameworks}
+
     # 静态并入的符号证据
     static_evidence: dict[str, dict[str, list[str]]] = {}
     probes = {
@@ -1212,7 +1306,7 @@ def main() -> int:
     }
     for target in targets:
         for fw, needles in (("Libmpv", ["libass", "freetype", "harfbuzz", "libunibreak"]),
-                            ("Libplacebo", ["lcms2", "moltenvk", "shaderc"])):
+                            ("Libplacebo", ["lcms2"])):
             binary, kind, _ = find_stack_binary(lux, target, fw, artifact_root)
             if binary is None:
                 continue
@@ -1262,6 +1356,48 @@ def main() -> int:
                 "license_files": source_dep.get("license_files", []),
                 "targets": {
                     target: stack_targets[target]["frameworks"].get(fw, {})
+                    for target in targets
+                },
+                "statically_linked": static_items,
+            }
+        )
+
+    # B+:Vulkan 运行时 framework 组件
+    vulkan_components: list[dict] = []
+    for fw in VULKAN_FRAMEWORKS:
+        source_name = VULKAN_SOURCE[fw]
+        source_dep = dep_by_name.get(source_name, {})
+        static_items = []
+        for dep_name, (kind, into, evidence) in STATIC_LINKAGE.items():
+            if fw not in into:
+                continue
+            item = {"name": dep_name, "kind": kind, "evidence": evidence}
+            symbol_hits = static_evidence.get(dep_name, {})
+            if symbol_hits:
+                item["symbol_evidence"] = {
+                    target: hits for target, hits in symbol_hits.items()
+                }
+            static_items.append(item)
+        bundled_gpl = [
+            item["name"]
+            for item in static_items
+            if dep_by_name.get(item["name"], {}).get("gpl_or_nonfree_terms")
+        ]
+        component_status = source_dep.get("license_status", "needs-legal-review")
+        if bundled_gpl:
+            component_status = "needs-legal-review"
+        vulkan_components.append(
+            {
+                "name": fw,
+                "kind": "vulkan-framework",
+                "source_dependency": source_name,
+                "license": source_dep.get("license", "待法务确认"),
+                "license_status": component_status,
+                "license_notes": source_dep.get("license_notes", ""),
+                "bundled_gpl_review": bundled_gpl,
+                "license_files": source_dep.get("license_files", []),
+                "targets": {
+                    target: vulkan_targets[target]["frameworks"].get(fw, {})
                     for target in targets
                 },
                 "statically_linked": static_items,
@@ -1330,6 +1466,24 @@ def main() -> int:
                     "evidence": "Libuchardet.framework 的二进制来自 uchardet 0.0.8 构建",
                 }
             )
+        if name == "moltenvk":
+            links.append(
+                {
+                    "kind": "framework-source",
+                    "into": ["LibMoltenVK"],
+                    "targets": targets,
+                    "evidence": "LibMoltenVK.framework 的二进制来自 MoltenVK 1.4.2 libMoltenVK.a",
+                }
+            )
+        if name == "shaderc":
+            links.append(
+                {
+                    "kind": "framework-source",
+                    "into": ["Libshaderc"],
+                    "targets": targets,
+                    "evidence": "Libshaderc.framework 的二进制来自 shaderc 2025.5 shaderc_shared",
+                }
+            )
         if not links:
             links.append(
                 {
@@ -1386,7 +1540,7 @@ def main() -> int:
 
     # 待法务确认条目汇总
     review_items: list[dict] = []
-    for comp in stack_components:
+    for comp in stack_components + vulkan_components:
         if comp.get("bundled_gpl_review"):
             review_items.append(
                 {
@@ -1463,6 +1617,7 @@ def main() -> int:
             }
         )
     missing.extend(stack_missing)
+    missing.extend(vulkan_missing)
 
     # 去重 missing
     seen_missing = set()
@@ -1491,7 +1646,7 @@ def main() -> int:
         "schema_version": SCHEMA_VERSION,
         "draft": True,
         "draft_notice": DRAFT,
-        "scope": "FFmpeg 六库 + libmpv 栈(Libmpv/Libplacebo/Libfribidi/Libuchardet)及其非系统依赖",
+        "scope": "FFmpeg 六库 + libmpv 栈(Libmpv/Libplacebo/Libfribidi/Libuchardet) + Vulkan 运行时(LibMoltenVK/Libshaderc)及其非系统依赖",
         "generated_by": "lux/build/make-license-bundle.sh",
         "repository": {
             "name": "lux-ffmpeg",
@@ -1521,7 +1676,26 @@ def main() -> int:
                 )
             ],
         },
-        "components": ffmpeg_components + stack_components,
+        "vulkan_stack": {
+            "targets": vulkan_targets,
+            "components": vulkan_components,
+            "non_system_dependencies": [
+                {
+                    "target": target,
+                    "framework": fw,
+                    "raw": dep["raw"],
+                    "deps_lock_name": dep["deps_lock_name"],
+                    "framework_dependency": dep["framework"],
+                    "license": dep["license"],
+                }
+                for target in targets
+                for fw in VULKAN_FRAMEWORKS
+                for dep in vulkan_targets[target]["frameworks"].get(fw, {}).get(
+                    "non_system_dependencies", []
+                )
+            ],
+        },
+        "components": ffmpeg_components + stack_components + vulkan_components,
         "dependencies": dep_records,
         "missing": missing,
         "anomalies": anomalies,
@@ -1648,6 +1822,25 @@ def main() -> int:
             )
     lines.append("")
 
+    lines.append("## 3b. Vulkan 运行时 Framework(LibMoltenVK / Libshaderc)")
+    lines.append("")
+    lines.append("| 目标 | Framework | 二进制来源 | 许可(源码,草稿) | 状态 |")
+    lines.append("| --- | --- | --- | --- | --- |")
+    for target in targets:
+        for fw in VULKAN_FRAMEWORKS:
+            entry = vulkan_targets[target]["frameworks"].get(fw, {})
+            comp = next((c for c in vulkan_components if c["name"] == fw), {})
+            lines.append(
+                "| {t} | {fw} | {src} | {lic} | {st} |".format(
+                    t=md(target),
+                    fw=md(fw),
+                    src=md(entry.get("binary") or "缺失"),
+                    lic=md(comp.get("license", "待法务确认")),
+                    st=md(status_cn(comp.get("license_status", "needs-legal-review"))),
+                )
+            )
+    lines.append("")
+
     lines.append("## 4. Libmpv 栈的直接非系统依赖(otool -L)")
     lines.append("")
     for target in targets:
@@ -1670,8 +1863,12 @@ def main() -> int:
         if not any_dep:
             lines.append("| - | 无(或二进制缺失) | - |")
         lines.append("")
-        for fw in STACK_FRAMEWORKS[1:]:
-            entry = stack_targets[target]["frameworks"].get(fw, {})
+        for fw in STACK_FRAMEWORKS[1:] + VULKAN_FRAMEWORKS:
+            entry = (
+                stack_targets[target]["frameworks"].get(fw, {})
+                if fw in STACK_FRAMEWORKS
+                else vulkan_targets[target]["frameworks"].get(fw, {})
+            )
             if entry.get("binary") and not entry.get("non_system_dependencies"):
                 lines.append(f"- `{fw}`:otool -L 只有系统库,没有非系统动态依赖。")
         lines.append("")
@@ -1835,7 +2032,7 @@ def main() -> int:
     log(
         "summary: "
         f"deps={len(dep_records)}, "
-        f"components={len(ffmpeg_components) + len(stack_components)}, "
+        f"components={len(ffmpeg_components) + len(stack_components) + len(vulkan_components)}, "
         f"license_files={sum(len(r['license_files']) for r in dep_records) + len(ffmpeg_files)}, "
         f"missing={len(missing)}, anomalies={len(anomalies)}, review={len(review_items)}"
     )

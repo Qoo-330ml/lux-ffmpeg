@@ -1,46 +1,59 @@
-# lux-ffmpeg — F0:LGPL 最小构建 spike(+ F1:动态 framework)
+# lux-ffmpeg — LGPL FFmpeg / libmpv 构建记录(F0 → B+)
+
+> **当前基线(B+,2026-11-10)**:FFmpeg 8.1.3 + 15 个补丁;三个切片共 6 个 FFmpeg
+> framework、4 个 mpv 栈 framework、2 个 Vulkan framework;许可
+> **LGPL-2.1-or-later**;62 项滤镜白名单(另 4 项 Metal 滤镜待 Metal Toolchain);
+> `deps.lock` 24 项。构建参数以 `lux/config/ffmpeg-ios.conf` 为准,当期产物与校验见
+> §15–§17。
+>
+> 本文件按阶段累积记录:F0–F2 段落里的耗时、体积是当时实测的存档;许可、补丁条数、
+> framework 数量这类会漂移的事实以本段和最新章节为准。
 
 > F1(动态 framework / xcframework,给 Swift 直接 `import`)见 **§12**,产物在
 > `lux/.build/xcframeworks/`,验证脚本是 `lux/build/verify-frameworks.sh`。
-> 本节(F0)保持原样,静态产物与 `verify-license.sh` 仍然有效。
+> F0 的静态产物与 `verify-license.sh` 仍然有效。
 
-**结论:能出。** 用 jellyfin-ffmpeg `v8.1.3-2`(FFmpeg 8.1.3)的同一份 `configure` 配置,
+**F0 结论:能出。** 用 jellyfin-ffmpeg `v8.1.3-2`(FFmpeg 8.1.3)的同一份 `configure` 配置,
 在本机 arm64 macOS、iOS device(arm64)、iOS simulator(arm64)上各出一套**只含 LGPL 组件**的
 静态库(`.a`),三套都通过本目录的许可/组件/平台检查,并且在 macOS 上用一个最小 C 程序真的读了一个
 合成 mkv(H.264 + AAC)。
 
-一句话的取舍:F0 不做动态 framework(那是 F1),不做网络/TLS,不开 avfilter/swscale,
-所有产物都是静态 `.a`。**静态链接 + LGPLv3 的分发合规问题依然存在**,F0 只负责证明"能编、
-是 LGPL、能用"。
+F0 当时的取舍是不做动态 framework(那是 F1)、不做网络/TLS、不开 avfilter/swscale,所有产物都是
+静态 `.a`。**静态链接 + LGPL-2.1 的分发合规问题依然存在**,F0 只负责证明"能编、是 LGPL、能用";
+后续阶段(F1/F2/B+)已经把动态 framework、网络/TLS、avfilter/swscale、libmpv 和 Vulkan 补上。
 
 ---
 
 ## 1. 速览
 
+下表是**当前 B+ 构建**的实测值(`BUILD-INFO.txt`,每次构建重写)。F0 当时的 9.2 MB 静态库数字
+保留在 §6–§7 的历史记录里。
+
 | | macOS arm64 | iOS device | iOS simulator |
 | --- | --- | --- | --- |
 | 构建命令 | `./lux/build/build-ffmpeg.sh macos-arm64` | `... ios-arm64` | `... ios-sim-arm64` |
-| SDK | macosx 26.5 | iphoneos 26.5 | iphonesimulator 26.5 |
+| SDK | macosx 27.2 | iphoneos 27.2 | iphonesimulator 27.2 |
 | 最低系统 | macOS 14.0 | iOS 17.0 | iOS-simulator 17.0 |
-| configure 输出 | `License: LGPL version 3 or later` | 同 | 同 |
-| 耗时(实测,`-j10`) | **50–73 s**(configure 29–54 s) | **50–57 s**(configure 29–35 s) | **60–72 s**(configure 38–43 s) |
+| configure 输出 | `License: LGPL version 2.1 or later` | 同 | 同 |
+| 耗时(单次实测,`-j10`) | **94 s**(configure 35 s) | **138 s**(configure 40 s) | **138 s**(configure 40 s) |
 | 产物 | `lux/.build/<target>/install/lib/*.a` | 同 | 同 |
-| 合计 | 9,201,200 B(8.77 MiB) | 9,068,056 B(8.65 MiB) | 9,196,312 B(8.77 MiB) |
+| 合计 | 76,974,592 B(73.41 MiB) | 76,261,904 B(72.73 MiB) | 77,033,264 B(73.46 MiB) |
 
-各库大小(F2 起 avfilter/swscale 进产物;`lib/` 下仍然不会出现 avdevice):
+各库大小(B+;avfilter/swscale/Vulkan 滤镜都在产物里,`lib/` 下仍然不会出现 avdevice):
 
 | 库 | macOS arm64 | iOS device | iOS sim arm64 |
 | --- | --- | --- | --- |
-| `libavformat.a` | 1,175,416 | 1,161,104 | 1,175,248 |
-| `libavcodec.a` | 5,113,344 | 5,009,048 | 5,108,568 |
-| `libavfilter.a` | 306,424 | 303,360 | 306,512 |
-| `libswscale.a` | 1,450,464 | 1,442,680 | 1,450,472 |
-| `libswresample.a` | 136,120 | 133,024 | 136,200 |
-| `libavutil.a` | 1,019,432 | 1,018,840 | 1,019,312 |
-| **合计** | **9,201,200** | **9,068,056** | **9,196,312** |
+| `libavformat.a` | 11,564,312 | 11,521,776 | 11,577,824 |
+| `libavcodec.a` | 45,557,048 | 44,990,544 | 45,584,392 |
+| `libavfilter.a` | 9,381,664 | 9,332,992 | 9,388,576 |
+| `libswscale.a` | 5,837,688 | 5,831,192 | 5,840,160 |
+| `libswresample.a` | 429,960 | 422,856 | 430,896 |
+| `libavutil.a` | 4,203,920 | 4,162,544 | 4,211,416 |
+| **合计** | **76,974,592** | **76,261,904** | **77,033,264** |
 
-以上数字是 `BUILD-INFO.txt` 里的实测值(每次构建重写)。耗时随磁盘缓存/并发波动,上表给的是多次实测的区间(单目标、串行、`-j10`;三个目标同时构建时单个会到 ~105 s)。整棵 `lux/.build/`(源码树外编译目录 +
-日志 + 夹具 + 三个目标)约 **112 MB**。
+耗时随磁盘缓存/并发波动,上表给的是 B+ 这一轮的 `BUILD-INFO.txt` 记录(单目标、串行、`-j10`)。
+整棵 `lux/.build/`(源码树外编译目录 + 依赖源码/构建缓存 + 三切片 + xcframework/dSYM 等)
+约 **22 GB**,其中 `deps/` 约占 14 GB。
 
 ## 2. 目录
 
@@ -53,29 +66,47 @@ lux/config/mpv-patches.txt     # mpv 补丁集的顺序(build-mpv.sh 读它)
 lux/patches/*.patch            # 刷新过的 FFmpeg 移植补丁(事实来源,见 §6.2)
 lux/patches/mpv/*.patch        # mpv 源码补丁(iOS MoltenVK 上下文)
 lux/docs/patch-triage.md       # 106 个 jellyfin 补丁的分诊结论
+lux/docs/release-package.md    # 发布包结构、对应源码与校验(§15 / P3)
+lux/docs/tls-13-probe.md       # Secure Transport → OpenSSL 的 TLS 1.3 实测
 lux/build/build-ffmpeg.sh      # macos-arm64 | ios-arm64 | ios-sim-arm64 | clean
+lux/build/build-frameworks.sh  # 动态 FFmpeg framework + xcframework(zip/checksum)
+lux/build/build-mpv.sh         # libmpv(链接 FFmpeg 静态库与 mpv 栈依赖)
 lux/build/build-moltenvk.sh    # MoltenVK 1.4.2 静态库 + 共享 dylib
 lux/build/build-host-tools.sh  # host glslc(从锁定的 shaderc 源码)
 lux/build/build-vulkan-frameworks.sh # LibMoltenVK/Libshaderc framework + xcframework
+lux/build/build-mpv-frameworks.sh    # Libmpv/Libplacebo/Libfribidi/Libuchardet
 lux/build/apply-patches.sh     # 补丁集 apply/check/revert/status/digest
 lux/build/verify-license.sh    # 许可 / 符号 / 平台 / 组件对账 / 补丁指纹,失败非零退出
+lux/build/verify-frameworks.sh # 动态 FFmpeg framework / xcframework / 大小写敏感卷
+lux/build/verify-mpv-frameworks.sh # mpv 栈 framework 的 install name/依赖/签名
+lux/build/verify-release-package.sh # 发布包 SHA256SUMS / 12 个 zip / 源码包
 lux/build/fetch-deps.sh        # 按 deps.lock 取依赖源码,下载后强制校验 sha256(§16)
 lux/build/check-deps-lock.sh   # 全量核对 deps.lock:URL 当前字节 + 自存副本,日志写 lux/.build/logs/
 lux/build/install-glad.sh      # 按 requirements-glad.txt 的 hash 装 glad2 到 pydeps
+lux/build/make-license-bundle.sh    # NOTICE.md / source-manifest.json 生成
+lux/build/make-release-package.sh   # 发布目录 + 对应源码包 + SHA256SUMS
 lux/config/deps.lock           # 依赖源码锁:版本 + sha256 + selfstore(自存路径)
 lux/config/requirements-glad.txt # glad2 / Jinja2 / MarkupSafe 的 hash 锁
+lux/release/NOTICE.md          # 依赖/链接关系/许可事实(草稿,待法务确认)
+lux/release/source-manifest.json # NOTICE 的机器可读版本
+lux/release/licenses/          # 各组件许可文本
 lux/release/sources/           # 自存的依赖源码包(git 忽略,只在本机;见 §16)
+lux/release/fetch-lux-ffmpeg.sample.sh # lux-client 侧下载脚本草案
 lux/test/read_mkv.c            # 最小 C 程序:读 mkv,打印流信息/时长/首关键帧偏移
 lux/test/patch_probe.c         # 补丁公开 API 探针(0001/0005/0006)
 lux/test/hevc12_probe.c        # 12-bit HEVC:VT 候选 + 回退(0004)
+lux/test/av1_probe.c           # AV1:libdav1d 与原生 av1 的软解能力对比
+lux/test/https_probe.c         # https/http/tls 协议探针(URL 只从环境变量读)
+lux/test/tls_probe.c           # TLS 1.3-only / 1.2-only 双服务端回归
+lux/test/mpv_smoke.c           # libmpv 无头播放 + render 冒烟
 lux/test/vulkan_probe.c        # B+:libavutil 通过 MoltenVK 建 Vulkan device
-lux/test/run.sh                # 合成夹具 → 编译三个 C 程序 → 运行 → 断言
+lux/test/run.sh                # 合成夹具 → 编译/运行各探针 → 断言
 lux/.build/                    # 全部产物(git 忽略)
 ```
 
 ## 3. 环境要求
 
-- macOS + Xcode(Xcode 26.6 / SDK 26.5 上实测);
+- macOS + Xcode(Xcode 27.2 / SDK 27.2 上实测;B+ 的 `BUILD-INFO.txt` 也记录同一套 SDK);
 - `xcrun --sdk iphoneos|iphonesimulator --show-sdk-path` 可用;
 - GNU make + clang(`/usr/bin/make` 3.81 实测可用);
 - 合成夹具需要 PATH 里有带 `libx264` 的 `ffmpeg`(本机用 `/opt/homebrew/bin/ffmpeg 9.0.2`);
@@ -93,8 +124,9 @@ lux/.build/                    # 全部产物(git 忽略)
 
 要点:
 
-- **源码树外构建**:`configure` 在 `lux/.build/<target>/` 里跑(源码树里除了 `lux/**` 和两个
-  上游补丁文件,没有任何改动);
+- **源码树外构建**:`configure` 在 `lux/.build/<target>/` 里跑;上游源码树只被
+  `lux/patches/` 的补丁临时修改(构建前 `apply-patches.sh ensure`,提交前用
+  `apply-patches.sh revert` 恢复),仓库里的持久改动只有 `lux/**` 和补丁文件本身;
 - **临时文件不出仓**:脚本把 `TMPDIR`/`TMP`/`TEMP` 指到 `lux/.build/tmp`,并设
   `CLANG_MODULE_CACHE_PATH`。构建后检查过 `$(getconf DARWIN_USER_TEMP_DIR)`、`/tmp`、
   `/private/tmp`,没有残留的 `ffconf*`;
@@ -115,38 +147,41 @@ lux/.build/                    # 全部产物(git 忽略)
 它做 8 组检查,任何一条失败即非零退出:
 
 1. 六个 `.a` 齐全,且**没有** `libavdevice.a`/`libpostproc.a`;
-2. `config.h`:`CONFIG_GPL 0`、`CONFIG_NONFREE 0`、`CONFIG_VERSION3 1`、`CONFIG_LGPLV3 1`、
-   `CONFIG_AVFILTER 1`、`CONFIG_SWSCALE 1`、`CONFIG_AVDEVICE 0`、`CONFIG_NETWORK 0`;
-3. `configure` 日志里的 `License:` 行必须是 `License: LGPL version 3 or later`;参数里不得有
+2. `config.h`:`CONFIG_GPL 0`、`CONFIG_NONFREE 0`、`CONFIG_VERSION3 0`、`CONFIG_LGPLV3 0`、
+   `CONFIG_AVFILTER 1`、`CONFIG_SWSCALE 1`、`CONFIG_AVDEVICE 0`、`CONFIG_NETWORK 1`、
+   `CONFIG_OPENSSL 1`、`CONFIG_ZLIB 1`、`CONFIG_SECURETRANSPORT 0`;
+3. `configure` 日志里的 `License:` 行必须是 `License: LGPL version 2.1 or later`;参数里不得有
    GPL/nonfree/外部编码库;
 4. `avutil_license()`:macOS 目标编译并运行探针(输出必须以 `LGPL` 开头);iOS 目标不能运行,
-   改为检查 `libavutil.a` 里内嵌的许可标识(`libavutil license: LGPL version 3 or later`),
+   改为检查 `libavutil.a` 里内嵌的许可标识(`libavutil license: LGPL version 2.1 or later`),
    并确认没有 `GPL`/`nonfree` 标识;
-5. **GPL 源文件审计**:用 `*.d` 依赖文件反查每个 `.o` 的源文件(本例 417 个),扫源码头里的
+5. **GPL 源文件审计**:用 `*.d` 依赖文件反查每个 `.o` 的源文件(B+ 为 951 个),扫源码头里的
    GPL 标记(LGPL 的 "Lesser" 不算);有 GPL 源文件被编译就失败。另外单独确认已知的两个上游
    GPL 目标文件不在归档里;
-6. 符号表:四个 `.a` 的 `nm` 里没有 `x264|x265|fdk|xvid|vidstab|postproc|mp3lame|theora|dav1d|
-   libvpx|libass|freetype|gnutls|openssl|…`(libvpx 按它自己的 API 名 `vpx_codec_`/`vpx_img_`
-   匹配;FFmpeg 内建的 `_ff_vpx_*` 是 LGPL 的 VP8 range coder,不算外部库);
-   同时正向确认每个库都有 `av*/swr*` 符号(不是空归档);
+6. 符号表:六个 `.a` 的 `nm` 里没有 `x264|x265|fdk|xvid|vidstab|postproc|mp3lame|theora|
+   libvpx|libass|freetype|gnutls|…`(libvpx 按它自己的 API 名 `vpx_codec_`/`vpx_img_`
+   匹配;FFmpeg 内建的 `_ff_vpx_*` 是 LGPL 的 VP8 range coder,不算外部库)。
+   `dav1d`/`zlib`/`OpenSSL` 是白名单内静态并入的依赖,`Libavfilter`/`Libswscale` 动态引用的
+   `shaderc_*` 是 B+ 的共享运行时,这三类不走禁用符号表;同时正向确认每个库都有
+   `av*/swr*` 符号(不是空归档);
 7. 平台:`lipo -info` 必须是 arm64;`vtool -show-build`(vtool 不认 `.a`,从归档里抽
    `version.o`)必须是 `platform IOS / minos 17.0`、`platform IOSSIMULATOR / minos 17.0`、
    `platform MACOS / minos 14.0`;
 8. 组件对账:把 `config_components.h` 里启用的 demuxer/muxer/parser/decoder/encoder/bsf/
-   protocol/hwaccel 与 `lux/config/ffmpeg-ios.conf` 的白名单逐项比对(白名单缺项 = 失败;
+   protocol/hwaccel/filter 与 `lux/config/ffmpeg-ios.conf` 的白名单逐项比对(白名单缺项 = 失败;
    configure 自动 select 进来的 = `[warn]`)。
 
-本次结果(三个目标一致):
+三切片运行结果:
 
 ```
-failures: 0, warnings: 6
+failures: 0, warnings: 3
 RESULT: PASS (LGPL-only)
 ```
 
-- 每个目标 33 项 `[ok]`;唯一的 6 条 warning 是 `mlp` parser(`truehd_decoder_select`)和
-  `vp9_superframe` bsf(`mov_muxer_select`)被 configure 自动带入,二者都是 LGPL。
-- 组件对账结果:demuxer 3、muxer 2、parser 6、decoder 15、encoder 2、bsf 7、protocol 1、
-  hwaccel 2 全部生效;启用的 codec 里没有 GPL/external 组件。
+- 每个目标 1 条 warning,内容都是 `CONFIG_METAL=0`(本机没有 Metal Toolchain),4 个 Metal
+  滤镜因此未启用;这不是许可失败,组件对账的 9 类白名单均无缺项。
+- 组件对账结果(B+):demuxer 40、muxer 2、parser 66、decoder 199、encoder 2、bsf 49、
+  protocol 38、hwaccel 2、filter 62 全部生效;启用的 codec 里没有 GPL/external 组件。
 
 ### 5.2 真的读一个 mkv
 
@@ -178,13 +213,17 @@ result: ok
 RESULT: PASS
 ```
 
+> 上面是 F0(D2 之前)的运行记录;现在同一个探针会打印
+> `avutil_license: LGPL version 2.1 or later`。
+
 ## 6. 许可记录
 
 - **基线**:上游 FFmpeg **8.1.3**(取自 jellyfin-ffmpeg `v8.1.3-2`;该 tag 是 Debian 打包分支,
   源码树本身是 pristine 上游,`debian/patches/` 里的 106 个补丁**默认一个都不应用**)。
-  实际编进产物的补丁只有两部分:§6.1 的 GPL 守卫(2 处源码改动)+ §6.2 从 jellyfin 补丁系列
-  移植的 14 个补丁。上游源码树是 **LGPL/GPL 混合**:`libavfilter` 下有 50 个文件是 GPL,
-  `libavcodec/aarch64/ac3dsp_*` 与 `libavutil/aarch64/crc.S` 也是 GPL。本构建**只启用 LGPL 部分**。
+  实际编进产物的补丁只有两部分:§6.1 的 GPL 守卫(2 处源码改动)+ §6.2 的 15 个 FFmpeg
+  移植补丁(0001–0012、0014、0016、0017;0013/0015 暂缓)。上游源码树是 **LGPL/GPL 混合**:
+  `libavfilter` 下有 50 个文件是 GPL,`libavcodec/aarch64/ac3dsp_*` 与
+  `libavutil/aarch64/crc.S` 也是 GPL。本构建**只启用 LGPL 部分**。
 - `configure` 输出:`License: LGPL version 2.1 or later`(因为 `--disable-gpl --disable-nonfree`,
   且**不写** `--enable-version3`);`config.h` 里 `CONFIG_GPL 0`、`CONFIG_NONFREE 0`、
   `CONFIG_VERSION3 0`、`CONFIG_LGPLV3 0`。
@@ -197,8 +236,8 @@ RESULT: PASS
   `lux/config/allowlist.md`「许可决定」。
 - 为什么还要额外审计:`CONFIG_GPL 0` 只保证 `#if CONFIG_GPL` 包住的代码不编,**不保证没有 GPL
   源文件被无条件编进去**。F0 就是用第 5 项检查(反查 `.o` 的源文件)抓到了两个这样的文件,
-  见下节。GPL 滤镜之所以不会进来,是因为我们根本没编译 avfilter(`--disable-avfilter`),
-  而不是因为 `CONFIG_GPL 0`。
+  见下节。F2 之后 avfilter 已经启用,GPL 滤镜之所以不会进来,是因为白名单只选 LGPL 滤镜、
+  对应的 GPL 源文件不在编译集里,而不是因为 `CONFIG_GPL 0` 或 `--disable-avfilter`。
 - 静态链接本身的分发合规(LGPL-2.1 §6 的目标代码/重链接义务)是 F1 要解决的问题:动态
   framework 是正解,F0 的静态 `.a` 只是 spike 产物,**不应直接进 App 包**。
 
@@ -220,8 +259,10 @@ CRC32 硬件加速。前者影响 AC-3 解码性能(未量化,列在「未解决
 
 ### 6.2 移植的上游补丁(`lux/patches/`)
 
-产物不是纯上游:`lux/patches/` 里有 14 个从 jellyfin-ffmpeg 补丁系列刷新(并按客户端需要改造)
-过的补丁,按 `lux/config/patches.txt` 的顺序应用,脚本是 `lux/build/apply-patches.sh`。
+产物不是纯上游:`lux/patches/` 里**实际应用 15 个补丁**(0001–0012、0014、0016、0017),
+按 `lux/config/patches.txt` 的顺序应用,脚本是 `lux/build/apply-patches.sh`。其中 0001–0014
+大多从 jellyfin-ffmpeg 补丁系列刷新并按客户端需要改造,0016/0017 是 B+ 的 lux 原创 Vulkan
+修复;0013/0015 暂缓(见下)。
 
 | lux 补丁 | 来源 | 内容 | 改造点 |
 | --- | --- | --- | --- |
@@ -237,8 +278,13 @@ CRC32 硬件加速。前者影响 AC-3 解码性能(未量化,列在「未解决
 | `0010` | jellyfin 0043 | `scale_vt` 新增 `format` 选项(NV12↔P010) | 无 |
 | `0011` | jellyfin 0045 | `transpose_vt` 改成 CoreImage 实现 | 白名单开 `coreimage`,产物多 `libavfilter.a`/`libswscale.a` |
 | `0012` | jellyfin 0044 | `overlay_videotoolbox`(Metal) | 需要 Metal Toolchain;`--metalcc/--metallib` 指向目标 SDK |
-| `0013` | jellyfin 0046 | `tonemap_videotoolbox`(Metal) | 同上 |
-| `0014` | jellyfin 0056 | `bwdif`/`yadif_videotoolbox`(Metal) | 同上 |
+| `0013` | jellyfin 0046 | `tonemap_videotoolbox`(Metal) | **暂缓,未应用**:依赖 jellyfin 0004 的 `colorspace.h`/DOVI 结构,尚未移植;配套的 `0015-dither-matrix-header.patch` 也未登记进 `patches.txt` |
+| `0014` | jellyfin 0056 | `bwdif`/`yadif_videotoolbox`(Metal) | 需要 Metal Toolchain;`--metalcc/--metallib` 指向目标 SDK |
+| `0016` | lux 原创 | Apple 上让 `hwcontext_vulkan` 从 `@rpath/LibMoltenVK.framework` dlopen MoltenVK | 只改 Apple 路径,放在系统 `libvulkan*` 之前 |
+| `0017` | lux 原创 | Vulkan flip/transpose shader 的 `size - pos - 1` 修正 | 实测 `hflip_vulkan` 与软件 `hflip` 逐字节一致 |
+
+> `0013`/`0015` 虽然文件留在 `lux/patches/`,但不在 `lux/config/patches.txt` 的应用集里;
+> 因此 `apply-patches.sh count` 是 15,不是目录里的 17 个 `.patch`。
 
 用法与约束:
 
@@ -250,13 +296,13 @@ CRC32 硬件加速。前者影响 AC-3 解码性能(未量化,列在「未解决
 ```
 
 - 应用是**零 fuzz** 的(`git apply`,不加 `-C`/`-3`);上游一漂移就重新生成补丁,不靠模糊匹配。
-  6 个补丁里有 4 个(jellyfin 0044/0046/0047/0057)在原样 `git apply` 时会因上下文漂移失败,
+  首批 6 个补丁里有 4 个(jellyfin 0044/0046/0047/0057)在原样 `git apply` 时会因上下文漂移失败,
   所以 `debian/patches/` 只能当参考,`lux/patches/` 才是事实来源。
 - `build-ffmpeg.sh` / `build-frameworks.sh` 在 configure 前会 `apply-patches.sh ensure`,
   并把补丁条数与 `sha256` 指纹写进 `BUILD-INFO.txt`;`verify-license.sh` 核对这个指纹,
   **改了补丁没重建会直接 FAIL**。
-- 补丁只改 LGPL 文件,§5.1 第 5 项的 GPL 源文件审计照常覆盖它们(本次仍是 417 个源文件、0 命中)。
-- 没移植的补丁(服务端转码、Windows/Linux 硬件、fftools、avfilter 类)与理由见
+- 补丁只改 LGPL 文件,§5.1 第 5 项的 GPL 源文件审计照常覆盖它们(B+ 为 951 个源文件、0 命中)。
+- 没移植的补丁(服务端转码、Windows/Linux 硬件、fftools、部分 avfilter 类)与理由见
   `lux/docs/patch-triage.md`。
 
 ## 7. 与 MPVKit 现有静态库的粗略对比
@@ -291,36 +337,43 @@ framework,F0 根本没构建它们,所以**总包体积不可直接相加对比*
    再 grep。
 5. **`vtool -show-build` 不认 `.a`**(报 `file is not mach-o`),`lipo -info` 认。所以平台信息是从
    归档里抽一个 `version.o` 出来查 `LC_BUILD_VERSION`,能看到 `platform IOS / minos 17.0`。
-6. **`libavutil license:` 前缀**:`avutil_license()` 返回 `LGPL version 3 or later`,但归档里内嵌
-   的字符串是 `libavutil license: LGPL version 3 or later`,用 `^LGPL` 锚定会漏。
+6. **`libavutil license:` 前缀**:`avutil_license()` 返回 `LGPL version 2.1 or later`,但归档里内嵌
+   的字符串是 `libavutil license: LGPL version 2.1 or later`,用 `^LGPL` 锚定会漏。
 7. 交叉编译时 `--cc="xcrun --sdk iphoneos clang"`(带空格的 cc)是能用的;平台/最低版本靠
    `-miphoneos-version-min` / `-mios-simulator-version-min` 确立,不需要 `-target`。只用 `-isysroot`
    不写这两个 `-m*` 的话,clang 会按宿主平台编,mach-o 的 `LC_BUILD_VERSION` 就错了。
 
 ## 9. 未解决 / 需要所有者确认
 
+> 这一节按阶段累积:前四条是 F0 就存在的缺口,B+ 仍未关闭;白名单/静态链接两条已随
+> F1–B+ 变化,下面按当前状态改写。
+
 - **iOS 产物只做了静态检查,没在设备/模拟器上跑过**。F0 的 iOS 侧结论是"能编、架构/平台/最低
   版本正确、没有 GPL",不是"能在 iOS 上解码"。要真验证,需要一个最小 Xcode 工程把这些 `.a`
   链进去跑 `read_mkv`。
 - **VideoToolbox 硬解只验证到"编进产物 + 组件对账启用"**,没有真的创建 `AVHWDeviceContext`
   解一帧。`aac_at` 也一样,只确认编进去了,没做编码功能测试。
-- **AC-3 NEON DSP 在 LGPL 构建里被关掉**,性能损失未量化。建议 F1 做一次 AC-3/E-AC-3 解码
+- **AC-3 NEON DSP 在 LGPL 构建里被关掉**,性能损失未量化。建议做一次 AC-3/E-AC-3 解码
   benchmark;同时向上游报这两个没有被 `CONFIG_GPL` 守卫的文件(这是个真实的 LGPL 构建缺陷)。
 - **remux(mkv → fMP4)没有端到端测试**。mov/mp4 muxer、`h264/hevc_mp4toannexb`、
   `aac_adtstoasc`、`dca_core`、`dovi_rpu` 只在组件对账层面确认启用;F0 的 C 程序只读不写。
-- **白名单还很小**:没有 `swscale`/`avfilter`(libmpv 需要)、没有网络/TLS(HLS 用)、没有
-  AV1(VP9/AV1 内容)、没有 `matroska` muxer。这些都要在 F1/F2 按需加,加之前先看它的
-  `_select` 会拉进来什么。
-- **静态链接 + LGPLv3 的合规问题依然悬着**:F0 的产物不适合直接进 App 包。
+- **白名单已不是 F0 的小名单**:`swscale`/`avfilter`、网络/TLS(OpenSSL)、AV1(libdav1d)
+  都已纳入,62 项滤镜(含 17 个 Vulkan)生效。当前仍未启用的是 `matroska` muxer、`libplacebo`
+  滤镜、4 个 Metal 滤镜(缺 Metal Toolchain),以及 iOS 真机上的 Vulkan/MoltenVK 运行验证。
+- **静态链接 + LGPL-2.1 §6 的合规问题**只存在于 F0 的静态 `.a`;F1 起分发的是动态
+  framework,但法务结论仍需确认(见 §12.10)。
 
 ## 10. F1(动态 framework / xcframework)的前置事项
+
+> 这是 F1 开工时的清单。动态库/xcframework/网络/TLS/AV1 都已在 F1–B+ 落地,保留作历史核对;
+> 性能基准、CI 化和上游反馈仍未完成。
 
 1. **动态库形态**:`--enable-shared --disable-static`,`-install_name @rpath/libavcodec.dylib`,
    符号可见性/`-fvisibility`、`compatibility_version`/`current_version` 都要定;`config.h` 里
    `CONFIG_SHARED` 相关分支要复查。
 2. **axcframework 打包**:F0 已经有 device + simulator 两个 slice,`lipo`/`vtool` 检查可以复用;
    F1 要加 `Info.plist`/modulemap,并决定 framework 里放 dylib 还是 `-all_load` 静态库。
-3. **重链接义务(LGPLv3 §4)**:动态库形态下要随包提供 `COPYING.LGPLv3`、修改说明(我们的两个
+3. **重链接义务(LGPL-2.1 §6)**:动态库形态下要随包提供 `COPYING.LGPLv2.1`、修改说明(我们的
    `lux:` 补丁)、以及可替换/重链接的说明;`docs/LICENSES.md` 里加 FFmpeg 条目。
 4. **功能扩展**:libmpv 需要的 `swscale`/`avfilter`(以及 mpv 的 `--enable-gpl=no` 配置)、
    网络协议 + TLS、AV1 解码;每加一项都要过一遍 `allowlist.md` 的"为什么在名单上"。
@@ -353,11 +406,14 @@ F0 证明了「能出 LGPL-only 的静态库」。F1 解决的是**链接方式*
 而 MPVKit 现有的 framework 只能靠 macOS 默认大小写不敏感的文件系统才能 `import`(A0 的发现)。
 这一节记录 F1 的做法、产物、验证与踩过的坑。
 
-**更正(F2-1,2026-11-07):实际产物是六个库(另有 `Libavfilter` / `Libswscale`,见 `lux/config/ffmpeg-ios.conf` 的 `LUX_FRAMEWORKS`),下面以“四个”描述的段落仅指前四个库的历史细节,语义适用于全部六个。**
+**更正(F2-1,2026-11-07):F2 起产物是六个库(增加 `Libavfilter` / `Libswscale`,见
+`lux/config/ffmpeg-ios.conf` 的 `LUX_FRAMEWORKS`);12.1/12.6 里“四个库”的数字是 F1 当时的
+实测存档,链接/头文件/打包规则对六个库都适用。**
 
-**一句话结论:四个库各出一个真正的动态 framework(`Libavutil` / `Libswresample` / `Libavcodec` /
-`Libavformat`),三切片合成 xcframework;Swift 可以直接 `import Libavformat` 等,不需要 C shim、
-不需要 `-I`,也不依赖大小写不敏感的文件系统(已在 Case-sensitive APFS 卷镜像上验证)。**
+**一句话结论:六个库各出一个真正的动态 framework(`Libavutil` / `Libswresample` / `Libavcodec` /
+`Libavformat`,F2 起再加 `Libavfilter` / `Libswscale`),三切片合成 xcframework;Swift 可以直接
+`import Libavformat` 等,不需要 C shim、不需要 `-I`,也不依赖大小写不敏感的文件系统
+(已在 Case-sensitive APFS 卷镜像上验证)。**
 
 ### 12.1 速览
 
@@ -369,7 +425,8 @@ F0 证明了「能出 LGPL-only 的静态库」。F1 解决的是**链接方式*
 | 耗时(实测两次) | configure 35–43 s,总 **59–60 s** | configure 25–30 s,总 **40–58 s** | configure 38–39 s,总 **58–69 s** |
 | 产物 | `lux/.build/frameworks/<target>/slice/*.framework` | 同 | 同 |
 
-各 framework 的二进制大小(`stat -f %z`,单位字节):
+各 framework 的二进制大小(F1 前四个库;F2 起的 `Libavfilter` / `Libswscale` 见 §15.4,
+B+ 的 Vulkan framework 见 §17.4;`stat -f %z`,单位字节):
 
 | framework | macOS arm64 | iOS device | iOS sim arm64 |
 | --- | --- | --- | --- |
@@ -431,7 +488,7 @@ ld: fixup error (kind=arm64_adrp_lo12) at '_ff_mp4_read_dec_config_descr'+0x188
 4. `PrivacyInfo.xcprivacy`:用 `nm -u` 逐个 framework 实测 required-reason API
    (见 12.5),只声明真的用到的类别;
 5. `dsymutil` 出 dSYM,再 `strip -S`(顺序不能反);
-6. **四个 framework 全部打包完之后**再逐个 `codesign --force --sign -`(原因见 12.7 第 2 条)。
+6. **所有 framework 全部打包完之后**再逐个 `codesign --force --sign -`(原因见 12.7 第 2 条)。
 
 最后 `xcodebuild -create-xcframework` 把三个切片合成一个 xcframework,
 `ditto -c -k --keepParent` 出 zip,`swift package compute-checksum` 写进 `checksums.txt`。
@@ -474,7 +531,7 @@ Libavformat.framework/Headers/
   正好覆盖这些深度;最深 5 层子目录,无环;
 * **不用跨 bundle 的 symlink**:`codesign` 会拒绝
   (`invalid destination for symbolic link in bundle`),所以闭包里的文件是**包内副本**
-  (内容与 canonical 完全一致),四个 framework 各自自包含;
+  (内容与 canonical 完全一致),每个 framework 各自自包含;
 * 结果:`<libavformat/…>` 与 `<Libavformat/…>`、`clang -fmodules`、Swift 的
   `import Libavformat/…` 全部走**精确大小写**的路径。
 
@@ -491,8 +548,10 @@ Libavformat.framework/Headers/
 2. `LC_ID_DYLIB` 全是 `@rpath/<Name>.framework/<Name>`;库之间是 `@rpath` 依赖,其余只有
    `/usr/lib` 与 `/System/Library/Frameworks`,没有绝对路径;
 3. `vtool -show-build`:`MACOS` 14.0 / `IOS` 17.0 / `IOSSIMULATOR` 17.0;
-4. 符号:`nm` 里没有 `x264|x265|fdk|dav1d|…`;`CONFIG_GPL 0`、`CONFIG_NONFREE 0`;
-   macOS 上真链接一个小 C 程序,`avutil_license()` 输出 `LGPL version 3 or later`;
+4. 符号:`nm` 里没有 `x264|x265|fdk|…` 等未纳入的外部库;`dav1d`/`zlib`/`OpenSSL` 是已纳入的
+   静态依赖,`Libavfilter`/`Libswscale` 对 `shaderc` 是动态引用,均按白名单豁免;
+   `CONFIG_GPL 0`、`CONFIG_NONFREE 0`;macOS 上真链接一个小 C 程序,
+   `avutil_license()` 输出 `LGPL version 2.1 or later`;
 5. 结构:canonical 目录 + framework 别名 + module map(`use`/`link`)+ `Info.plist` +
    `PrivacyInfo.xcprivacy` + dSYM(UUID 与二进制一致);
 6. `codesign --force --sign -` 后 `--verify --strict` 通过;
@@ -515,6 +574,9 @@ stream #1: type=audio codec=aac 0x0 48000Hz 2ch
 packets: 4
 first frame: 320x240 @yuv420p
 ```
+
+> 这个输出是 F1(D2 之前)的记录;现在 `avutil_license()` 的许可行是
+> `LGPL version 2.1 or later`。
 
 `swift test` 两个测试通过(license/LGPL、matroska/h264/aac、首帧 320x240 yuv420p、时长 12 s),
 `xcodebuild -destination 'generic/platform=iOS Simulator'` 报 `BUILD SUCCEEDED`(只编译;
@@ -556,9 +618,12 @@ manifest 是按二进制实测生成的,不靠猜。
 | `Libswresample` | 139,048 | 145,728 | 105% |
 | **合计** | **14,107,744** | **5,568,352** | **39%** |
 
-分发物:四个 zip 合计约 16.1 MB(`Libavcodec` 7.4 MB、`Libavformat` 3.9 MB、
-`Libavutil` 2.8 MB、`Libswresample` 1.9 MB),dSYM zip 约 15.3 MB。
-整棵 `lux/.build/` 约 2.7 GB,其中 2 GB 是大小写敏感验证用的 APFS 稀疏镜像;`build-frameworks.sh all`(三目标 + xcframework + zip)端到端实测 **3 分 00 秒**。
+分发物(F1 时,六库之前):四个 zip 合计约 16.1 MB(`Libavcodec` 7.4 MB、`Libavformat` 3.9 MB、
+`Libavutil` 2.8 MB、`Libswresample` 1.9 MB),dSYM zip 约 15.3 MB。F2/B+ 之后是 6 个 FFmpeg
+zip,另加 mpv 栈 4 个和 Vulkan 2 个(见 §15.4、§17.4)。
+F1 当时整棵 `lux/.build/` 约 2.7 GB(其中 2 GB 是大小写敏感验证用的 APFS 稀疏镜像);
+B+ 已到 22 GB,见 §1。`build-frameworks.sh all`(三目标 + xcframework + zip)在 F1 时代
+端到端实测 **3 分 00 秒**。
 
 ### 12.7 踩过的坑
 
@@ -566,7 +631,7 @@ manifest 是按二进制实测生成的,不靠猜。
    (12.2)。以后再加库(avfilter/swscale)也必须走共享构建,不要回到重链。
 2. **codesign 与跨 bundle 的 symlink 不兼容**:`Headers/libavcodec/x.h -> ../../Libavcodec.framework/...`
    会让 `codesign --verify` 报 `invalid destination for symbolic link in bundle`。改成包内副本。
-   另外签名必须等四个 framework 都打包完:先签的 framework 会因为“兄弟包的头文件后来才出现”
+   另外签名必须等所有 framework 都打包完:先签的 framework 会因为“兄弟包的头文件后来才出现”
    被报 `file modified`。
 3. **`-F` 不会把 framework 的 `Headers` 加进 include 路径**:`#include "libavutil/x.h"` 只能靠
    相对路径或 framework 查找解析,`-I` 才是 include root。这是 12.4 那个布局存在的全部原因。
@@ -589,9 +654,10 @@ manifest 是按二进制实测生成的,不靠猜。
 ### 12.8 在 lux-client 里怎么引用(只写文档,本次没有改 lux-client)
 
 目标形态:`apple/Packages/LuxKit/Vendor/` 放 xcframework(不进 git),`Package.swift` 用
-`binaryTarget(path:)`,业务代码直接 `import Libavformat`。
+`binaryTarget(path:)`,业务代码直接 `import Libavformat`。F1 只有前四个库;F2/B+ 起同一个 target
+还要依赖 `Libavfilter` / `Libswscale`,并可按需加 mpv 栈与 Vulkan 的 framework。
 
-`Package.swift` 片段:
+`Package.swift` 片段(F2/B+ 的六个 FFmpeg framework):
 
 ```swift
 .target(
@@ -599,15 +665,22 @@ manifest 是按二进制实测生成的,不靠猜。
     dependencies: [
         .target(name: "Libavformat"),
         .target(name: "Libavcodec"),
+        .target(name: "Libavfilter"),
+        .target(name: "Libswscale"),
         .target(name: "Libavutil"),
         .target(name: "Libswresample"),
     ]
 ),
 .binaryTarget(name: "Libavformat", path: "Vendor/Libavformat.xcframework"),
 .binaryTarget(name: "Libavcodec", path: "Vendor/Libavcodec.xcframework"),
+.binaryTarget(name: "Libavfilter", path: "Vendor/Libavfilter.xcframework"),
+.binaryTarget(name: "Libswscale", path: "Vendor/Libswscale.xcframework"),
 .binaryTarget(name: "Libavutil", path: "Vendor/Libavutil.xcframework"),
 .binaryTarget(name: "Libswresample", path: "Vendor/Libswresample.xcframework"),
 ```
+
+mpv 栈(`Libmpv`/`Libplacebo`/`Libfribidi`/`Libuchardet`)和 B+ 的
+`LibMoltenVK`/`Libshaderc` 用同样的 `binaryTarget(path:)` 加进来,依赖关系分别见 §14、§17。
 
 下载脚本草案(放 `apple/scripts/fetch-lux-ffmpeg.sh`,产物只写 `apple/.build/` 与
 `Packages/LuxKit/Vendor/`):
@@ -621,7 +694,7 @@ BASE="https://github.com/Qoo-330ml/lux-ffmpeg/releases/download/$TAG"
 DEST="$(cd "$(dirname "$0")/.." && pwd)/Packages/LuxKit/Vendor"
 mkdir -p "$DEST"
 # 校验和来自 lux-ffmpeg 的 lux/.build/xcframeworks/checksums.txt
-for fw in Libavutil Libswresample Libavcodec Libavformat; do
+for fw in Libavutil Libswresample Libavcodec Libavformat Libavfilter Libswscale; do
     curl --fail --location --silent --show-error \
         "$BASE/$fw.xcframework.zip" -o "$DEST/$fw.xcframework.zip"
     expected=$(curl --fail --location --silent "$BASE/checksums.txt" | awk -v n="$fw.xcframework.zip" '$2==n{print $1}')
@@ -637,14 +710,14 @@ done
 
 * `binaryTarget` 是**动态**的 Mach-O,按 Apple 的机制 Xcode 会把它嵌入 `App.app/Frameworks/`
   并签名;但本项目是手写 `project.pbxproj`,必须实测 `xcodebuild archive` 后
-  `Payload/Lux.app/Frameworks/` 里确实有四个 framework,`otool -L` 里是 `@rpath/…`
+  `Payload/Lux.app/Frameworks/` 里确实有六个 FFmpeg framework,`otool -L` 里是 `@rpath/…`
   (`LD_RUNPATH_SEARCH_PATHS` 已有 `@executable_path/Frameworks`);
 * 每个 framework 自带 `PrivacyInfo.xcprivacy`;App 的总清单里那三条
   「替 MPVKit 报」的 required-reason 声明可以只保留 App 自己用到的,
   `scripts/check-privacy-manifest.py --app` 的扫描口径要一起改;
 * dSYM 单独存档(不放进 App),上传 App Store Connect 时按需提交;
 * 切底座时 A/B 两条线只换 binaryTarget,`import Libavformat` 等写法不变;MPVKit 的
-  `Libav*` 与这四个同名模块**不能同时存在**,要一次性替换。
+  `Libav*` 与这些同名模块**不能同时存在**,要一次性替换。
 
 ### 12.9 F2(libmpv)需要的前置
 
@@ -665,23 +738,24 @@ done
 6. **测试**:`lux/test/swift-import` 加 `import Libavfilter` / `import Libmpv` 的编译检查;
    `Libmpv` 的模块名保持不变,避免 A/B 线改代码。
 
-### 12.10 LGPL 合规清单(F1 交付时需要随包提供)
+### 12.10 LGPL 合规清单(F1 起随包提供)
 
 - **源码**:上游 FFmpeg **8.1.3** 的完整源码(取自 jellyfin-ffmpeg `v8.1.3-2` 的源码树)+
-  本仓库 `lux/patches/` 里的 14 个补丁(见 §6.2)+ `lux/` 下的构建脚本
+  本仓库 `lux/patches/` 里实际应用的 15 个补丁(见 §6.2)+ `lux/` 下的构建脚本
   (`config/`、`build/`、`test/`)——它们共同是「如何从源码得到这个二进制」的对应源码。
   交付时用 `./lux/build/apply-patches.sh status` 与 `BUILD-INFO.txt` 里的 `patches_digest` 对账。
 - **补丁清单**:
   - `662b2fe lux: keep GPL-only aarch64 AC3/CRC objects out of LGPL builds`
     (`libavcodec/aarch64/Makefile`、`libavcodec/ac3dsp.c`、`libavutil/aarch64/Makefile`);
-  - `lux/patches/0001..0006`(移植自 jellyfin 补丁系列,逐条说明见 §6.2);
+  - `lux/patches/0001..0012`、`0014`、`0016`、`0017`(逐条说明见 §6.2;`0013`/`0015` 不在应用集);
   - `56a5356`、`215b006` 是 F0 的文档/实测记录,不含二进制。
-- **许可文本**:`COPYING.LGPLv3`(本仓库根目录);动态链接的四个 dylib 可被替换
+- **许可文本**:`COPYING.LGPLv2.1`(本仓库根目录);动态链接的六个 dylib 可被替换
   (替换后用自己的证书重签即可)。
 - **dSYM**:单独存档,不随 App 提交(App Store Connect 需要时再上传)。
-- **仍未解决的法律问题**:App Store 的 DRM/反编译条款与 LGPLv3 §4 前言之间的张力
+- **仍未解决的法律问题**:App Store 的 DRM/反编译条款与 LGPL-2.1 §6 的源提供/重链接义务
+  之间的张力
   (见 `lux-client/apple/docs/reviews/2026-11-04-mpv-lgpl-linking-research.md` Q5),
-  动态链接只是让 §4(d)(1) 的「可替换」在技术上成立,不代表法务结论。
+  动态链接只是让 §6(b) 的「可替换」在技术上成立,不代表法务结论。
 
 ### 12.11 已验证 / 需要所有者验证
 
@@ -698,10 +772,11 @@ done
 **需要所有者 / Xcode / 真机**
 
 - iOS 真机与模拟器上的**运行**(代理不能起模拟器):`lux-ffmpeg-probe` 在设备上跑一次;
-- 在 lux-client 的 Xcode 工程里真正嵌入四个 framework(自动嵌入 + 签名),
+- 在 lux-client 的 Xcode 工程里真正嵌入六个 FFmpeg framework(以及按需的 mpv/Vulkan
+  framework,自动嵌入 + 签名),
   以及 `xcodebuild archive` 后 `Frameworks/` 的检查;
 - App Store Connect 的 dSYM / 隐私清单上传检查;
-- 首帧延迟、启动耗时(dyld 多 4 个镜像)、真实片源矩阵。
+- 首帧延迟、启动耗时(dyld 多 6 个 FFmpeg 镜像;B+ 全量含 mpv/Vulkan 共 12 个)、真实片源矩阵。
 
 ## 13. F2-1 网络与 TLS(2026-11-07;D3 于 2026-11-10 改为 OpenSSL)
 
@@ -800,6 +875,7 @@ iOS 切片直接报 `ERROR: dav1d >= 1.0.0 not found using pkg-config`。现在�
 | FFmpeg 6 framework | `lux/.build/xcframeworks/` | 切片二进制 macOS 17,827,136 / iOS 17,596,192 / sim 16,947,824 B |
 | FFmpeg xcframework zip + checksum | 同上 `*.xcframework.zip`、`checksums.txt` | Libavcodec 13,664,725 B…Libswscale 3,224,428 B |
 | mpv 4 framework | `lux/.build/mpv-frameworks/<target>/` | 三切片合计 65,346,048 B |
+| B+ Vulkan 2 framework | `lux/.build/vulkan-frameworks/<target>/slice/` | 每切片 LibMoltenVK 4.03 MB + Libshaderc 6.08 MB;三切片 zip 合计约 10.7 MB |
 | mpv xcframework + zip + checksum | `lux/.build/mpv-xcframeworks/` | Libplacebo 14,923,062、Libmpv 5,970,807、Libuchardet 290,347、Libfribidi 233,129 B |
 | dSYM | 两侧各自 `dSYMs/<target>/` + `dSYMs.zip` | FFmpeg 50,783,695 B;mpv 176,699,430 B |
 
@@ -809,7 +885,7 @@ iOS 切片直接报 `ERROR: dav1d >= 1.0.0 not found using pkg-config`。现在�
   `SystemBootTime`、Libfribidi / Libuchardet 为空清单。
 - checksum 复核(自带命令,`checksums.txt` 与 zip 逐条对齐):
   `for f in $(awk '{print $2}' lux/.build/xcframeworks/checksums.txt); do swift package compute-checksum lux/.build/xcframeworks/$f; done`
-  mpv 侧同理换目录。本轮两边共 10 条全部一致。
+  mpv 侧同理换目录。P2 时两边共 10 条全部一致;B+ 加上 Vulkan 的 2 个 zip 后是 12 条。
 
 ### 15.5 校验命令与本轮结果
 
@@ -840,10 +916,11 @@ iOS 切片直接报 `ERROR: dav1d >= 1.0.0 not found using pkg-config`。现在�
 - **dav1d 没有 `-g`**:`libdav1d.a` 复用主检出里的旧构建,静态并入 Libavcodec 后
   dSYM 里没有 dav1d 的源码行号(FFmpeg 自身的 DWARF 齐全,`grep -c DW_TAG` 远大于 0)。
   要连 dav1d 一起单步调试,需要先按 15.1 重建 dav1d 再重链 FFmpeg。
-- **license bundle 未刷新**:`lux/release/NOTICE.md` 的依赖表仍是 21 项,缺 dav1d(以及
-  zlib / OpenSSL),`make-license-bundle.sh` 的 `LICENSE_FACTS` 也只覆盖部分组件。参考提交
-  `c1eac94` 是这一块的半成品(WIP,failed run),本轮没有沿用,需要单独一轮生成 + 复核;
-  它不影响 `verify-license.sh`(那条线查的是产物本身,本轮 PASS)。
+- **license bundle 已刷新(ed25f3b,2026-11-10)**:`lux/release/NOTICE.md` 的依赖表从 21 项
+  补到 24 项,加入了 dav1d、zlib、OpenSSL;`make-license-bundle.sh` 的 `LICENSE_FACTS` 也覆盖
+  了这三项。NOTICE 里的 `apply-patches digest` 已按当前补丁集同步为 `dcb7…`(15 条);
+  重跑 `make-license-bundle.sh` 会重新生成同样的值。它不影响 `verify-license.sh`
+  (那条线查的是产物本身)。
 
 ## 16. P3 依赖源码固定(2026-11-10)
 
@@ -851,8 +928,9 @@ iOS 切片直接报 `ERROR: dav1d >= 1.0.0 not found using pkg-config`。现在�
 
 ### 16.1 结论
 
-- 锁里 **22 项** 于 2026-11-10 全部从各自 URL 重新下载核对,sha256 与锁定值**逐字节一致**,
-  一个版本号都没改。日志:`lux/.build/logs/deps-lock-check-20261110.log`(脚本见 16.3)。
+- 锁里 **24 项** 于 2026-11-10 全部从各自 URL 重新下载核对,sha256 与锁定值**逐字节一致**。
+  其中 22 项是 P3 初版锁定的版本,后来追加了 zlib 1.4 与 OpenSSL 3.5.9(D3 的 TLS 后端);
+  版本号没有回退或替换。日志路径:`lux/.build/logs/deps-lock-check-20261110.log`(脚本见 16.3)。
 - 上游发布资产核对结果(2026-11-10,逐个项目查 GitHub API / GitLab releases):
   - **mpv v0.41.0**:release 页除了 GitHub 自动生成的 Source code 归档(与 deps.lock 里的 tag archive
     是同一类),只有 8 个平台二进制 zip —— **没有任何上传的源码资产**;
@@ -864,9 +942,10 @@ iOS 切片直接报 `ERROR: dav1d >= 1.0.0 not found using pkg-config`。现在�
   - **MoltenVK v1.4.2**:上传的资产是 `MoltenVK-all.tar` 之类的二进制包,源码也只有自动归档;
   - **fast_float v8.0.2**:上传的资产只有单头文件 `fast_float.h`,没有完整源码包;
   - 其余 8 项(freetype / harfbuzz / fribidi / libunibreak / lcms2 / uchardet / libass / dav1d)
-    本来就是官方 release tarball(部分还带上游 `.sha256`),继续只用 URL。
+    本来就是官方 release tarball(部分还带上游 `.sha256`),继续只用 URL;
+  - zlib 与 OpenSSL 是官方 tarball,且都有上游签名/`.sha256` 可交叉核对,归入自存。
 
-所以:**14 项自存**(逐字节副本放 `lux/release/sources/`,已在 `lux/.gitignore` 里忽略,**不进仓库本体**),
+所以:**16 项自存**(逐字节副本放 `lux/release/sources/`,已在 `lux/.gitignore` 里忽略,**不进仓库本体**),
 **8 项只用 URL**。自存文件名是 `<name>-<version>`,路径写在 deps.lock 每行的 `selfstore=` 里;
 取源码时 `fetch-deps.sh` 优先用自存副本(离线可构建),没有时才回退到 URL,两条路都强制校验 sha256。
 
@@ -896,6 +975,8 @@ iOS 切片直接报 `ERROR: dav1d >= 1.0.0 not found using pkg-config`。现在�
 | `cereal` | `a56bad8bbb770ee266e930c95d37fff2a5be7fea` | git archive | `lux/release/sources/cereal-a56bad8bbb770ee266e930c95d37fff2a5be7fea.tar.gz` | `12e10fb541270632f6683286ce8c7e8c321fe4addb53fa91ed498b95c1758f93` |
 | `fast_float` | `8.0.2` | git archive | `lux/release/sources/fast_float-8.0.2.tar.gz` | `e14a33089712b681d74d94e2a11362643bd7d769ae8f7e7caefe955f57f7eacd` |
 | `dav1d` | `1.5.4` | 官方 release tarball | - | `686616b7c69eb88d44459391ab25cac13b6647a3b288835c5784e71c1514a5c5` |
+| `zlib` | `1.4` | 官方 release tarball | `lux/release/sources/zlib-1.4.tar.gz` | `02dd159783677a749c04adbdd02b55b8a2bcc7e054f51b76b549199a916ad584` |
+| `openssl` | `3.5.9` | 官方 release tarball(GitHub release 资产) | `lux/release/sources/openssl-3.5.9.tar.gz` | `603f5602e2eef00d77fbd429d34dcd5822bb301757a1bc9cdb24c670f1eb859a` |
 
 ### 16.3 取源码与校验
 
@@ -923,11 +1004,11 @@ iOS 切片直接报 `ERROR: dav1d >= 1.0.0 not found using pkg-config`。现在�
 - 下载带重试(`--retry 5 --retry-all-errors`):上游偶发 5xx/断流时重试,不会因为一次网络抖动
   就误报成 hash 不符;真的取不到才算失败。
 - 公共函数在 `lux/build/deps-lock-common.sh`(sha256 计算兼容 `sha256sum` / `shasum`)。
-- 一次完整核对(会联网,约 55 MB):
+- 一次完整核对(会联网,重新下载并校验 24 项源码包):
 
   ```sh
   ./lux/build/check-deps-lock.sh --fresh
-  # == 22 项:22 OK,0 FAIL(deps.lock 未被修改)==
+  # == 24 项:24 OK,0 FAIL(deps.lock 未被修改)==
   ```
 
 ### 16.4 glad2:PyPI 也要 hash
@@ -953,7 +1034,8 @@ iOS 切片直接报 `ERROR: dav1d >= 1.0.0 not found using pkg-config`。现在�
 - 上游不提供源码签名(GitHub/GitLab archive、PyPI 之外的渠道也没有 GPG 清单),当前是
   “首次下载即锁定 + 每次重新下载复核”的 TOFU 模型,不是上游签名验证。
 - `requirements-glad.txt` 的 wheel hash 只覆盖 macOS;换平台或换 CPython 版本需要补对应 wheel。
-- 本次没有新增任何依赖,也没有重建/改写 `lux/.build/deps/`(只读它做 `build-src=ok` 对照)。
+- 本轮在 P3 的 22 项之后追加了 zlib 1.4 与 OpenSSL 3.5.9(共 24 项),并重建/改写了
+  `lux/.build/deps/` 中这两个依赖的本地前缀;其余依赖没有重建。
 
 ## 17. B+ — FFmpeg Vulkan 滤镜 + 共享 MoltenVK/shaderc(2026-11-10)
 
@@ -990,7 +1072,7 @@ iOS 切片直接报 `ERROR: dav1d >= 1.0.0 not found using pkg-config`。现在�
 
 | 命令 | 结果 |
 | --- | --- |
-| `verify-license.sh`(三切片) | PASS;15 个 FFmpeg 补丁、62 个滤镜白名单 |
+| `verify-license.sh`(三切片) | PASS;15 个 FFmpeg 补丁、62 个滤镜白名单(另有 4 个 Metal 滤镜因工具链未装未启用) |
 | `verify-frameworks.sh` | PASS;Libavfilter/Libswscale 允许动态引用 shaderc |
 | `verify-mpv-frameworks.sh` | PASS;Libmpv 依赖 LibMoltenVK,Libplacebo 依赖 Libshaderc |
 | `build-vulkan-frameworks.sh verify all` | PASS(platform/minos/install name/codesign) |

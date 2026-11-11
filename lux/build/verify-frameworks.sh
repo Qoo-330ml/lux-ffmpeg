@@ -557,6 +557,16 @@ if [ ${#targets[@]} -eq ${#all_targets[@]} ]; then
     verify_xcframeworks
 fi
 
+# B+:两个共享 Vulkan framework 的 platform/minos/install name/codesign。
+# build-vulkan-frameworks.sh 只在 artifacts 存在时检查,避免 F1-only 模式误报。
+if [ -d "$LUX/.build/vulkan-frameworks" ]; then
+    if "$LUX/build/build-vulkan-frameworks.sh" verify all > "$VERIFY_ROOT/vulkan-frameworks-verify.log" 2>&1; then
+        pass "LibMoltenVK/Libshaderc: verify all PASS"
+    else
+        fail "LibMoltenVK/Libshaderc: verify all 失败(见 $VERIFY_ROOT/vulkan-frameworks-verify.log)"
+    fi
+fi
+
 printf '\nfailures: %d, warnings: %d\n' "$FAILS" "$WARNS"
 if [ "$FAILS" -ne 0 ]; then
     printf 'RESULT: FAIL\n'

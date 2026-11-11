@@ -13,7 +13,7 @@
 #
 # 行为:
 #   1. 本地目录:先用 `shasum -a 256 -c SHA256SUMS` 校验全部文件,再逐个核对
-#      xcframeworks/checksums.txt;URL 模式只下载分发所需的 10 个 zip +
+#      xcframeworks/checksums.txt;URL 模式只下载分发所需的 12 个 zip +
 #      两份校验文件(其余 dSYM/源码条目不下载),但仍逐个核对已下载文件在
 #      SHA256SUMS 与 checksums.txt 里的 hash。
 #   2. 全部一致后才解压;任何不一致/缺文件/结构不对都退出非零,并删除本次
@@ -23,7 +23,7 @@
 # 依赖:bash 3.2+、shasum、unzip、ditto、curl(URL 模式)、plutil(可选)。
 set -euo pipefail
 
-FRAMEWORKS="Libavcodec Libavformat Libavfilter Libswscale Libswresample Libavutil Libmpv Libplacebo Libfribidi Libuchardet"
+FRAMEWORKS="Libavcodec Libavformat Libavfilter Libswscale Libswresample Libavutil Libmpv Libplacebo Libfribidi Libuchardet LibMoltenVK Libshaderc"
 
 die() { printf '[fetch] ERROR: %s\n' "$*" >&2; exit 1; }
 log() { printf '[fetch] %s\n' "$*"; }
@@ -100,7 +100,7 @@ verify_zip_set() { # $1=checksums.txt $2=directory containing zips
         printf '%s\n' "$name" >> "$TMP/zipnames.txt"
         seen=$((seen + 1))
     done < "$checksums"
-    [ "$seen" -eq 10 ] || die "checksums.txt 不是 10 个 zip(实际 $seen)"
+    [ "$seen" -eq 12 ] || die "checksums.txt 不是 12 个 zip(实际 $seen)"
     local expected
     expected=$(printf '%s\n' $FRAMEWORKS | sed 's/$/.xcframework.zip/' | LC_ALL=C sort)
     [ "$(LC_ALL=C sort -u "$TMP/zipnames.txt")" = "$expected" ] \
@@ -141,7 +141,7 @@ else
     done < "$TMP/remote/xcframeworks/checksums.txt"
     verify_zip_set "$TMP/remote/xcframeworks/checksums.txt" "$TMP/remote/xcframeworks"
     ZIP_DIR="$TMP/remote/xcframeworks"
-    log "URL 模式只下载并校验 10 个 xcframework zip;SHA256SUMS 里的 dSYM/源码条目未下载"
+    log "URL 模式只下载并校验 12 个 xcframework zip;SHA256SUMS 里的 dSYM/源码条目未下载"
 fi
 
 log "全部校验通过,开始解压到临时 Vendor"
@@ -168,7 +168,7 @@ for fw in $FRAMEWORKS; do
             || die "$fw.xcframework 缺切片 $slice/$fw.framework/$fw"
     done
 done
-log "结构检查通过: 10 个 xcframework × 3 切片"
+log "结构检查通过: 12 个 xcframework × 3 切片"
 
 # 原子替换 <dest>/Vendor;失败时恢复旧目录。
 OLD=""

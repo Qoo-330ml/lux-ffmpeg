@@ -16,11 +16,13 @@ LGPL 边界"三条标准重新分诊。本文记录结论;已经落地的部分�
 | 类别 | 数量 | 处置 |
 | --- | --- | --- |
 | 硬件转码(CUDA/QSV/VAAPI/D3D11/OpenCL/Vulkan/AMF/RK3588/MF) | 59 | 不移植 |
-| Apple VideoToolbox | 15 | 移植 4 个解码类,其余见下 |
+| Apple VideoToolbox | 15 | 移植 8 个(4 个解码 + 4 个滤镜),0013 暂缓,其余未移植 |
 | fftools(CLI) | 11 | 不移植(`--disable-programs`) |
 | 容器/BSF/流媒体(segment/id3v2/dovi→HLS/ass/trim) | 7 | 暂不移植 |
 | 音频(AC-4/DTS:X/libopus) | 3 | 暂不移植 |
 | 杂项/通用修复 | 11 | 移植 3 个(0090、0088、0087) |
+
+> 另有 2 个 **lux 原创** 的 Vulkan 补丁(0016/0017),不属于 jellyfin 106 个的统计。
 
 ## 第一档:已移植(`lux/patches/`)
 
@@ -43,29 +45,40 @@ Main12 4:2:0(`YUV420P12`)。lux 版把它并进 `YUV444P10`/`YUV420P12`/`YUV444P
 注意:0007 会让 `libavcodec.a` 里出现 FFmpeg 内建的 `_ff_vpx_*` 符号(VP8 range coder),
 `verify-license.sh` 的外部库检查因此改成按 libvpx 自己的 API 名(`vpx_codec_`/`vpx_img_`)匹配。
 
-## 第三档:已移植(F2 的第一块)
+## 第三档:已移植(F2 的第一块;0013 暂缓)
 
 | lux 补丁 | 来源 | 内容 | 前置条件 |
 | --- | --- | --- | --- |
 | `0010` | jellyfin 0043 | `scale_vt` 的 `format`(NV12↔P010) | avfilter + videotoolbox |
 | `0011` | jellyfin 0045 | `transpose_vt` 改 CoreImage | avfilter + coreimage |
 | `0012` | jellyfin 0044 | `overlay_videotoolbox` | Metal |
-| `0013` | jellyfin 0046 | `tonemap_videotoolbox` | Metal |
+| `0013` | jellyfin 0046 | `tonemap_videotoolbox` | **暂缓**:依赖 jellyfin 0004 的 `colorspace.h`/DOVI 结构,尚未移植;配套的 `0015-dither-matrix-header.patch` 也未登记进 `patches.txt` |
 | `0014` | jellyfin 0056 | `bwdif`/`yadif_videotoolbox` | Metal |
 
 落地时改了构建形态:
 
 - `--enable-avfilter --enable-swscale --enable-coreimage`,产物从 4 个 `.a` 变成 6 个(总计 7.44 MB → 9.20 MB,avfilter +306 KB、swscale +1.45 MB);
-- `LUX_FILTERS`(7 项)是必过项;`LUX_FILTERS_METAL`(4 项)只有在 `CONFIG_METAL=1` 时才是硬性检查;
+- `LUX_FILTERS` 当时是 7 项必过项;到 B+ 已扩到 **62 项**(含 17 个 Vulkan);
+  `LUX_FILTERS_METAL`(4 项)只有在 `CONFIG_METAL=1` 时才是硬性检查;
 - Metal 编译器按目标 SDK 传:`--metalcc="xcrun -sdk <sdk> metal"`、`--metallib="xcrun -sdk <sdk> metallib"`,
   默认的 `xcrun -sdk macosx metal` 不能给 iOS 用;
 - F1 的 framework 从 4 个变成 6 个(`Libavfilter`、`Libswscale`),`verify-frameworks.sh` 的依赖白名单
   与头文件检查同步扩了。
 
-**未完成**:本机没有 Metal Toolchain(`xcodebuild -downloadComponent MetalToolchain` 正在拉,688 MB,
-速率约 1 MB/min),所以 0012–0014 目前只是"补丁已应用、configure 会把滤镜关掉"。装上 toolchain 后
-`ff_target_setup` 会自动检测到,重新构建即可让三个 Metal 滤镜生效,`verify-license.sh` 也会从
-`[warn]` 变成硬性检查。
+## 第四档:已移植(B+ 的 Vulkan 路径)
+
+| lux 补丁 | 来源 | 内容 | 改造点 |
+| --- | --- | --- | --- |
+| `0016` | lux 原创 | Apple 上从 `@rpath/LibMoltenVK.framework` dlopen MoltenVK | 只改 Apple 的候选路径,放在系统 `libvulkan*` 之前 |
+| `0017` | lux 原创 | Vulkan flip/transpose shader 的 `size - pos - 1` 修正 | 实测 `hflip_vulkan` 与软件 `hflip` 逐字节一致 |
+
+这两条不属于 jellyfin 补丁系列,是为共享 MoltenVK/shaderc 新增的;17 个 `*_vulkan` 滤镜的
+白名单理由见 `lux/config/allowlist.md` 的 B+ 更新。
+
+**未完成**:0013 暂缓(见上表);0012/0014 的补丁已应用,但本机没有 Metal Toolchain
+(`xcrun metal` 不可用),configure 自动 `--disable-metal`,所以 4 个 Metal 滤镜仍未启用。
+装上 toolchain 后 `ff_target_setup` 会自动检测到,重新构建即可让滤镜生效,
+`verify-license.sh` 也会从 `[warn]` 变成硬性检查。
 
 ## 不移植:看起来能用但实际有害的三个
 

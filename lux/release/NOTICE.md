@@ -2,35 +2,17 @@
 
 > 本文件由 `lux/build/make-license-bundle.sh` 生成,只整理源码包、构建产物和链接关系中的事实,不是法律意见,也不对许可适用作结论。标注“待法务确认”的条目需 D5/G4 法务审阅。
 
-## B+ 共享 Vulkan 运行时(2026-11-10)
-
-从本轮起,MoltenVK 与 shaderc 不再是 Libplacebo 内部的静态副本:
-
-- `LibMoltenVK.framework`(MoltenVK 1.4.2,Apache-2.0):由 FFmpeg 的 `libavutil` 运行期
-  `dlopen`,并由 `Libmpv.framework` 直接链接(iOS MoltenVK 上下文需要 5 个 `vk*` 符号)。
-- `Libshaderc.framework`(shaderc 2025.5,Apache-2.0):`Libplacebo`、`Libavfilter`、
-  `Libswscale` 动态链接;FFmpeg 的 17 个 Vulkan 滤镜与 swscale Vulkan 后端共用这一份。
-- `Libplacebo.framework` 不再静态包含 MoltenVK/shaderc;`otool -L` 只保留
-  `@rpath/Libshaderc.framework/Libshaderc`。
-- FFmpeg 新增 17 个 `*_vulkan` 滤镜(`--enable-vulkan --enable-libshaderc`),
-  其中 `avgblur/bwdif/scale` 需要构建期 host `glslc`;`lux/build/build-host-tools.sh`
-  从锁定的 shaderc 源码构建它。
-- 许可边界不变:`CONFIG_GPL=0`、`CONFIG_NONFREE=0`、`CONFIG_VERSION3=0`(LGPL-2.1-or-later)。
-  MoltenVK/shaderc 是 Apache-2.0,动态 framework 分发,许可文本见
-  `licenses/moltenvk/LICENSE` 与 `licenses/shaderc/LICENSE`。
-
 ## 1. 生成范围与源码身份
 
-- 清单范围:FFmpeg 六库 + libmpv 栈(Libmpv/Libplacebo/Libfribidi/Libuchardet)及其非系统依赖
+- 清单范围:FFmpeg 六库 + libmpv 栈(Libmpv/Libplacebo/Libfribidi/Libuchardet) + Vulkan 运行时(LibMoltenVK/Libshaderc)及其非系统依赖
 - 生成脚本:`lux/build/make-license-bundle.sh`
 - 仓库:lux-ffmpeg
-- 源码 HEAD(最近一次触及源码的提交,排除本清单生成物):`922532ed9eeda9aebb0c1bb8a02df86bbf2a22c8`
-- 分支:`tspace/lux-release-package`
-- 提交时间:`2026-11-10T19:06:47+08:00`
-- 提交标题:lux: P2 冒烟(无头播放 / render / 允许项)与出口文档
-- mpv 补丁集:`lux/config/mpv-patches.txt` 1 条,sha256 `cffa8a71e232c8fe348612ab53c69629ee78342f12b27211b5251be354802a8d`(补丁 `lux/patches/mpv/0001-ios-moltenvk-context.patch`,LGPL-2.1+)
-- FFmpeg 补丁集:`lux/config/patches.txt` 15 条,sha256 `7cd3380fb939a546fa4293b70a2f4b6678c200306723bf3015c6da0cf6ebf12c`
-- apply-patches digest:`45aeb1df8deddd7abd5d011e32379428536dffb61fb9d63702ed26a224839c52`
+- 源码 HEAD(最近一次触及源码的提交,排除本清单生成物):`e086de837ba4571ead1d3e0452514af5019f57f2`
+- 分支:`main`
+- 提交时间:`2026-11-10T23:26:42+08:00`
+- 提交标题:lux: B+ 共享 Vulkan 运行时与 17 个 FFmpeg Vulkan 滤镜
+- 补丁集:`lux/config/patches.txt` 15 条,sha256 `7cd3380fb939a546fa4293b70a2f4b6678c200306723bf3015c6da0cf6ebf12c`
+- apply-patches digest:`dcb7d4b747e00a3336953264a73791307d7c4aa633b8906e81c0ff71b70d655f`
 - 构建配置:`lux/config/ffmpeg-ios.conf`,sha256 `fd65fe7e2b280b40efa91f516f975a9b90b8fd3aed2f306f5712b4c531bd4a1e`
 - 路径占位符:`$BUILD` = `lux/.build`;`$DEPS` = `lux/.build/deps`;`$REPO` = 仓库根目录。
 
@@ -66,17 +48,28 @@
 | 目标 | Framework | 二进制来源 | 许可(源码,草稿) | 状态 |
 | --- | --- | --- | --- | --- |
 | macos-arm64 | Libmpv | lux/.build/mpv-frameworks/macos-arm64/Libmpv.framework/Libmpv | 待法务确认 | 待法务确认 |
-| macos-arm64 | Libplacebo | lux/.build/mpv-frameworks/macos-arm64/Libplacebo.framework/Libplacebo | LGPL-2.1-or-later | 待法务确认 |
+| macos-arm64 | Libplacebo | lux/.build/mpv-frameworks/macos-arm64/Libplacebo.framework/Libplacebo | LGPL-2.1-or-later | 已定位(事实记录) |
 | macos-arm64 | Libfribidi | lux/.build/mpv-frameworks/macos-arm64/Libfribidi.framework/Libfribidi | LGPL-2.1-or-later | 已定位(事实记录) |
 | macos-arm64 | Libuchardet | lux/.build/mpv-frameworks/macos-arm64/Libuchardet.framework/Libuchardet | MPL-1.1 或 GPL-2.0-or-later 或 LGPL-2.1-or-later(待法务确认) | 待法务确认 |
 | ios-arm64 | Libmpv | lux/.build/mpv-frameworks/ios-arm64/Libmpv.framework/Libmpv | 待法务确认 | 待法务确认 |
-| ios-arm64 | Libplacebo | lux/.build/mpv-frameworks/ios-arm64/Libplacebo.framework/Libplacebo | LGPL-2.1-or-later | 待法务确认 |
+| ios-arm64 | Libplacebo | lux/.build/mpv-frameworks/ios-arm64/Libplacebo.framework/Libplacebo | LGPL-2.1-or-later | 已定位(事实记录) |
 | ios-arm64 | Libfribidi | lux/.build/mpv-frameworks/ios-arm64/Libfribidi.framework/Libfribidi | LGPL-2.1-or-later | 已定位(事实记录) |
 | ios-arm64 | Libuchardet | lux/.build/mpv-frameworks/ios-arm64/Libuchardet.framework/Libuchardet | MPL-1.1 或 GPL-2.0-or-later 或 LGPL-2.1-or-later(待法务确认) | 待法务确认 |
 | ios-sim-arm64 | Libmpv | lux/.build/mpv-frameworks/ios-sim-arm64/Libmpv.framework/Libmpv | 待法务确认 | 待法务确认 |
-| ios-sim-arm64 | Libplacebo | lux/.build/mpv-frameworks/ios-sim-arm64/Libplacebo.framework/Libplacebo | LGPL-2.1-or-later | 待法务确认 |
+| ios-sim-arm64 | Libplacebo | lux/.build/mpv-frameworks/ios-sim-arm64/Libplacebo.framework/Libplacebo | LGPL-2.1-or-later | 已定位(事实记录) |
 | ios-sim-arm64 | Libfribidi | lux/.build/mpv-frameworks/ios-sim-arm64/Libfribidi.framework/Libfribidi | LGPL-2.1-or-later | 已定位(事实记录) |
 | ios-sim-arm64 | Libuchardet | lux/.build/mpv-frameworks/ios-sim-arm64/Libuchardet.framework/Libuchardet | MPL-1.1 或 GPL-2.0-or-later 或 LGPL-2.1-or-later(待法务确认) | 待法务确认 |
+
+## 3b. Vulkan 运行时 Framework(LibMoltenVK / Libshaderc)
+
+| 目标 | Framework | 二进制来源 | 许可(源码,草稿) | 状态 |
+| --- | --- | --- | --- | --- |
+| macos-arm64 | LibMoltenVK | lux/.build/vulkan-frameworks/macos-arm64/slice/LibMoltenVK.framework/LibMoltenVK | Apache-2.0 | 已定位(事实记录) |
+| macos-arm64 | Libshaderc | lux/.build/vulkan-frameworks/macos-arm64/slice/Libshaderc.framework/Libshaderc | Apache-2.0 | 待法务确认 |
+| ios-arm64 | LibMoltenVK | lux/.build/vulkan-frameworks/ios-arm64/slice/LibMoltenVK.framework/LibMoltenVK | Apache-2.0 | 已定位(事实记录) |
+| ios-arm64 | Libshaderc | lux/.build/vulkan-frameworks/ios-arm64/slice/Libshaderc.framework/Libshaderc | Apache-2.0 | 待法务确认 |
+| ios-sim-arm64 | LibMoltenVK | lux/.build/vulkan-frameworks/ios-sim-arm64/slice/LibMoltenVK.framework/LibMoltenVK | Apache-2.0 | 已定位(事实记录) |
+| ios-sim-arm64 | Libshaderc | lux/.build/vulkan-frameworks/ios-sim-arm64/slice/Libshaderc.framework/Libshaderc | Apache-2.0 | 待法务确认 |
 
 ## 4. Libmpv 栈的直接非系统依赖(otool -L)
 
@@ -93,10 +86,13 @@
 | Libmpv | `@rpath/Libswresample.framework/Libswresample` | ffmpeg |
 | Libmpv | `@rpath/Libswscale.framework/Libswscale` | ffmpeg |
 | Libmpv | `@rpath/Libuchardet.framework/Libuchardet` | uchardet |
+| Libmpv | `@rpath/LibMoltenVK.framework/LibMoltenVK` | moltenvk |
+| Libplacebo | `@rpath/Libshaderc.framework/Libshaderc` | shaderc |
 
-- `Libplacebo`:otool -L 只有系统库,没有非系统动态依赖。
 - `Libfribidi`:otool -L 只有系统库,没有非系统动态依赖。
 - `Libuchardet`:otool -L 只有系统库,没有非系统动态依赖。
+- `LibMoltenVK`:otool -L 只有系统库,没有非系统动态依赖。
+- `Libshaderc`:otool -L 只有系统库,没有非系统动态依赖。
 
 ### ios-arm64
 
@@ -111,10 +107,13 @@
 | Libmpv | `@rpath/Libswresample.framework/Libswresample` | ffmpeg |
 | Libmpv | `@rpath/Libswscale.framework/Libswscale` | ffmpeg |
 | Libmpv | `@rpath/Libuchardet.framework/Libuchardet` | uchardet |
+| Libmpv | `@rpath/LibMoltenVK.framework/LibMoltenVK` | moltenvk |
+| Libplacebo | `@rpath/Libshaderc.framework/Libshaderc` | shaderc |
 
-- `Libplacebo`:otool -L 只有系统库,没有非系统动态依赖。
 - `Libfribidi`:otool -L 只有系统库,没有非系统动态依赖。
 - `Libuchardet`:otool -L 只有系统库,没有非系统动态依赖。
+- `LibMoltenVK`:otool -L 只有系统库,没有非系统动态依赖。
+- `Libshaderc`:otool -L 只有系统库,没有非系统动态依赖。
 
 ### ios-sim-arm64
 
@@ -129,10 +128,13 @@
 | Libmpv | `@rpath/Libswresample.framework/Libswresample` | ffmpeg |
 | Libmpv | `@rpath/Libswscale.framework/Libswscale` | ffmpeg |
 | Libmpv | `@rpath/Libuchardet.framework/Libuchardet` | uchardet |
+| Libmpv | `@rpath/LibMoltenVK.framework/LibMoltenVK` | moltenvk |
+| Libplacebo | `@rpath/Libshaderc.framework/Libshaderc` | shaderc |
 
-- `Libplacebo`:otool -L 只有系统库,没有非系统动态依赖。
 - `Libfribidi`:otool -L 只有系统库,没有非系统动态依赖。
 - `Libuchardet`:otool -L 只有系统库,没有非系统动态依赖。
+- `LibMoltenVK`:otool -L 只有系统库,没有非系统动态依赖。
+- `Libshaderc`:otool -L 只有系统库,没有非系统动态依赖。
 
 otool -L 不显示静态并入的组件。以下为依据构建脚本/符号表整理的静态或构建期归属:
 
@@ -143,17 +145,6 @@ otool -L 不显示静态并入的组件。以下为依据构建脚本/符号表�
 | Libmpv | harfbuzz | static | harfbuzz.a 静态链接;nm -gU 可查到 _hb_* 符号 |
 | Libmpv | libunibreak | static | libunibreak.a 静态链接;nm -gU 可查到 _init_linebreak 等符号 |
 | Libplacebo | lcms2 | static | lcms2.a 静态链接;nm -gU 可查到 _cms* 符号 |
-| Libmpv | LibMoltenVK | dynamic | `@rpath/LibMoltenVK.framework/LibMoltenVK`;B+ 起不再由 Libplacebo 静态吞入 |
-| Libplacebo/Libavfilter/Libswscale | Libshaderc | dynamic | `@rpath/Libshaderc.framework/Libshaderc`;shaderc_shared 导出 C API |
-| LibMoltenVK | spirv-cross | static-transitive | MoltenVK ExternalDependencies 的 libSPIRVCross.a |
-| Libshaderc | spirv-tools | static-transitive | shaderc_shared 的 SPIRV-Tools 部分 |
-| LibMoltenVK | spirv-tools-mvk | static-transitive | MoltenVK ExternalDependencies 的 libSPIRVTools.a |
-| Libshaderc | glslang | static-transitive | shaderc_shared 的 glslang 部分 |
-| Libplacebo | spirv-headers | build-time | shaderc 构建期头文件 |
-| Libplacebo | spirv-headers-mvk | build-time | MoltenVK/SPIRV-Tools 构建期头文件 |
-| Libplacebo | vulkan-headers | build-time | libplacebo/MoltenVK 构建期头文件 |
-| Libplacebo | volk | build-time | MoltenVK 构建期 Vulkan 加载器源码/头文件 |
-| Libplacebo | cereal | build-time | MoltenVK 构建期头文件 |
 | Libplacebo | fast_float | header-only | libplacebo 构建期头文件 |
 
 ## 5. 依赖与许可清单(deps.lock)
@@ -171,14 +162,14 @@ deps.lock 共 24 项;sha256 校验结果与许可文件如下。
 | 7 | libass | 0.17.5 | ISC | 已定位(事实记录) | Libmpv 静态 | 一致 | `licenses/libass/COPYING` |
 | 8 | mpv | 0.41.0 | 待法务确认 | 待法务确认 | Libmpv 本体 | 一致 | `licenses/mpv/Copyright`, `licenses/mpv/LICENSE.GPL`, `licenses/mpv/LICENSE.LGPL` |
 | 9 | libplacebo | 7.360.1 | LGPL-2.1-or-later | 已定位(事实记录) | Libmpv 动态、Libplacebo 本体 | 一致 | `licenses/libplacebo/LICENSE` |
-| 10 | shaderc | 2025.5 | Apache-2.0 | 已定位(事实记录) | Libplacebo 静态 | 一致 | `licenses/shaderc/LICENSE` |
-| 11 | glslang | 7a47e2531cb334982b2a2dd8513dca0a3de4373d | BSD-3-Clause / BSD-2-Clause / MIT / Apache-2.0 / GPL-3.0-with-bison-exception(按文件,待法务确认) | 待法务确认 | Libplacebo 静态(传递) | 一致 | `licenses/glslang/LICENSE.txt` |
-| 12 | spirv-tools | 262bdab48146c937467f826699a40da0fdfc0f1a | Apache-2.0 | 已定位(事实记录) | Libplacebo 静态(传递) | 一致 | `licenses/spirv-tools/LICENSE` |
+| 10 | shaderc | 2025.5 | Apache-2.0 | 已定位(事实记录) | Libplacebo 动态、Libshaderc 本体 | 一致 | `licenses/shaderc/LICENSE` |
+| 11 | glslang | 7a47e2531cb334982b2a2dd8513dca0a3de4373d | BSD-3-Clause / BSD-2-Clause / MIT / Apache-2.0 / GPL-3.0-with-bison-exception(按文件,待法务确认) | 待法务确认 | Libshaderc 静态(传递) | 一致 | `licenses/glslang/LICENSE.txt` |
+| 12 | spirv-tools | 262bdab48146c937467f826699a40da0fdfc0f1a | Apache-2.0 | 已定位(事实记录) | Libshaderc 静态(传递) | 一致 | `licenses/spirv-tools/LICENSE` |
 | 13 | spirv-headers | b824a462d4256d720bebb40e78b9eb8f78bbb305 | MIT(部分文档 CC-BY-4.0,待法务确认) | 待法务确认 | 构建期/头文件 | 一致 | `licenses/spirv-headers/LICENSE`, `licenses/spirv-headers/LICENSES/CC-BY-4.0.txt`, `licenses/spirv-headers/LICENSES/MIT.txt` |
-| 14 | moltenvk | 1.4.2 | Apache-2.0 | 已定位(事实记录) | Libplacebo 静态 | 一致 | `licenses/moltenvk/LICENSE` |
+| 14 | moltenvk | 1.4.2 | Apache-2.0 | 已定位(事实记录) | Libmpv 动态、LibMoltenVK 本体 | 一致 | `licenses/moltenvk/LICENSE` |
 | 15 | vulkan-headers | e3b1eec08173d6b825cd3ac88c885a63b621504a | Apache-2.0 或 MIT(按文件) | 已定位(事实记录) | 构建期/头文件 | 一致 | `licenses/vulkan-headers/LICENSE.md`, `licenses/vulkan-headers/LICENSES/Apache-2.0.txt`, `licenses/vulkan-headers/LICENSES/MIT.txt` |
-| 16 | spirv-cross | 6c09849fe88c48eaed08413aa022aaa136a3a057 | Apache-2.0(部分文件 MIT / Khronos Free Use / CC-BY-4.0,待法务确认) | 待法务确认 | Libplacebo 静态(传递) | 一致 | `licenses/spirv-cross/LICENSE`, `licenses/spirv-cross/LICENSES/Apache-2.0.txt`, `licenses/spirv-cross/LICENSES/CC-BY-4.0.txt` 等 5 份 |
-| 17 | spirv-tools-mvk | 0d6fd73ca73830ccab5fa1f00ed5ed40124e2c55 | Apache-2.0 | 已定位(事实记录) | Libplacebo 静态(传递) | 一致 | `licenses/spirv-tools-mvk/LICENSE` |
+| 16 | spirv-cross | 6c09849fe88c48eaed08413aa022aaa136a3a057 | Apache-2.0(部分文件 MIT / Khronos Free Use / CC-BY-4.0,待法务确认) | 待法务确认 | LibMoltenVK 静态(传递) | 一致 | `licenses/spirv-cross/LICENSE`, `licenses/spirv-cross/LICENSES/Apache-2.0.txt`, `licenses/spirv-cross/LICENSES/CC-BY-4.0.txt` 等 5 份 |
+| 17 | spirv-tools-mvk | 0d6fd73ca73830ccab5fa1f00ed5ed40124e2c55 | Apache-2.0 | 已定位(事实记录) | LibMoltenVK 静态(传递) | 一致 | `licenses/spirv-tools-mvk/LICENSE` |
 | 18 | spirv-headers-mvk | 29981f65241605e08b0ede4cfeb999fe3b723c6a | MIT(部分文件 Apache-2.0 / 文档 CC-BY-4.0,待法务确认) | 待法务确认 | 构建期/头文件 | 一致 | `licenses/spirv-headers-mvk/LICENSE`, `licenses/spirv-headers-mvk/LICENSES/CC-BY-4.0.txt`, `licenses/spirv-headers-mvk/LICENSES/MIT.txt` |
 | 19 | volk | 776893306c5d3b22b6185b5d4a258b81d94572bf | MIT | 已定位(事实记录) | 构建期/头文件 | 一致 | `licenses/volk/LICENSE.md` |
 | 20 | cereal | a56bad8bbb770ee266e930c95d37fff2a5be7fea | BSD-3-Clause(含 zlib 许可的 external 组件) | 已定位(事实记录) | 构建期/头文件 | 一致 | `licenses/cereal/LICENSE`, `licenses/cereal/include/cereal/external/LICENSE` |
@@ -209,7 +200,7 @@ deps.lock 共 24 项;sha256 校验结果与许可文件如下。
 | 组件 | 许可(草稿) | 说明 |
 | --- | --- | --- |
 | Libmpv | 待法务确认 | 静态并入含 GPL 文本/选项的组件:freetype |
-| Libplacebo | LGPL-2.1-or-later | 静态并入含 GPL 文本/选项的组件:glslang |
+| Libshaderc | Apache-2.0 | 静态并入含 GPL 文本/选项的组件:glslang |
 | freetype | FTL 或 GPL-2.0(二选一,待法务确认) | 源码 LICENSE.TXT 明示 FTL 与 GPL-2.0 二选一;docs/FTL.TXT 与 docs/GPLv2.TXT 均已复制。 |
 | uchardet | MPL-1.1 或 GPL-2.0-or-later 或 LGPL-2.1-or-later(待法务确认) | COPYING 同时含 MPL-1.1、GPL-2.0、LGPL-2.1 文本;README 明示三选一;lux/build/build-deps.sh 注释写作 LGPL-2.1+,与源码表述不一致。 |
 | mpv | 待法务确认 | Copyright 明示默认 GPL-2.0+;构建使用 -Dgpl=false;同一文件说明该开关本身不构成 LGPL 授权。 |

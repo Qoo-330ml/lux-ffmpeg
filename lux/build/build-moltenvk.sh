@@ -82,7 +82,9 @@ MVK_SDK_ARG=()
 [ "$SDK" = "macosx" ] || MVK_SDK_ARG=(-sdk "$SDK")
 # 使用 -target 而不是 scheme,避开 MoltenVKShaderConverter 对 x86_64 切片的假设
 ( cd "$MVK" && xcodebuild build -project MoltenVKPackaging.xcodeproj -target "$MVK_TARGET" -configuration Release \
-    ${MVK_SDK_ARG[@]+"${MVK_SDK_ARG[@]}"} ARCHS=arm64 ONLY_ACTIVE_ARCH=YES SYMROOT="$DD/products-$TARGET" OBJROOT="$DD/obj-$TARGET" ) > "$ROOT/mvk.log" 2>&1 \
+    ${MVK_SDK_ARG[@]+"${MVK_SDK_ARG[@]}"} ARCHS=arm64 ONLY_ACTIVE_ARCH=YES \
+    GCC_GENERATE_DEBUGGING_SYMBOLS=YES DEBUG_INFORMATION_FORMAT=dwarf COPY_PHASE_STRIP=NO \
+    SYMROOT="$DD/products-$TARGET" OBJROOT="$DD/obj-$TARGET" ) > "$ROOT/mvk.log" 2>&1 \
   || { tail -30 "$ROOT/mvk.log" >&2; exit 1; }
 LIB="$(find "$DD/products-$TARGET" -name libMoltenVK.a -not -path '*XCFrameworkStaging*' | head -1)"
 [ -f "$LIB" ] || { echo "libMoltenVK.a not produced" >&2; exit 1; }

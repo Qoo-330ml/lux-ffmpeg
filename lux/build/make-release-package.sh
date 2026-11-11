@@ -10,6 +10,7 @@
 # 输入(只读):
 #   $LUX_ARTIFACT_BUILD/xcframeworks/          FFmpeg 6 个 xcframework zip + checksums.txt + dSYMs.zip
 #   $LUX_ARTIFACT_BUILD/mpv-xcframeworks/      mpv 栈 4 个 xcframework zip + checksums.txt + dSYMs.zip
+#   $LUX_ARTIFACT_BUILD/vulkan-xcframeworks/   Vulkan 2 个 xcframework zip + checksums.txt + dSYMs.zip
 #   lux/release/licenses/, NOTICE.md, source-manifest.json
 #   lux/config/deps.lock, lux/patches/, lux/config/patches.txt
 #   lux/release/sources/                       自存依赖源码包(gitignored)
@@ -19,7 +20,7 @@
 # 输出:
 #   $LUX_RELEASE_OUT/lux-ffmpeg-<tag>/
 #     xcframeworks/*.zip + checksums.txt
-#     dSYMs/FFmpeg-dSYMs.zip, MPV-dSYMs.zip, dSYM-INFO.txt
+#     dSYMs/FFmpeg-dSYMs.zip, MPV-dSYMs.zip, Vulkan-dSYMs.zip, dSYM-INFO.txt
 #     BUILD-INFO.txt, COPYING.*, LICENSE.md, NOTICE.md, source-manifest.json, SOURCE-PACKAGE.md
 #     lux-ffmpeg-source-<tag>.tar.gz
 #     SHA256SUMS
@@ -293,13 +294,15 @@ collect_dsyms() { # $1=group $2=dsym-root $3=xcf-root $4=frameworks
 log "收集 dSYM UUID / DWARF 条目"
 collect_dsyms FFmpeg "$FF_XCF/dSYMs" "$FF_XCF" "$FF_FRAMEWORKS"
 collect_dsyms MPV "$MPV_XCF/dSYMs" "$MPV_XCF" "$MPV_FRAMEWORKS"
+collect_dsyms Vulkan "$VULKAN_XCF/dSYMs" "$VULKAN_XCF" "$VULKAN_FRAMEWORKS"
 
 {
     printf 'generated_at=%s\n' "$NOW"
-    printf 'groups=FFmpeg,MPV\n'
+    printf 'groups=FFmpeg,MPV,Vulkan\n'
     printf 'targets=%s\n' "$TARGETS"
     printf 'ffmpeg_dSYMs.zip.sha256=%s\n' "$(shasum -a 256 "$OUT/dSYMs/FFmpeg-dSYMs.zip" | awk '{ print $1 }')"
     printf 'mpv_dSYMs.zip.sha256=%s\n' "$(shasum -a 256 "$OUT/dSYMs/MPV-dSYMs.zip" | awk '{ print $1 }')"
+    printf 'vulkan_dSYMs.zip.sha256=%s\n' "$(shasum -a 256 "$OUT/dSYMs/Vulkan-dSYMs.zip" | awk '{ print $1 }')"
     printf '# 每个 framework 的 dSYM UUID 与 DWARF 条目数(grep -c DW_TAG,经 dwarfdump 展开)\n'
     while IFS='|' read -r group fw target slice uuid count rel; do
         printf 'dSYM.%s.%s.%s.uuid=%s\n' "$group" "$fw" "$target" "$uuid"
@@ -408,7 +411,7 @@ cp -p "$LUX/release/NOTICE.md" "$OUT/NOTICE.md"
 cp -p "$LUX/release/source-manifest.json" "$OUT/source-manifest.json"
 
 # 校对 source-manifest:每个 deps.lock 条目的来源、版本、sha256 必须齐全;
-# components 必须覆盖 10 个 framework;不得有 missing/anomalies。
+# components 必须覆盖 12 个 framework;不得有 missing/anomalies。
 proofread_manifest() {
     python3 - "$OUT/source-manifest.json" "$LUX/config/deps.lock" "$OUT/BUILD-INFO.txt" <<'PY'
 import json
@@ -674,7 +677,7 @@ shasum -a 256 -c SHA256SUMS
 \`\`\`
 
 发布目录里的 \`SHA256SUMS\` 覆盖本 tar.gz 与其他分发文件;\`xcframeworks/checksums.txt\`
-覆盖 10 个 xcframework zip。任何不一致都应视为包损坏。
+覆盖 12 个 xcframework zip。任何不一致都应视为包损坏。
 
 ## 依赖源码缺口
 

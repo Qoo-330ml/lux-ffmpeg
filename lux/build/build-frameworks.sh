@@ -394,7 +394,7 @@ package_target() {
         printf '%s %s %s\n' "$fw" "$version" "$(stat -f %z "$FR/$fw")"
     done
 
-    # 7. ad-hoc 签名:必须等四个 framework 都打包完再签。
+    # 7. ad-hoc 签名:必须等所有 framework 都打包完再签。
     #    跨 framework 的头文件镜像(Headers/libavcodec/... -> ../../Libavcodec.framework/...)会被
     #    codesign 当成 bundle 内容的一部分;先签的 framework 会在后一个 framework 出现头文件后
     #    被报 "file modified"。

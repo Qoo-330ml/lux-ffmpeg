@@ -7,14 +7,14 @@
 #
 # 检查内容:
 #   1. SHA256SUMS 覆盖发布目录全部文件,逐条 sha256 一致,无缺失/多余/重复;
-#   2. xcframeworks/checksums.txt 覆盖 10 个 zip,hash 与 zip 实际 sha256 一致;
+#   2. xcframeworks/checksums.txt 覆盖 12 个 zip,hash 与 zip 实际 sha256 一致;
 #   3. 每个 xcframework 的 Info.plist 三切片、framework 结构、module map、
 #      PrivacyInfo.xcprivacy、DYLIB 类型、@rpath install name、codesign;
-#   4. dSYMs/FFmpeg-dSYMs.zip 与 MPV-dSYMs.zip 的 UUID / DWARF 条目数与
+#   4. dSYMs/FFmpeg-dSYMs.zip、MPV-dSYMs.zip、Vulkan-dSYMs.zip 的 UUID / DWARF 条目数与
 #      BUILD-INFO、dSYM-INFO 一致(条目数 > 0);
 #   5. BUILD-INFO 的版本、补丁集 digest、三切片、Xcode/SDK、依赖 sha256、
 #      基线 commit、源码包 sha256;
-#   6. 对应源码包里的 lux/、全部锁定依赖源码、FFmpeg 已打 13 个补丁的树;
+#   6. 对应源码包里的 lux/、全部锁定依赖源码、FFmpeg 已打 15 个补丁的树;
 #   7. source-manifest.json 与 deps.lock 的 24 个依赖逐项对账。
 #
 # 日志: lux/.build/logs/release-verify-<YYYYMMDD>.log
@@ -98,6 +98,7 @@ lux-ffmpeg-source-$TAG.tar.gz
 xcframeworks/checksums.txt
 dSYMs/FFmpeg-dSYMs.zip
 dSYMs/MPV-dSYMs.zip
+dSYMs/Vulkan-dSYMs.zip
 dSYMs/dSYM-INFO.txt
 "
 for f in $REQUIRED_FILES; do
@@ -285,14 +286,19 @@ done
 # 4. dSYM UUID / DWARF
 # ---------------------------------------------------------------------------
 hdr "dSYMs"
-for group in FFmpeg MPV; do
+for group in FFmpeg MPV Vulkan; do
     zip="$REL/dSYMs/$group-dSYMs.zip"
     dest="$VERIFY/dsyms/$group"
     if [ ! -f "$zip" ]; then fail "缺少 $zip"; continue; fi
     rm -rf "$dest"; mkdir -p "$dest"
     ditto -x -k "$zip" "$dest" >/dev/null 2>&1 || { fail "$group: dSYMs.zip 解压失败"; continue; }
     n=$(find "$dest" -type d -name '*.framework.dSYM' | wc -l | tr -d ' ')
-    if [ "$group" = "FFmpeg" ]; then want=18; else want=12; fi
+    case "$group" in
+        FFmpeg) want=18 ;;
+        MPV)    want=12 ;;
+        Vulkan) want=6 ;;
+        *)      want=0 ;;
+    esac
     [ "$n" = "$want" ] && pass "$group: $n 个 dSYM(期望 $want)" || fail "$group: $n 个 dSYM(期望 $want)"
 done
 
@@ -305,7 +311,7 @@ if [ -f "$DSYM_INFO" ]; then
         esac
     done < "$DSYM_INFO"
     count=$(wc -l < "$VERIFY/dsym-keys.txt" | tr -d ' ')
-    [ "$count" = "30" ] && pass "dSYM-INFO 有 30 个 UUID 条目" || fail "dSYM-INFO UUID 条目数 $count != 30"
+    [ "$count" = "36" ] && pass "dSYM-INFO 有 36 个 UUID 条目" || fail "dSYM-INFO UUID 条目数 $count != 36"
 
     while IFS='=' read -r key rec_uuid; do
         case "$key" in
