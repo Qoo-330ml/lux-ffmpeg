@@ -259,7 +259,7 @@ CRC32 硬件加速。前者影响 AC-3 解码性能(未量化,列在「未解决
 
 ### 6.2 移植的上游补丁(`lux/patches/`)
 
-产物不是纯上游:`lux/patches/` 里**实际应用 15 个补丁**(0001–0012、0014、0016、0017),
+产物不是纯上游:`lux/patches/` 里**实际应用 16 个补丁**(0001–0012、0014、0016–0018),
 按 `lux/config/patches.txt` 的顺序应用,脚本是 `lux/build/apply-patches.sh`。其中 0001–0014
 大多从 jellyfin-ffmpeg 补丁系列刷新并按客户端需要改造,0016/0017 是 B+ 的 lux 原创 Vulkan
 修复;0013/0015 暂缓(见下)。
@@ -282,9 +282,10 @@ CRC32 硬件加速。前者影响 AC-3 解码性能(未量化,列在「未解决
 | `0014` | jellyfin 0056 | `bwdif`/`yadif_videotoolbox`(Metal) | 需要 Metal Toolchain;`--metalcc/--metallib` 指向目标 SDK |
 | `0016` | lux 原创 | Apple 上让 `hwcontext_vulkan` 从 `@rpath/LibMoltenVK.framework` dlopen MoltenVK | 只改 Apple 路径,放在系统 `libvulkan*` 之前 |
 | `0017` | lux 原创 | Vulkan flip/transpose shader 的 `size - pos - 1` 修正 | 实测 `hflip_vulkan` 与软件 `hflip` 逐字节一致 |
+| `0018` | lux 原创 | VideoToolbox 解码输出 CVPixelBuffer 的颜色 attachment → `AVFrame` | 只填补 unspecified 字段;平面 YUV 上的 `AVCOL_SPC_RGB` 视为未设置(见 §18) |
 
 > `0013`/`0015` 虽然文件留在 `lux/patches/`,但不在 `lux/config/patches.txt` 的应用集里;
-> 因此 `apply-patches.sh count` 是 15,不是目录里的 17 个 `.patch`。
+> 因此 `apply-patches.sh count` 是 16,不是目录里的 18 个 `.patch`。
 
 用法与约束:
 
@@ -741,13 +742,13 @@ done
 ### 12.10 LGPL 合规清单(F1 起随包提供)
 
 - **源码**:上游 FFmpeg **8.1.3** 的完整源码(取自 jellyfin-ffmpeg `v8.1.3-2` 的源码树)+
-  本仓库 `lux/patches/` 里实际应用的 15 个补丁(见 §6.2)+ `lux/` 下的构建脚本
+  本仓库 `lux/patches/` 里实际应用的 16 个补丁(见 §6.2)+ `lux/` 下的构建脚本
   (`config/`、`build/`、`test/`)——它们共同是「如何从源码得到这个二进制」的对应源码。
   交付时用 `./lux/build/apply-patches.sh status` 与 `BUILD-INFO.txt` 里的 `patches_digest` 对账。
 - **补丁清单**:
   - `662b2fe lux: keep GPL-only aarch64 AC3/CRC objects out of LGPL builds`
     (`libavcodec/aarch64/Makefile`、`libavcodec/ac3dsp.c`、`libavutil/aarch64/Makefile`);
-  - `lux/patches/0001..0012`、`0014`、`0016`、`0017`(逐条说明见 §6.2;`0013`/`0015` 不在应用集);
+  - `lux/patches/0001..0012`、`0014`、`0016..0018`(逐条说明见 §6.2;`0013`/`0015` 不在应用集);
   - `56a5356`、`215b006` 是 F0 的文档/实测记录,不含二进制。
 - **许可文本**:`COPYING.LGPLv2.1`(本仓库根目录);动态链接的六个 dylib 可被替换
   (替换后用自己的证书重签即可)。
@@ -1094,3 +1095,150 @@ xcframework zip 合计约 13.1 MB(B+ 前 Libplacebo zip 14.9 MB)。
 - `avgblur/bwdif/scale` 依赖 host `glslc`;`build-host-tools.sh` 从锁定的 shaderc
   源码构建,不再依赖 Homebrew。
 
+
+## 18. 杜比视界 Profile 5 与 VideoToolbox 零拷贝色彩(2026-11-11)
+
+### 18.1 结论
+
+先把「同一个文件」和「同一类文件」分开。2026-11-11 在 lux-client 的真机日志按文件复核后,
+事实是:
+
+| 片源 | 解码器描述(`video-dec-params`) | mpv 各路径 |
+| --- | --- | --- |
+| Profile 5,码流无 VUI(`dvvC`,1608) | `auto/auto/auto` | **OpenGL ES + 拷贝、Metal + 硬解都偏紫** |
+| Profile 8.1,带 `bt.2020-ncl/bt.2020/pq`(1636) | `bt.2020-ncl/bt.2020/pq` | 拷贝/软件正常 |
+
+所以「Metal + 硬解偏紫、Metal + 拷贝正常」不是同一个 P5 文件的对照,而是把**不同文件**的读数
+混在一起了。P5 的问题在 **libplacebo 没有编译 Dolby Vision 元数据映射**,与 VideoToolbox 的
+零拷贝互操作无关;零拷贝只是让 `AVFrame.colorspace=0`(RGB)这个次因也暴露出来。
+
+根因有两层:
+
+1. **主因(所有 mpv 路径)**:`build-deps.sh` 用 `-Ddovi=disabled -Dlibdovi=disabled` 构建
+   libplacebo。libplacebo 的 `utils/libav.h` 把 `PL_HAVE_LAV_DOLBY_VISION` 和 `PL_HAVE_DOVI`
+   绑在一起,于是 mpv 的 `mp_image_from_av_frame()` 里整段
+   `AV_FRAME_DATA_DOVI_METADATA → pl_dovi_metadata` 映射被预处理器删掉。FFmpeg 的 HEVC
+   解码器其实已经解析了每帧 RPU,但 mpv 把它丢了;P5 的 IPT-PQ 信号被当成普通 YCbCr,
+   于是偏紫/偏绿。而且 `-Ddovi=disabled` 同时让 `Libplacebo` 里的
+   `pl_shader_dovi_reshape()` 函数体变成空的——只改 mpv 的映射、不重编 libplacebo,
+   画面仍然不会做 IPT→RGB。
+2. **次因(零拷贝的标签)**:FFmpeg 8.1.3 的 VideoToolbox 解码方向从不读取 CVPixelBuffer
+   上的 `kCVImageBufferYCbCrMatrixKey` / `ColorPrimariesKey` / `TransferFunctionKey` /
+   `ChromaLocationTopFieldKey`。无 VUI 时 `AVFrame.colorspace` 是枚举零值
+   `AVCOL_SPC_RGB`,mpv 便猜成 `bt.709/sRGB/full`。拷贝路径经过
+   `mp_image_hw_download()` 也复制同一份参数,所以它并不能“修正标签”;它看起来正常,
+   只是因为那个文件本来带 `bt.2020/pq`。
+
+### 18.2 修改
+
+- `lux/build/build-deps.sh`:libplacebo 从 `-Ddovi=disabled` 改为
+  `-Ddovi=enabled -Dlibdovi=disabled`。meson 的 `dovi` 选项控制 `PL_HAVE_DOVI`
+  (DV reshaping shader 与 `pl_map_avdovi_metadata()`),`libdovi` 选项只控制
+  `PL_HAVE_LIBDOVI`(RPU 原始字节解析器,本构建不需要)。这样不引入 Rust/libdovi,
+  也能让 `pl_shader_dovi_reshape()` 真正编译进 `Libplacebo`;之前
+  `-Ddovi=disabled` 让这个函数体是空的,即使 mpv 把 `repr.sys` 设成
+  `DOLBYVISION`,shader 也不会做 IPT→RGB。
+- `lux/patches/0018-videotoolbox-color-attachments.patch`:
+  在 `videotoolbox_postproc_frame()` 里读取 CVPixelBuffer 的 attachment,只填补 `AVFrame`
+  中仍为 unspecified 的 `colorspace` / `color_primaries` / `color_trc` / `color_range` /
+  `chroma_location`;平面 YUV 帧上的 `AVCOL_SPC_RGB` 按“未设置”处理。
+
+### 18.3 复现与验证
+
+合成 P5 夹具(不联网、不进 git):用 `dovi_tool generate` 生成 48 帧 P5 RPU,把
+BT.2100 ICtCp(PQ)写进 10-bit YUV420、无 VUI 色彩描述,再 `dovi_tool inject-rpu`。
+`lux/test/vt_meta_probe.c` 可直接打印 hw frame 的 `AVFrame` 颜色字段、
+`AV_FRAME_DATA_DOVI_METADATA` 和 CVPixelBuffer attachment。
+
+修复前后的 mpv `gpu-next` + `macvk` 日志(同一份 640x360 合成 P5):
+
+```
+# 修复前
+Decoder format: 640x360 videotoolbox[p010] auto/auto/auto/full/auto
+reconfig to 640x360 videotoolbox[p010] bt.601/bt.709/srgb/full/display
+
+# 修复后(--hwdec=videotoolbox / videotoolbox-copy / no 三者一致)
+Decoder format: 640x360 videotoolbox[p010] dolbyvision/bt.2020/pq/full/auto
+reconfig to 640x360 videotoolbox[p010] dolbyvision/bt.2020/pq/full/display
+```
+
+`lux/test/vt_meta_probe.c` 在 P8.1 样本上还能看到 VT 的 attachment:
+`cv.matrix=ITU_R_2020`、`cv.primaries=ITU_R_2020`、`cv.transfer=SMPTE_ST_2084_PQ`、
+`cv.chroma=TopLeft`。修复前 FFmpeg 不读这些 attachment;P8.1 因为 VUI 里已有相同标签,
+所以看不出差异,无 VUI 的 P5 才会暴露 `AVCOL_SPC_RGB`/full 的误判。
+
+还要确认 **shader** 真的在跑:修复后的 `vo/gpu-next/libplacebo` 日志里会出现
+`// pl_shader_reshape`(三条 P5 多项式曲线,随后 PQ EOTF 与 LMS→RGB 矩阵)。
+只看到 `reconfig ... dolbyvision` 而 shader 里没有 `pl_shader_reshape`,说明
+`Libplacebo` 仍是 `-Ddovi=disabled` 的旧二进制,`pl_shader_dovi_reshape()` 是空函数。
+
+### 18.4 OpenGL ES 零拷贝:没有小补丁,保留拷贝
+
+`video/out/hwdec/hwdec_ios_gl.m` 仍是 2017 年的 `CVOpenGLESTextureCache` +
+`GL_LUMINANCE` / `GL_LUMINANCE_ALPHA` workaround:
+
+- 8-bit NV12:plane 0 用 `GL_LUMINANCE`/`GL_UNSIGNED_BYTE`,plane 1 用
+  `GL_LUMINANCE_ALPHA`/`GL_UNSIGNED_BYTE`;采样器按 `.r`(Y)和 `.ra`(UV)取。
+- 10-bit P010:ES3 的 `ra` 格式表里只有 8-bit 的 LUMINANCE 变体,
+  `find_la_variant()` 找不到 `GL_LUMINANCE` + `GL_UNSIGNED_SHORT`,mapper init 直接失败;
+  真机上“一片蓝”说明实际走的是另一条错误组合(或 decoder 输出被标成 NV12),
+  不是可以靠改一个枚举修好的。
+- 模拟器(`Apple Software Renderer`)对 NV12/P010 的 `CVOpenGLESTextureCacheCreateTextureFromImage`
+  全部返回 `-6683`(`kCVReturnInvalidPixelFormat`),无法用来验证真机行为。
+- 上游 mpv 的 `hwdec_ios_gl.m` 自 2022 年 `ca45b71edc` 后只有 `mp_assert` 清理,
+  没有可合并的修复。
+
+结论:lux-ffmpeg 侧不做“猜格式”的小补丁。GL 路径继续用 `hwdec=videotoolbox-copy`
+(客户端 T18 起的默认值);`hwdec=videotoolbox` 保留为诊断项,已知会偏紫/蓝。
+真机若要继续查,先按 `lux/test/ios_gl_tex_probe.m` 的思路在设备上打印
+`CVOpenGLESTextureGetName()`、`glGetTexParameteriv()` 和实际采样值,再决定是否重写
+整个 iOS GL 互操作。
+
+### 18.5 重建与交付
+
+FFmpeg 补丁只改 `libavcodec`;libplacebo 只改构建选项(`-Ddovi=enabled`),但
+**两者都必须重建**(`Libplacebo` 之前把 DV reshaping shader 编译成了空函数),
+`Libmpv` 也必须重编译(它的 `video/mp_image.c` 里内联了 `pl_map_avdovi_metadata()`)。
+三个切片都按同一顺序:
+
+```sh
+./lux/build/build-deps.sh <target> shaderc libplacebo
+./lux/build/build-ffmpeg.sh <target>
+./lux/build/build-frameworks.sh <target>
+./lux/build/build-mpv.sh <target>
+./lux/build/build-mpv-frameworks.sh <target>
+```
+
+然后打包:
+
+```sh
+./lux/build/build-frameworks.sh package
+./lux/build/build-mpv-frameworks.sh xcframework
+```
+
+`lux-client` 需要替换的文件(相对 `apple/Packages/LuxKit/Vendor/xcframeworks/`):
+
+- `Libavcodec.xcframework`(0018;三个切片)
+- `Libmpv.xcframework`(内联了 DOVI 映射;三个切片)
+- `Libplacebo.xcframework`(DV reshaping shader 已编译进去;三个切片)
+
+`Libavutil` / `Libavformat` / `Libavfilter` / `Libswscale` / `Libswresample` /
+`LibMoltenVK` / `Libshaderc` / `Libfribidi` / `Libuchardet` 不变。若 `Package.swift`
+用 `compute-checksum`,同步更新这三个 zip 的 checksum。
+
+验证命令:
+
+```sh
+./lux/build/verify-license.sh
+./lux/build/verify-frameworks.sh
+./lux/build/verify-mpv-frameworks.sh
+```
+
+### 18.6 已知限制
+
+- 没有引入 libdovi:`pl_hdr_metadata_from_dovi_rpu()` 仍是 no-op。P5/P8.1 的
+  `AV_FRAME_DATA_DOVI_METADATA` 路径(L1/L2 动态元数据、NLQ 曲线)可用;
+  只存在于 RPU 原始字节里的 HDR 元数据不会额外解析。
+- Profile 7 的双层/增强层、Profile 8.4(HLG 基层)不在本轮范围。
+- OpenGL ES 零拷贝仍按 §18.4 处理;Metal 的 `videotoolbox-pl` 零拷贝在 P5 上应已正常,
+  但还需要真机按 `docs/DEVICE-TESTING.md` §5.8 复测一次。

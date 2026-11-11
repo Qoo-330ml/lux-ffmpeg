@@ -146,13 +146,15 @@ PC
       # iOS/macOS 的 clang 原生提供 C11 原子操作(compiler-rt),Apple 的 SDK 没有 libatomic;
       # libplacebo 的 cc.links 探测在 iOS 交叉链接下失败,会误加 find_library('atomic')。这里去掉该探测。
       case "$TARGET" in ios-*) python3 -I -c "import sys,pathlib; p=pathlib.Path(sys.argv[1]); s=p.read_text(); p.write_text(s.replace(\"if not cc.links(atomic_test)\", \"if false\"))" "$WORK/libplacebo/src/meson.build" ;; esac
+      # -Ddovi=enabled 编译 DV reshaping shader(PL_HAVE_DOVI);-Dlibdovi=disabled
+      # 不引入 Rust/libdovi,raw RPU 解析器(PL_HAVE_LIBDOVI)保持 no-op。
       meson setup "$WORK/libplacebo/build-$TARGET" "$WORK/libplacebo" --prefix="$PREFIX" --buildtype=release \
         --default-library=shared $DEPS_MESON_CROSS \
         -Dc_args="$DEPS_DEBUG_CFLAGS" \
         -Dcpp_args="$DEPS_DEBUG_CFLAGS -I$WORK/fast_float/include" \
         -Dc_link_args="$DEPS_LDFLAGS $LINK_VULKAN" -Dcpp_link_args="$DEPS_LDFLAGS $LINK_VULKAN" \
         -Dvulkan=enabled -Dvk-proc-addr=disabled -Dopengl=enabled -Dgl-proc-addr=disabled -Dvulkan-registry="$VK_XML" -Dshaderc=enabled -Dglslang=disabled \
-        -Dlcms=enabled -Ddovi=disabled -Dlibdovi=disabled -Dunwind=disabled -Dd3d11=disabled \
+        -Dlcms=enabled -Ddovi=enabled -Dlibdovi=disabled -Dunwind=disabled -Dd3d11=disabled \
         -Ddemos=false -Dtests=false > "$WORK/libplacebo.log" 2>&1 || { tail -40 "$WORK/libplacebo.log" >&2; return 1; }
       ninja -C "$WORK/libplacebo/build-$TARGET" -j"$JOBS" >> "$WORK/libplacebo.log" 2>&1 \
         && ninja -C "$WORK/libplacebo/build-$TARGET" install >> "$WORK/libplacebo.log" 2>&1 || { tail -40 "$WORK/libplacebo.log" >&2; return 1; } ;;

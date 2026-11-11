@@ -38,3 +38,6 @@
 # --- B+:FFmpeg Vulkan 计算路径 -------------------------------------------------
 0016-vulkan-moltenvk-framework.patch             # Apple 上从 @rpath/LibMoltenVK.framework dlopen
 0017-vulkan-flip-transpose-offbyone.patch        # flip/transpose 的 size-pos-1 修正
+
+# --- 零拷贝色彩元数据 ---------------------------------------------------------
+0018-videotoolbox-color-attachments.patch       # VT 解码输出 CVPixelBuffer 的颜色 attachment → AVFrame
